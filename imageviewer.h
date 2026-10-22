@@ -22,15 +22,18 @@ public:
 protected:
     void resizeEvent(QResizeEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
 
 private:
     void showImage(int index);
     void step(int delta);
+    void toggleFullScreen();
     void updatePixmap();
 
     QStringList m_filePaths;
     int m_index = 0;
     bool m_allowUpscale;
+    bool m_wasMaximized = false; // state to return to when leaving full screen
     QLabel *m_label;
     QPixmap m_original;
 };

@@ -81,7 +81,10 @@ void ImageViewer::keyPressEvent(QKeyEvent *event)
 {
     switch (event->key()) {
     case Qt::Key_Escape:
-        close();
+        if (isFullScreen())
+            toggleFullScreen(); // first Esc leaves full screen, the next one closes
+        else
+            close();
         break;
     case Qt::Key_Left:
     case Qt::Key_Up:
@@ -93,6 +96,28 @@ void ImageViewer::keyPressEvent(QKeyEvent *event)
         break;
     default:
         QWidget::keyPressEvent(event);
+    }
+}
+
+void ImageViewer::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton)
+        toggleFullScreen();
+    else
+        QWidget::mouseDoubleClickEvent(event);
+}
+
+void ImageViewer::toggleFullScreen()
+{
+    if (isFullScreen()) {
+        // showNormal() restores the geometry the window had before going full screen.
+        if (m_wasMaximized)
+            showMaximized();
+        else
+            showNormal();
+    } else {
+        m_wasMaximized = isMaximized();
+        showFullScreen();
     }
 }
 
