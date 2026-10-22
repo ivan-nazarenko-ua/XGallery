@@ -15,7 +15,11 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QFile>
+#include <QFileDialog>
 #include <QFileInfo>
+#include <QDirIterator>
+#include <QInputDialog>
+#include <QRegularExpression>
 #include <QFutureWatcher>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -24,6 +28,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
@@ -36,6 +41,7 @@
 namespace {
 
 const char *CurrentGalleryKey = "current_gallery";
+const char *SortOrderKey = "sort_order";
 
 } // namespace
 
@@ -62,6 +68,11 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     Db::makeRootsPortable();
+    {
+        const QSignalBlocker blocker(m_sortCombo);
+        const int saved = m_sortCombo->findData(Db::setting(SortOrderKey).toInt());
+        m_sortCombo->setCurrentIndex(qMax(0, saved));
+    }
     reloadGalleries(Db::setting(CurrentGalleryKey).toLongLong());
     statusBar()->showMessage((Db::isPortable() ? tr("Портабл-режим. ") : QString())
                                  + tr("База даних: %1").arg(QDir::toNativeSeparators(Db::databasePath())),
@@ -80,6 +91,10 @@ void MainWindow::buildUi()
     fileMenu->addAction(tr("&Створити галерею…"), QKeySequence::New, this, &MainWindow::createGallery);
     fileMenu->addAction(tr("&Редагувати галерею…"), this, &MainWindow::editGallery);
     fileMenu->addAction(tr("Рес&кан"), QKeySequence(Qt::Key_F5), this, &MainWindow::startRescan);
+    fileMenu->addSeparator();
+    fileMenu->addAction(tr("Додати &файли в галерею…"), this, &MainWindow::addFilesToGallery);
+    fileMenu->addAction(tr("Додати п&апку в галерею…"), this, &MainWindow::addFolderToGallery);
+    fileMenu->addSeparator();
     fileMenu->addAction(tr("Знайти &дублікати…"), this, &MainWindow::findDuplicates);
     fileMenu->addAction(tr("Видалити &сміття…"), this, &MainWindow::deleteJunk);
     fileMenu->addSeparator();
@@ -134,6 +149,20 @@ void MainWindow::buildUi()
     auto *clearButton = new QPushButton(tr("Скинути"));
     connect(clearButton, &QPushButton::clicked, this, &MainWindow::clearSearch);
     searchRow->addWidget(clearButton);
+    searchRow->addSpacing(12);
+    searchRow->addWidget(new QLabel(tr("Сортування:")));
+    m_sortCombo = new QComboBox;
+    m_sortCombo->addItem(tr("Класичне"), int(Db::SortOrder::Classic));
+    m_sortCombo->addItem(tr("Спочатку новіші"), int(Db::SortOrder::NewestFirst));
+    m_sortCombo->addItem(tr("Спершу більші"), int(Db::SortOrder::LargestFirst));
+    m_sortCombo->setToolTip(tr("Класичне: за оцінкою (більші спочатку), потім за іменем файлу.\n"
+                               "Спочатку новіші: за датою додавання в галерею, потім як класичне.\n"
+                               "Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне."));
+    connect(m_sortCombo, &QComboBox::currentIndexChanged, this, [this] {
+        Db::setSetting(SortOrderKey, QString::number(m_sortCombo->currentData().toInt()));
+        loadPage(0);
+    });
+    searchRow->addWidget(m_sortCombo);
     mainLayout->addLayout(searchRow);
 
     // Tags list | thumbnail grid
@@ -466,7 +495,7 @@ void MainWindow::loadPage(int page)
     m_page = page;
     const Gallery *gallery = currentGallery();
     m_pageRecords = Db::searchImages(gallery ? gallery->id : 0, m_includeTags, m_excludeTags, page * PageSize, PageSize,
-                                     &m_totalCount);
+                                     &m_totalCount, sortOrder());
     if (m_pageRecords.isEmpty() && page > 0 && m_totalCount > 0) {
         // The page shrank (e.g. after editing tags): show the last one that exists.
         loadPage((m_totalCount - 1) / PageSize);
@@ -498,6 +527,7 @@ void MainWindow::loadPage(int page)
             }
             button->setToolTip(QDir::toNativeSeparators(rec.relativePath) + "\n"
                                + tr("Оцінка: ") + QString::number(rec.rating) + "\n"
+                               + tr("Розмір: ") + QLocale().formattedDataSize(rec.size) + "\n"
                                + tr("Теги: ") + Db::tagsForImage(rec.id).join(", ")
                                + (hint.isEmpty() ? QString() : "\n\n" + hint));
             button->setEnabled(true);
@@ -556,7 +586,8 @@ void MainWindow::openThumbnail(int index)
 
     // The arrows in the viewer walk through the images of the whole search result
     // (not just this page); videos and other files are skipped.
-    const QList<ImageRecord> all = Db::searchImages(gallery->id, m_includeTags, m_excludeTags, 0, -1, nullptr);
+    const QList<ImageRecord> all = Db::searchImages(gallery->id, m_includeTags, m_excludeTags, 0, -1, nullptr,
+                                                    sortOrder());
     QStringList paths;
     paths.reserve(all.size());
     int current = 0;
@@ -615,6 +646,11 @@ void MainWindow::editImageMeta(int index)
     statusBar()->showMessage(tr("Збережено: %1").arg(QFileInfo(record.relativePath).fileName()), 5000);
     reloadTags();
     loadPage(m_page); // rating may have moved the image
+}
+
+Db::SortOrder MainWindow::sortOrder() const
+{
+    return Db::SortOrder(m_sortCombo->currentData().toInt());
 }
 
 void MainWindow::findDuplicates()
@@ -723,6 +759,174 @@ void MainWindow::deleteJunk()
                                      .arg(failed.join('\n')));
     });
     watcher->setFuture(QtConcurrent::run([root] { return Scanner::findJunk(root); }));
+}
+
+QString MainWindow::chooseRootTag(const QString &title, const QString &suggestion)
+{
+    const Gallery *gallery = currentGallery();
+    if (!gallery)
+        return {};
+    QStringList folders = QDir(gallery->rootFolder)
+                              .entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden,
+                                         QDir::Name | QDir::IgnoreCase);
+    int current = 0;
+    if (!suggestion.isEmpty()) {
+        current = int(folders.indexOf(suggestion));
+        if (current < 0) {
+            folders.prepend(suggestion);
+            current = 0;
+        }
+    }
+
+    for (;;) {
+        bool ok = false;
+        const QString name = QInputDialog::getItem(this, title,
+                                                   tr("Папка галереї (вона ж перший тег).\n"
+                                                      "Можна вписати нову назву — папку буде створено:"),
+                                                   folders, current, true, &ok)
+                                 .trimmed();
+        if (!ok)
+            return {};
+        // Windows-forbidden characters only; a comma is fine (the tag gets a space instead).
+        static const QRegularExpression forbidden(QStringLiteral(R"([\\/:*?"<>|])"));
+        if (name.isEmpty() || name == "." || name == ".." || name.contains(forbidden) || name.endsWith('.')) {
+            QMessageBox::warning(this, title,
+                                 tr("Недопустима назва папки. Не можна використовувати символи \\ / : * ? \" < > |"));
+            continue;
+        }
+        return name;
+    }
+}
+
+void MainWindow::addFilesToGallery()
+{
+    const Gallery *gallery = currentGallery();
+    if (isBusy())
+        return;
+    if (!gallery) {
+        QMessageBox::information(this, tr("Додати файли"), tr("Спершу створи галерею."));
+        return;
+    }
+    const QStringList files = QFileDialog::getOpenFileNames(this, tr("Обери файли для додавання в галерею"));
+    if (files.isEmpty())
+        return;
+    const QString tag = chooseRootTag(tr("Додати файли"), QString());
+    if (tag.isEmpty())
+        return;
+
+    runImport([files, tag] {
+        QList<Scanner::ImportItem> items;
+        for (const QString &file : files)
+            items.append({file, tag});
+        return items;
+    });
+}
+
+void MainWindow::addFolderToGallery()
+{
+    const Gallery *gallery = currentGallery();
+    if (isBusy())
+        return;
+    if (!gallery) {
+        QMessageBox::information(this, tr("Додати папку"), tr("Спершу створи галерею."));
+        return;
+    }
+    const QString source = QFileDialog::getExistingDirectory(this, tr("Обери папку для додавання в галерею"));
+    if (source.isEmpty())
+        return;
+
+    const QDir sourceDir(source);
+    const QDir::Filters fileFilter = QDir::Files | QDir::Readable | QDir::Hidden | QDir::System;
+    bool hasOwnFiles = false;
+    for (const QString &name : sourceDir.entryList(fileFilter))
+        if (!Scanner::isIgnoredFile(name)) {
+            hasOwnFiles = true;
+            break;
+        }
+
+    // Every file under `from`, going to `tag` + its subfolder path below `from`.
+    auto collectInto = [fileFilter](const QString &from, const QString &tag, QList<Scanner::ImportItem> &items) {
+        const QDir base(from);
+        QDirIterator it(from, fileFilter, QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            const QString file = it.next();
+            if (Scanner::isIgnoredFile(file))
+                continue;
+            const QString sub = base.relativeFilePath(QFileInfo(file).absolutePath());
+            items.append({file, QDir::cleanPath(tag + '/' + sub)});
+        }
+    };
+
+    if (hasOwnFiles) {
+        // Files right in the chosen folder: everything goes under one root tag.
+        const QString tag = chooseRootTag(tr("Додати папку"), sourceDir.dirName());
+        if (tag.isEmpty())
+            return;
+        runImport([source, tag, collectInto] {
+            QList<Scanner::ImportItem> items;
+            collectInto(source, tag, items);
+            return items;
+        });
+        return;
+    }
+
+    // Only subfolders: each first-level subfolder is a root tag of its own.
+    const QStringList subfolders = sourceDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden);
+    if (subfolders.isEmpty()) {
+        QMessageBox::information(this, tr("Додати папку"), tr("У цій папці немає файлів для додавання."));
+        return;
+    }
+    runImport([sourceDir, subfolders, collectInto] {
+        QList<Scanner::ImportItem> items;
+        for (const QString &sub : subfolders)
+            collectInto(sourceDir.filePath(sub), sub, items);
+        return items;
+    });
+}
+
+void MainWindow::runImport(std::function<QList<Scanner::ImportItem>()> collect)
+{
+    const Gallery *gallery = currentGallery();
+    if (!gallery)
+        return;
+    const qint64 galleryId = gallery->id;
+    const QString root = gallery->rootFolder;
+
+    // Step 1: walk the source folders off the UI thread.
+    auto *collector = new QFutureWatcher<QList<Scanner::ImportItem>>(this);
+    runBusy(collector, tr("Шукаю файли для додавання…"));
+    connect(collector, &QFutureWatcherBase::finished, this, [this, collector, galleryId, root] {
+        const QList<Scanner::ImportItem> items = collector->result();
+        if (items.isEmpty()) {
+            QMessageBox::information(this, tr("Додавання в галерею"), tr("Немає файлів для додавання."));
+            return;
+        }
+
+        // Step 2: copy + register.
+        auto *importer = new QFutureWatcher<Scanner::ImportStats>(this);
+        runBusy(importer, tr("Додаю файли в галерею…"));
+        connect(importer, &QFutureWatcherBase::finished, this, [this, importer] {
+            const Scanner::ImportStats stats = importer->future().resultCount() > 0 ? importer->result()
+                                                                                     : Scanner::ImportStats{};
+            reloadTags();
+            loadPage(0);
+            QString message = tr("Скопійовано — %1, дублікатів — %2.").arg(stats.copied).arg(stats.duplicates);
+            if (stats.ignored > 0)
+                message += "\n" + tr("Пропущено службових файлів (Thumbs.db, desktop.ini тощо) — %1.").arg(stats.ignored);
+            if (!stats.failed.isEmpty())
+                message += "\n\n" + tr("Не вдалося скопіювати:\n%1").arg(stats.failed.join('\n'));
+            if (!stats.error.isEmpty())
+                message += "\n\n" + stats.error;
+            if (stats.error.isEmpty() && stats.failed.isEmpty())
+                QMessageBox::information(this, tr("Додавання в галерею"), message);
+            else
+                QMessageBox::warning(this, tr("Додавання в галерею"), message);
+        });
+        importer->setFuture(QtConcurrent::run([galleryId, root, items](QPromise<Scanner::ImportStats> &promise) {
+            Scanner::importFiles(promise, galleryId, root, items);
+        }));
+    });
+    collector->setFuture(QtConcurrent::run(std::move(collect)));
 }
 
 void MainWindow::runBusy(QFutureWatcherBase *watcher, const QString &text)

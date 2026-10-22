@@ -63,12 +63,19 @@ bool isExcluded(const QString &path)
 }
 
 // Every folder between the root and the file becomes a tag.
+// Commas separate tags in the search fields, so "name,1" becomes the tag "name 1".
 QStringList tagsFromRelativePath(const QString &relativePath)
 {
     QStringList parts = relativePath.split('/', Qt::SkipEmptyParts);
     if (!parts.isEmpty())
         parts.removeLast(); // the file name itself
-    return parts;
+    QStringList tags;
+    for (const QString &folder : std::as_const(parts)) {
+        const QString tag = QString(folder).replace(',', ' ').simplified();
+        if (!tag.isEmpty() && !tags.contains(tag))
+            tags << tag;
+    }
+    return tags;
 }
 
 class TagWriter
@@ -187,7 +194,10 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
     }
 
     QSqlQuery insert(db);
-    insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256) VALUES(?, ?, ?, ?, ?, ?)");
+    // One timestamp for the whole run, so "newest first" keeps a batch together.
+    const qint64 addedAt = QDateTime::currentSecsSinceEpoch();
+    insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256, added_at) "
+                   "VALUES(?, ?, ?, ?, ?, ?, ?)");
     QSqlQuery update(db);
     update.prepare("UPDATE images SET size = ?, mtime = ?, sha256 = ? WHERE id = ?");
     TagWriter tagWriter(db, galleryId);
@@ -304,6 +314,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
         insert.addBindValue(file.size);
         insert.addBindValue(file.mtime);
         insert.addBindValue(file.sha256);
+        insert.addBindValue(addedAt);
         if (!insert.exec())
             return rollback(insert.lastError().text());
         // Folder tags only for new files: changed ones keep theirs (same path) and manual edits.
@@ -351,6 +362,159 @@ void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootF
             stats.error = Db::lastError();
         else
             stats = doRescan(promise, db, galleryId, rootFolder);
+    }
+    Db::close(connection);
+    promise.addResult(stats);
+}
+
+bool isIgnoredFile(const QString &path)
+{
+    return isExcluded(path) || isJunkFile(path);
+}
+
+namespace {
+
+// "name.ext" -> "name (1).ext", "name (2).ext", ... until the name is free.
+QString freeFileName(const QDir &dir, const QString &fileName)
+{
+    if (!dir.exists(fileName))
+        return fileName;
+    const QFileInfo fi(fileName);
+    const QString base = fi.completeBaseName();
+    const QString suffix = fi.suffix().isEmpty() ? QString() : '.' + fi.suffix();
+    for (int n = 1;; ++n) {
+        const QString candidate = QString("%1 (%2)%3").arg(base).arg(n).arg(suffix);
+        if (!dir.exists(candidate))
+            return candidate;
+    }
+}
+
+ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 galleryId,
+                     const QString &rootFolder, const QList<ImportItem> &items)
+{
+    ImportStats stats;
+    const QDir root(rootFolder);
+    if (!root.exists()) {
+        stats.error = QCoreApplication::translate("Scanner", "Папка галереї не існує: %1").arg(rootFolder);
+        return stats;
+    }
+
+    // Content already in the gallery.
+    QSet<QString> knownContent;
+    {
+        QSqlQuery q(db);
+        q.prepare("SELECT sha256, size FROM images WHERE gallery_id = ?");
+        q.addBindValue(galleryId);
+        if (!q.exec()) {
+            stats.error = q.lastError().text();
+            return stats;
+        }
+        while (q.next())
+            knownContent.insert(contentKey(q.value(0).toString(), q.value(1).toLongLong()));
+    }
+
+    if (!db.transaction()) {
+        stats.error = db.lastError().text();
+        return stats;
+    }
+    QSqlQuery insert(db);
+    // One timestamp for the whole run, so "newest first" keeps a batch together.
+    const qint64 addedAt = QDateTime::currentSecsSinceEpoch();
+    insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256, added_at) "
+                   "VALUES(?, ?, ?, ?, ?, ?, ?)");
+    TagWriter tagWriter(db, galleryId);
+
+    promise.setProgressRange(0, int(items.size()));
+    for (int i = 0; i < items.size(); ++i) {
+        if (promise.isCanceled())
+            break;
+        const ImportItem &item = items.at(i);
+        const QFileInfo source(item.source);
+        promise.setProgressValueAndText(
+            i, QCoreApplication::translate("Scanner", "Копіюю %1 з %2\n%3").arg(i + 1).arg(items.size())
+                   .arg(source.fileName()));
+
+        if (Scanner::isIgnoredFile(item.source)) {
+            ++stats.ignored;
+            continue;
+        }
+        const QString hash = sha256Of(item.source);
+        if (hash.isEmpty()) {
+            stats.failed << QDir::toNativeSeparators(item.source);
+            continue;
+        }
+        const QString key = contentKey(hash, source.size());
+        if (knownContent.contains(key)) {
+            ++stats.duplicates;
+            continue;
+        }
+
+        const QString targetDir = QDir::cleanPath(item.targetDir);
+        if (!root.mkpath(targetDir)) {
+            stats.failed << QDir::toNativeSeparators(item.source);
+            continue;
+        }
+        const QDir dir(root.filePath(targetDir));
+
+        // Same name already there: maybe it's this very file, just not scanned yet.
+        const QString existing = dir.filePath(source.fileName());
+        if (QFileInfo(existing).size() == source.size() && QFileInfo::exists(existing)
+            && sha256Of(existing) == hash) {
+            knownContent.insert(key);
+            ++stats.duplicates;
+            continue;
+        }
+
+        const QString name = freeFileName(dir, source.fileName());
+        const QString target = dir.filePath(name);
+        if (!QFile::copy(item.source, target)) {
+            stats.failed << QDir::toNativeSeparators(item.source);
+            continue;
+        }
+        knownContent.insert(key); // the same content later in this batch is a duplicate
+
+        const QFileInfo copied(target);
+        const QString relative = root.relativeFilePath(target);
+        insert.addBindValue(galleryId);
+        insert.addBindValue(relative);
+        insert.addBindValue(name);
+        insert.addBindValue(copied.size());
+        insert.addBindValue(copied.lastModified(QTimeZone::UTC).toMSecsSinceEpoch());
+        insert.addBindValue(hash);
+        insert.addBindValue(addedAt);
+        QString error;
+        if (!insert.exec()
+            || !tagWriter.addTags(insert.lastInsertId().toLongLong(), tagsFromRelativePath(relative), &error)) {
+            stats.error = error.isEmpty() ? insert.lastError().text() : error;
+            db.rollback();
+            stats.error = QCoreApplication::translate("Scanner", "Файли скопійовано, але записати їх у базу не вдалося "
+                                                                "(зроби рескан):\n%1").arg(stats.error);
+            return stats;
+        }
+        ++stats.copied;
+    }
+
+    if (!db.commit()) {
+        stats.error = db.lastError().text();
+        db.rollback();
+    }
+    return stats;
+}
+
+} // namespace
+
+void importFiles(QPromise<ImportStats> &promise, qint64 galleryId, const QString &rootFolder,
+                 const QList<ImportItem> &items)
+{
+    const QString connection = QStringLiteral("xgallery_import_%1")
+                                   .arg(quintptr(QThread::currentThreadId()));
+    ImportStats stats;
+    {
+        QSqlDatabase db = Db::open(connection);
+        if (!db.isOpen())
+            stats.error = Db::lastError();
+        else
+            stats = doImport(promise, db, galleryId, rootFolder, items);
     }
     Db::close(connection);
     promise.addResult(stats);

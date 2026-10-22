@@ -271,7 +271,7 @@ QStringList tagsForImage(qint64 imageId)
 QList<ImageRecord> searchImages(qint64 galleryId,
                                 const QStringList &includeTags,
                                 const QStringList &excludeTags,
-                                int offset, int limit, int *totalCount)
+                                int offset, int limit, int *totalCount, SortOrder order)
 {
     QStringList inc = normalized(includeTags);
     QStringList exc = normalized(excludeTags);
@@ -319,8 +319,19 @@ QList<ImageRecord> searchImages(qint64 galleryId,
 
     QList<ImageRecord> result;
     QSqlQuery q(db);
-    q.prepare("SELECT i.id, i.path, i.rating FROM images i" + whereSql
-              + " ORDER BY i.rating DESC, i.name COLLATE NOCASE, i.id LIMIT ? OFFSET ?");
+    QString firstKey;
+    switch (order) {
+    case SortOrder::Classic:
+        break;
+    case SortOrder::NewestFirst:
+        firstKey = "i.added_at DESC, ";
+        break;
+    case SortOrder::LargestFirst:
+        firstKey = "i.size DESC, ";
+        break;
+    }
+    q.prepare("SELECT i.id, i.path, i.rating, i.size FROM images i" + whereSql
+              + " ORDER BY " + firstKey + "i.rating DESC, i.name COLLATE NOCASE, i.id LIMIT ? OFFSET ?");
     for (const QVariant &v : binds)
         q.addBindValue(v);
     q.addBindValue(limit);
@@ -328,7 +339,7 @@ QList<ImageRecord> searchImages(qint64 galleryId,
     if (!exec(q))
         return result;
     while (q.next())
-        result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toInt()});
+        result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toInt(), q.value(3).toLongLong()});
     return result;
 }
 

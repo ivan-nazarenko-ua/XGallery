@@ -5,6 +5,9 @@
 #include <QTimer>
 
 #include "database.h"
+#include "scanner.h"
+
+#include <functional>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -45,6 +48,8 @@ private slots:
     void editImageMeta(int index);
     void findDuplicates();
     void deleteJunk(); // Thumbs.db, desktop.ini and empty folders
+    void addFilesToGallery();
+    void addFolderToGallery();
     void showTagMenu(const QPoint &pos);
 
 private:
@@ -58,6 +63,11 @@ private:
     void askForRescan(const QString &question);
     const Gallery *currentGallery() const;
     QStringList galleryNamesExcept(qint64 galleryId) const;
+    Db::SortOrder sortOrder() const;
+    // Asks for a first-level folder of the gallery (existing, or a new name). Empty on cancel.
+    QString chooseRootTag(const QString &title, const QString &suggestion);
+    // Collects files (in a worker) with collect(), then copies them into the gallery.
+    void runImport(std::function<QList<Scanner::ImportItem>()> collect);
     void reloadTags();
     void loadPage(int page);
     void addTagToEdit(QLineEdit *edit, const QString &tag);
@@ -74,6 +84,7 @@ private:
 
     QList<Gallery> m_galleries;
     QComboBox *m_galleryCombo = nullptr;
+    QComboBox *m_sortCombo = nullptr;
     QPushButton *m_editGalleryButton = nullptr;
     QLabel *m_rootLabel = nullptr;
     QPushButton *m_rescanButton = nullptr;

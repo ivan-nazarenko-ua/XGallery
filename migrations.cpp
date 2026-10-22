@@ -168,6 +168,59 @@ bool toV3AllowUpscale(Sql &s)
     return s.exec("ALTER TABLE galleries ADD COLUMN allow_upscale INTEGER NOT NULL DEFAULT 0");
 }
 
+// ---- v3 -> v4: no commas in tags --------------------------------------------------------
+// Folder names became tags as-is, but a comma can't be searched for. "name,1" -> "name 1";
+// if that tag already exists in the gallery, the two are merged.
+bool toV4NoCommasInTags(Sql &s)
+{
+    struct Tag { qint64 id; qint64 galleryId; QString name; };
+    QList<Tag> withCommas;
+    QSqlQuery &q = s.query();
+    if (!s.exec("SELECT id, gallery_id, name FROM tags WHERE name LIKE '%,%'"))
+        return false;
+    while (q.next())
+        withCommas.append({q.value(0).toLongLong(), q.value(1).toLongLong(), q.value(2).toString()});
+    q.finish();
+
+    QSqlQuery find(s.db());
+    find.prepare("SELECT id FROM tags WHERE gallery_id = ? AND name = ?");
+    for (const Tag &tag : std::as_const(withCommas)) {
+        const QString newName = QString(tag.name).replace(',', ' ').simplified();
+        find.addBindValue(tag.galleryId);
+        find.addBindValue(newName);
+        if (!find.exec())
+            return false;
+        const qint64 existing = find.next() ? find.value(0).toLongLong() : 0;
+        find.finish();
+
+        if (existing == 0 && !newName.isEmpty()) {
+            q.prepare("UPDATE tags SET name = ? WHERE id = ?");
+            q.addBindValue(newName);
+            q.addBindValue(tag.id);
+            if (!s.exec())
+                return false;
+            continue;
+        }
+        if (existing != 0) {
+            q.prepare("INSERT OR IGNORE INTO image_tags(image_id, tag_id) "
+                      "SELECT image_id, ? FROM image_tags WHERE tag_id = ?");
+            q.addBindValue(existing);
+            q.addBindValue(tag.id);
+            if (!s.exec())
+                return false;
+        }
+        q.prepare("DELETE FROM image_tags WHERE tag_id = ?");
+        q.addBindValue(tag.id);
+        if (!s.exec())
+            return false;
+        q.prepare("DELETE FROM tags WHERE id = ?");
+        q.addBindValue(tag.id);
+        if (!s.exec())
+            return false;
+    }
+    return true;
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -239,6 +292,7 @@ static const QList<Migrations::Step> &steps()
         {toV1Galleries, true},
         {toV2RatingAndName, false},
         {toV3AllowUpscale, false},
+        {toV4NoCommasInTags, false},
     };
     return list;
 }

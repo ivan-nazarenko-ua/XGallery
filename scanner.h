@@ -21,6 +21,32 @@ namespace Scanner {
 // Meant to run in a worker thread (QtConcurrent::run); opens its own DB connection.
 void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootFolder);
 
+// Files the gallery never keeps: Thumbs.db, desktop.ini and anything else rescan skips.
+bool isIgnoredFile(const QString &path);
+
+// --- Import -------------------------------------------------------------------------------
+
+struct ImportItem
+{
+    QString source;    // absolute path of the file to copy
+    QString targetDir; // folder inside the gallery, relative to its root, '/'-separated
+};
+
+struct ImportStats
+{
+    int copied = 0;
+    int duplicates = 0;   // same content already in the gallery (or earlier in this batch)
+    int ignored = 0;      // Thumbs.db, desktop.ini, ...
+    QStringList failed;   // files that could not be read or copied
+    QString error;        // fatal error; empty on success
+};
+
+// Copies the files into the gallery and registers them in the DB, with the target folders
+// as tags. Duplicates (by sha256 + size) are skipped; a name already taken by a different
+// file gets " (1)", " (2)", ... like Windows does. Worker-thread safe (own DB connection).
+void importFiles(QPromise<ImportStats> &promise, qint64 galleryId, const QString &rootFolder,
+                 const QList<ImportItem> &items);
+
 struct JunkScan
 {
     QStringList junkFiles;    // Thumbs.db, desktop.ini

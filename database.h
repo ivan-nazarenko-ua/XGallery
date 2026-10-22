@@ -19,6 +19,7 @@ struct ImageRecord
     qint64 id = 0;
     QString relativePath;
     int rating = 50;
+    qint64 size = 0; // bytes
 };
 
 namespace Db {
@@ -62,14 +63,20 @@ bool deleteGallery(const QSqlDatabase &db, qint64 galleryId);
 QStringList allTags(qint64 galleryId);
 QStringList tagsForImage(qint64 imageId);
 
-// Images of the gallery having ALL of includeTags and NONE of excludeTags,
-// best rating first, then by file name.
+enum class SortOrder {
+    Classic,     // best rating first, then file name
+    NewestFirst, // most recently added to the DB first, then as Classic
+    LargestFirst // biggest files first, then as Classic
+};
+
+// Images of the gallery having ALL of includeTags and NONE of excludeTags.
 // Empty includeTags means "any image". limit < 0 means "no limit".
 // NoTagsPseudoTag may be used in either list.
 QList<ImageRecord> searchImages(qint64 galleryId,
                                 const QStringList &includeTags,
                                 const QStringList &excludeTags,
-                                int offset, int limit, int *totalCount);
+                                int offset, int limit, int *totalCount,
+                                SortOrder order = SortOrder::Classic);
 
 // Replaces the image's rating and tag set in one transaction. New tag names are created;
 // tags of the gallery that end up unused are deleted.
