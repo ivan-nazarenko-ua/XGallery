@@ -288,4 +288,43 @@ void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootF
     promise.addResult(stats);
 }
 
+bool isJunkFile(const QString &path)
+{
+    static const QStringList names = {"thumbs.db", "desktop.ini"};
+    return names.contains(QFileInfo(path).fileName(), Qt::CaseInsensitive);
+}
+
+JunkScan findJunk(const QString &rootFolder)
+{
+    const QString root = QDir::cleanPath(rootFolder);
+    JunkScan result;
+    QStringList dirs;
+    QSet<QString> notEmpty; // folders known to hold something that stays
+
+    QDirIterator it(root, QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System,
+                    QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        const QFileInfo fi = it.fileInfo();
+        if (fi.isDir() && !fi.isSymLink() && !fi.isJunction())
+            dirs << fi.absoluteFilePath();
+        else if (fi.isFile() && !fi.isSymLink() && isJunkFile(fi.fileName()))
+            result.junkFiles << fi.absoluteFilePath(); // goes away, doesn't keep the folder
+        else
+            notEmpty.insert(fi.absolutePath()); // a real file (or link) keeps its folder alive
+    }
+
+    // Deepest first: a folder is empty if nothing marked it and none of its subfolders stays.
+    std::sort(dirs.begin(), dirs.end(), [](const QString &a, const QString &b) {
+        return a.count('/') > b.count('/');
+    });
+    for (const QString &dir : std::as_const(dirs)) {
+        if (notEmpty.contains(dir))
+            notEmpty.insert(QFileInfo(dir).absolutePath());
+        else
+            result.emptyFolders << dir;
+    }
+    return result;
+}
+
 } // namespace Scanner

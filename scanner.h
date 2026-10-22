@@ -20,6 +20,19 @@ namespace Scanner {
 // Meant to run in a worker thread (QtConcurrent::run); opens its own DB connection.
 void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootFolder);
 
+struct JunkScan
+{
+    QStringList junkFiles;    // Thumbs.db, desktop.ini
+    QStringList emptyFolders; // empty once the junk files are gone; deepest first
+};
+
+bool isJunkFile(const QString &path);
+
+// What "Видалити сміття" removes under rootFolder (never the root itself): junk files, and
+// folders that contain nothing but junk files at any depth. Other hidden/system files count
+// as content; symlinks/junctions are never entered and count as content. Worker-thread safe.
+JunkScan findJunk(const QString &rootFolder);
+
 } // namespace Scanner
 
 #endif // SCANNER_H

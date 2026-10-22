@@ -33,6 +33,8 @@ set(PROJECT_SOURCES
         migrations.cpp
         mediafiles.h
         mediafiles.cpp
+        duplicatesdialog.h
+        duplicatesdialog.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

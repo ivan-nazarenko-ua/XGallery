@@ -2,6 +2,7 @@
 #include "./ui_mainwindow.h"
 
 #include "busydialog.h"
+#include "duplicatesdialog.h"
 #include "gallerydialog.h"
 #include "imagemetadialog.h"
 #include "imageviewer.h"
@@ -78,6 +79,8 @@ void MainWindow::buildUi()
     fileMenu->addAction(tr("&Створити галерею…"), QKeySequence::New, this, &MainWindow::createGallery);
     fileMenu->addAction(tr("&Редагувати галерею…"), this, &MainWindow::editGallery);
     fileMenu->addAction(tr("Рес&кан"), QKeySequence(Qt::Key_F5), this, &MainWindow::startRescan);
+    fileMenu->addAction(tr("Знайти &дублікати…"), this, &MainWindow::findDuplicates);
+    fileMenu->addAction(tr("Видалити &сміття…"), this, &MainWindow::deleteJunk);
     fileMenu->addSeparator();
     fileMenu->addAction(tr("&Вийти"), QKeySequence::Quit, this, &QWidget::close);
 
@@ -591,6 +594,114 @@ void MainWindow::editImageMeta(int index)
     statusBar()->showMessage(tr("Збережено: %1").arg(QFileInfo(record.relativePath).fileName()), 5000);
     reloadTags();
     loadPage(m_page); // rating may have moved the image
+}
+
+void MainWindow::findDuplicates()
+{
+    const Gallery *gallery = currentGallery();
+    if (isBusy())
+        return;
+    if (!gallery) {
+        QMessageBox::information(this, tr("Дублікати"), tr("Спершу створи галерею."));
+        return;
+    }
+
+    DuplicatesDialog dialog(*gallery, this);
+    dialog.exec();
+    if (dialog.changed()) {
+        reloadTags();
+        loadPage(m_page);
+    }
+}
+
+void MainWindow::deleteJunk()
+{
+    const Gallery *gallery = currentGallery();
+    if (isBusy())
+        return;
+    if (!gallery) {
+        QMessageBox::information(this, tr("Сміття"), tr("Спершу створи галерею."));
+        return;
+    }
+    if (!QFileInfo(gallery->rootFolder).isDir()) {
+        QMessageBox::warning(this, tr("Сміття"),
+                             tr("Папка недоступна:\n%1").arg(QDir::toNativeSeparators(gallery->rootFolder)));
+        return;
+    }
+
+    auto *watcher = new QFutureWatcher<Scanner::JunkScan>(this);
+    runBusy(watcher, tr("Шукаю сміття…"));
+    const QString root = gallery->rootFolder;
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, root] {
+        const Scanner::JunkScan junk = watcher->result();
+        if (junk.junkFiles.isEmpty() && junk.emptyFolders.isEmpty()) {
+            QMessageBox::information(this, tr("Сміття"), tr("Сміття не знайдено."));
+            return;
+        }
+
+        auto sortedRelative = [&root](const QStringList &paths) {
+            QStringList list;
+            for (const QString &path : paths)
+                list << QDir::toNativeSeparators(QDir(root).relativeFilePath(path));
+            std::sort(list.begin(), list.end(), [](const QString &a, const QString &b) {
+                return QString::compare(a, b, Qt::CaseInsensitive) < 0;
+            });
+            return list;
+        };
+        QString details;
+        if (!junk.junkFiles.isEmpty())
+            details += tr("Файли:\n") + sortedRelative(junk.junkFiles).join('\n') + "\n\n";
+        if (!junk.emptyFolders.isEmpty())
+            details += tr("Папки:\n") + sortedRelative(junk.emptyFolders).join('\n');
+
+        QMessageBox box(QMessageBox::Warning, tr("Сміття"),
+                        tr("Знайдено файлів Thumbs.db / desktop.ini: %1, пустих папок: %2.\n"
+                           "Видалити їх остаточно (без Кошика)?")
+                            .arg(junk.junkFiles.size())
+                            .arg(junk.emptyFolders.size()),
+                        QMessageBox::Yes | QMessageBox::No, this);
+        box.setInformativeText(tr("Список — у «Show Details…»."));
+        box.setDetailedText(details.trimmed());
+        box.setDefaultButton(QMessageBox::No);
+        if (box.exec() != QMessageBox::Yes)
+            return;
+
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        // Junk files first; failures are silently skipped (they are often locked by Explorer).
+        int removedFiles = 0;
+        QStringList keptJunk;
+        for (const QString &file : junk.junkFiles) {
+            QFile::setPermissions(file, QFile::permissions(file) | QFile::WriteOwner | QFile::WriteUser);
+            if (QFile::remove(file))
+                ++removedFiles;
+            else
+                keptJunk << file;
+        }
+
+        // Then folders, deepest first, so a parent is already empty when its turn comes.
+        int removedFolders = 0;
+        QStringList failed;
+        for (const QString &folder : junk.emptyFolders) {
+            if (QDir().rmdir(folder)) {
+                ++removedFolders;
+                continue;
+            }
+            // A junk file we couldn't delete keeps its folders: that's expected, not an error.
+            const bool explained = std::any_of(keptJunk.cbegin(), keptJunk.cend(), [&folder](const QString &f) {
+                return f.startsWith(folder + '/', Qt::CaseInsensitive);
+            });
+            if (!explained)
+                failed << QDir::toNativeSeparators(folder);
+        }
+        QApplication::restoreOverrideCursor();
+
+        statusBar()->showMessage(tr("Видалено файлів: %1, папок: %2").arg(removedFiles).arg(removedFolders), 10000);
+        if (!failed.isEmpty())
+            QMessageBox::warning(this, tr("Сміття"),
+                                 tr("Ці папки видалити не вдалося (можливо, зайняті або немає прав):\n\n%1")
+                                     .arg(failed.join('\n')));
+    });
+    watcher->setFuture(QtConcurrent::run([root] { return Scanner::findJunk(root); }));
 }
 
 void MainWindow::runBusy(QFutureWatcherBase *watcher, const QString &text)

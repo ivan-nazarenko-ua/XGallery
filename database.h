@@ -75,6 +75,19 @@ QList<ImageRecord> searchImages(qint64 galleryId,
 // tags of the gallery that end up unused are deleted.
 bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringList &tags);
 
+struct DuplicateGroup
+{
+    QString sha256;
+    qint64 size = 0;
+    QList<ImageRecord> files; // at least two
+};
+
+// Files of the gallery that share a sha256, one group per hash.
+QList<DuplicateGroup> findDuplicates(qint64 galleryId);
+
+// Removes the records (not the files) and then tags nobody uses any more.
+bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds);
+
 } // namespace Db
 
 #endif // DATABASE_H

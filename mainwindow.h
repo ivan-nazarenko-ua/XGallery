@@ -43,6 +43,8 @@ private slots:
     void showNextPage();
     void openThumbnail(int index);
     void editImageMeta(int index);
+    void findDuplicates();
+    void deleteJunk(); // Thumbs.db, desktop.ini and empty folders
     void showTagMenu(const QPoint &pos);
 
 private:

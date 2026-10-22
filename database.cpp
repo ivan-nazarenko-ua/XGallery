@@ -392,4 +392,57 @@ bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringLi
     return false;
 }
 
+QList<DuplicateGroup> findDuplicates(qint64 galleryId)
+{
+    QList<DuplicateGroup> groups;
+    QSqlQuery q(mainDb());
+    q.prepare("SELECT sha256, size, id, path, rating FROM images "
+              "WHERE gallery_id = ? AND sha256 IN ("
+              " SELECT sha256 FROM images WHERE gallery_id = ? GROUP BY sha256 HAVING COUNT(*) > 1) "
+              "ORDER BY sha256");
+    q.addBindValue(galleryId);
+    q.addBindValue(galleryId);
+    if (!exec(q))
+        return groups;
+    while (q.next()) {
+        const QString hash = q.value(0).toString();
+        if (groups.isEmpty() || groups.last().sha256 != hash)
+            groups.append({hash, q.value(1).toLongLong(), {}});
+        groups.last().files.append({q.value(2).toLongLong(), q.value(3).toString(), q.value(4).toInt()});
+    }
+    return groups;
+}
+
+bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds)
+{
+    QSqlDatabase db = mainDb();
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return false;
+    }
+    bool ok = true;
+    {
+        QSqlQuery q(db);
+        q.prepare("DELETE FROM images WHERE id = ? AND gallery_id = ?"); // image_tags: ON DELETE CASCADE
+        for (qint64 id : imageIds) {
+            q.addBindValue(id);
+            q.addBindValue(galleryId);
+            if (!(ok = exec(q)))
+                break;
+        }
+        if (ok) {
+            q.prepare("DELETE FROM tags WHERE gallery_id = ? "
+                      "AND id NOT IN (SELECT DISTINCT tag_id FROM image_tags)");
+            q.addBindValue(galleryId);
+            ok = exec(q);
+        }
+    }
+    if (ok && db.commit())
+        return true;
+    if (ok)
+        g_lastError = db.lastError().text();
+    db.rollback();
+    return false;
+}
+
 } // namespace Db
