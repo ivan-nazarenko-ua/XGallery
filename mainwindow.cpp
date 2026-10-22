@@ -14,6 +14,7 @@
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QGridLayout>
@@ -582,9 +583,28 @@ void MainWindow::editImageMeta(int index)
     if (MediaFiles::kindOf(record.relativePath) == MediaFiles::Kind::Other)
         return; // nothing to do for other files for now
 
-    ImageMetaDialog dialog(absolutePath(record.relativePath), Db::tagsForImage(record.id), record.rating,
-                           Db::allTags(galleryId), this);
-    if (dialog.exec() != QDialog::Accepted)
+    const QString path = absolutePath(record.relativePath);
+    ImageMetaDialog dialog(path, Db::tagsForImage(record.id), record.rating, Db::allTags(galleryId), this);
+    const int result = dialog.exec();
+
+    if (result == ImageMetaDialog::DeleteRequested) {
+        // A file already gone from disk only needs to leave the DB.
+        if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
+            QMessageBox::warning(this, tr("Видалити файл"),
+                                 tr("Не вдалося перемістити файл у Кошик, нічого не видалено:\n%1")
+                                     .arg(QDir::toNativeSeparators(path)));
+            return;
+        }
+        if (!Db::deleteImages(galleryId, {record.id}))
+            QMessageBox::warning(this, tr("Помилка БД"),
+                                 tr("Файл у Кошику, але прибрати запис з бази не вдалося:\n%1\n\nЗроби рескан.")
+                                     .arg(Db::lastError()));
+        statusBar()->showMessage(tr("У Кошику: %1").arg(QFileInfo(record.relativePath).fileName()), 5000);
+        reloadTags();
+        loadPage(m_page);
+        return;
+    }
+    if (result != QDialog::Accepted)
         return;
 
     if (!Db::saveImageMeta(galleryId, record.id, dialog.rating(), dialog.tags())) {

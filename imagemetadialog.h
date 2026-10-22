@@ -17,6 +17,9 @@ class ImageMetaDialog : public QDialog
     Q_OBJECT
 
 public:
+    // exec() returns this when the user confirmed deleting the file (to the Recycle Bin).
+    static constexpr int DeleteRequested = 2;
+
     ImageMetaDialog(const QString &filePath, const QStringList &imageTags, int rating,
                     const QStringList &galleryTags, QWidget *parent = nullptr);
 

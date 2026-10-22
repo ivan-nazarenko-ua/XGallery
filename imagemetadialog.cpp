@@ -107,6 +107,19 @@ ImageMetaDialog::ImageMetaDialog(const QString &filePath, const QStringList &ima
     buttons->button(QDialogButtonBox::Cancel)->setText(tr("Скасувати"));
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    QPushButton *deleteButton = buttons->addButton(tr("Видалити файл…"), QDialogButtonBox::DestructiveRole);
+    connect(deleteButton, &QPushButton::clicked, this, [this, filePath] {
+        QMessageBox box(QMessageBox::Warning, tr("Видалити файл"),
+                        tr("Перемістити файл у Кошик і прибрати його з галереї?\n\n%1")
+                            .arg(QDir::toNativeSeparators(filePath)),
+                        QMessageBox::NoButton, this);
+        QPushButton *yes = box.addButton(tr("Видалити"), QMessageBox::DestructiveRole);
+        QPushButton *no = box.addButton(tr("Скасувати"), QMessageBox::RejectRole);
+        box.setDefaultButton(no);
+        box.exec();
+        if (box.clickedButton() == yes)
+            done(DeleteRequested); // the caller does the actual deletion
+    });
 
     auto *layout = new QVBoxLayout(this);
     layout->addLayout(top, 1);
