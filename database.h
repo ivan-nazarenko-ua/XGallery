@@ -82,6 +82,10 @@ QList<ImageRecord> searchImages(qint64 galleryId,
 // tags of the gallery that end up unused are deleted.
 bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringList &tags);
 
+// The file at relativePath was rewritten by the program (e.g. rotated): refresh its record.
+bool updateImageFile(qint64 galleryId, const QString &relativePath, qint64 size, qint64 mtime,
+                     const QString &sha256);
+
 struct DuplicateGroup
 {
     QString sha256;

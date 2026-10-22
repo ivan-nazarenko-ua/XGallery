@@ -35,6 +35,8 @@ set(PROJECT_SOURCES
         mediafiles.cpp
         duplicatesdialog.h
         duplicatesdialog.cpp
+        imagerotation.h
+        imagerotation.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

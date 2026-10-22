@@ -23,11 +23,21 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override; // right click: rotate 90° CCW
+    void closeEvent(QCloseEvent *event) override;
+
+signals:
+    // The file on disk was rewritten (e.g. rotation saved).
+    void fileChanged(const QString &path);
 
 private:
     void showImage(int index);
     void step(int delta);
     void toggleFullScreen();
+    void setTurns(int quarterTurnsCcw);
+    void placeSaveBar();
+    bool saveRotation();
+    bool confirmLeave();
     void updatePixmap();
 
     QStringList m_filePaths;
@@ -35,7 +45,10 @@ private:
     bool m_allowUpscale;
     bool m_wasMaximized = false; // state to return to when leaving full screen
     QLabel *m_label;
-    QPixmap m_original;
+    QPixmap m_loaded;   // as read from disk (EXIF orientation applied)
+    QPixmap m_original; // m_loaded with the pending rotation
+    int m_turns = 0;    // pending quarter turns counter-clockwise
+    QWidget *m_saveBar = nullptr;
 };
 
 #endif // IMAGEVIEWER_H

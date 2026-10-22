@@ -367,6 +367,11 @@ void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootF
     promise.addResult(stats);
 }
 
+QString fileSha256(const QString &path)
+{
+    return sha256Of(path);
+}
+
 bool isIgnoredFile(const QString &path)
 {
     return isExcluded(path) || isJunkFile(path);

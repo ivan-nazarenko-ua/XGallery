@@ -35,6 +35,7 @@
 #include <QSplitter>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QTimeZone>
 #include <QUrl>
 #include <QtConcurrent>
 
@@ -602,6 +603,17 @@ void MainWindow::openThumbnail(int index)
         paths << path;
 
     auto *viewer = new ImageViewer(paths, current, gallery->allowUpscale, this);
+    // A rotated file was saved: refresh its record (size/hash) and the thumbnail.
+    const qint64 galleryId = gallery->id;
+    const QString root = gallery->rootFolder;
+    connect(viewer, &ImageViewer::fileChanged, this, [this, galleryId, root](const QString &file) {
+        const QFileInfo fi(file);
+        Db::updateImageFile(galleryId, QDir(root).relativeFilePath(file), fi.size(),
+                            fi.lastModified(QTimeZone::UTC).toMSecsSinceEpoch(), Scanner::fileSha256(file));
+        const Gallery *current = currentGallery();
+        if (current && current->id == galleryId && !isBusy())
+            loadPage(m_page);
+    });
     viewer->show();
 }
 

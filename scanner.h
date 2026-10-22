@@ -21,6 +21,9 @@ namespace Scanner {
 // Meant to run in a worker thread (QtConcurrent::run); opens its own DB connection.
 void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootFolder);
 
+// Hex sha256 of the file's content, empty if it can't be read.
+QString fileSha256(const QString &path);
+
 // Files the gallery never keeps: Thumbs.db, desktop.ini and anything else rescan skips.
 bool isIgnoredFile(const QString &path);
 

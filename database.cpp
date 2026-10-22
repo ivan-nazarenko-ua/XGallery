@@ -403,6 +403,19 @@ bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringLi
     return false;
 }
 
+bool updateImageFile(qint64 galleryId, const QString &relativePath, qint64 size, qint64 mtime,
+                     const QString &sha256)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("UPDATE images SET size = ?, mtime = ?, sha256 = ? WHERE gallery_id = ? AND path = ?");
+    q.addBindValue(size);
+    q.addBindValue(mtime);
+    q.addBindValue(sha256);
+    q.addBindValue(galleryId);
+    q.addBindValue(relativePath);
+    return exec(q);
+}
+
 QList<DuplicateGroup> findDuplicates(qint64 galleryId)
 {
     QList<DuplicateGroup> groups;
