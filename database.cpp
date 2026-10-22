@@ -202,12 +202,18 @@ QList<ImageRecord> searchImages(qint64 galleryId,
                                 const QStringList &excludeTags,
                                 int offset, int limit, int *totalCount)
 {
-    const QStringList inc = normalized(includeTags);
-    const QStringList exc = normalized(excludeTags);
+    QStringList inc = normalized(includeTags);
+    QStringList exc = normalized(excludeTags);
+    const bool onlyUntagged = inc.removeAll(NoTagsPseudoTag) > 0;
+    const bool skipUntagged = exc.removeAll(NoTagsPseudoTag) > 0;
 
     // Tag ids are unique per gallery, so filtering tags by gallery_id is enough inside the subqueries.
     QStringList where{"i.gallery_id = ?"};
     QVariantList binds{galleryId};
+    if (onlyUntagged)
+        where << "NOT EXISTS (SELECT 1 FROM image_tags it WHERE it.image_id = i.id)";
+    if (skipUntagged)
+        where << "EXISTS (SELECT 1 FROM image_tags it WHERE it.image_id = i.id)";
     if (!inc.isEmpty()) {
         where << QString("i.id IN (SELECT it.image_id FROM image_tags it "
                          "JOIN tags t ON t.id = it.tag_id WHERE t.gallery_id = ? AND t.name IN (%1) "
@@ -282,6 +288,8 @@ bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringLi
         selectTag.prepare("SELECT id FROM tags WHERE gallery_id = ? AND name = ?");
         link.prepare("INSERT OR IGNORE INTO image_tags(image_id, tag_id) VALUES(?, ?)");
         for (const QString &tag : normalized(tags)) {
+            if (tag == NoTagsPseudoTag)
+                continue; // service tag, never stored
             insertTag.addBindValue(galleryId);
             insertTag.addBindValue(tag);
             if (!exec(insertTag))

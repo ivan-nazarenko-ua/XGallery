@@ -153,9 +153,9 @@ void ImageMetaDialog::addNewTag()
     const QString tag = m_newTagEdit->text().trimmed();
     if (tag.isEmpty())
         return;
-    if (tag.contains(',')) {
-        // The search fields use commas as separators.
-        QMessageBox::warning(this, windowTitle(), tr("Назва тегу не може містити кому."));
+    // Commas separate tags in the search fields; '<' '>' are reserved for service tags like "<без тегів>".
+    if (tag.contains(',') || tag.contains('<') || tag.contains('>')) {
+        QMessageBox::warning(this, windowTitle(), tr("Назва тегу не може містити символи «,», «<» і «>»."));
         return;
     }
     addTag(tag);

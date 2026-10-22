@@ -26,6 +26,11 @@ namespace Db {
 // Connection used by the GUI thread. Worker threads must open their own.
 inline constexpr const char *MainConnection = "xgallery_main";
 
+// Service "tag" for search only: matches images that have no tags at all.
+// Never stored in the DB. '<' and '>' can't appear in Windows folder names, and the
+// tag editor rejects them, so it can't collide with a real tag.
+inline const QString NoTagsPseudoTag = QStringLiteral("<без тегів>");
+
 QString databasePath();
 
 // Opens (or reuses) a named connection and makes sure the schema exists (migrating old DBs).
@@ -51,6 +56,7 @@ QStringList tagsForImage(qint64 imageId);
 // Images of the gallery having ALL of includeTags and NONE of excludeTags,
 // best rating first, then by file name.
 // Empty includeTags means "any image". limit < 0 means "no limit".
+// NoTagsPseudoTag may be used in either list.
 QList<ImageRecord> searchImages(qint64 galleryId,
                                 const QStringList &includeTags,
                                 const QStringList &excludeTags,

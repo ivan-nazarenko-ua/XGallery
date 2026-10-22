@@ -425,8 +425,19 @@ void MainWindow::showTagMenu(const QPoint &pos)
 void MainWindow::reloadTags()
 {
     m_tagList->clear();
-    if (const Gallery *gallery = currentGallery())
-        m_tagList->addItems(Db::allTags(gallery->id));
+    const Gallery *gallery = currentGallery();
+    if (!gallery)
+        return;
+
+    // Service tag: always on top, always present, not stored in the DB.
+    auto *noTags = new QListWidgetItem(Db::NoTagsPseudoTag, m_tagList);
+    QFont font = noTags->font();
+    font.setItalic(true);
+    noTags->setFont(font);
+    noTags->setForeground(palette().color(QPalette::PlaceholderText));
+    noTags->setToolTip(tr("Зображення, у яких немає жодного тегу"));
+
+    m_tagList->addItems(Db::allTags(gallery->id));
 }
 
 QString MainWindow::absolutePath(const QString &relativePath) const
