@@ -5,6 +5,7 @@
 
 #include "database.h"
 
+class QCheckBox;
 class QLineEdit;
 
 // Create a gallery, or edit/delete an existing one.
@@ -21,6 +22,7 @@ public:
 
     QString name() const;
     QString rootFolder() const;
+    bool allowUpscale() const;
 
 public slots:
     void accept() override;
@@ -33,6 +35,7 @@ private:
     QStringList m_otherNames;
     QLineEdit *m_nameEdit;
     QLineEdit *m_rootEdit;
+    QCheckBox *m_allowUpscaleCheck;
 };
 
 #endif // GALLERYDIALOG_H

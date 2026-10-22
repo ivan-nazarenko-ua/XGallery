@@ -162,6 +162,12 @@ bool toV2RatingAndName(Sql &s)
                   "ON images(gallery_id, rating DESC, name COLLATE NOCASE)");
 }
 
+// ---- v2 -> v3: per-gallery viewer option -----------------------------------------------
+bool toV3AllowUpscale(Sql &s)
+{
+    return s.exec("ALTER TABLE galleries ADD COLUMN allow_upscale INTEGER NOT NULL DEFAULT 0");
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -232,6 +238,7 @@ static const QList<Migrations::Step> &steps()
     static const QList<Migrations::Step> list = {
         {toV1Galleries, true},
         {toV2RatingAndName, false},
+        {toV3AllowUpscale, false},
     };
     return list;
 }

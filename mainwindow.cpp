@@ -275,7 +275,7 @@ void MainWindow::createGallery()
     if (dialog.exec() != QDialog::Accepted)
         return;
 
-    const qint64 id = Db::createGallery(dialog.name(), dialog.rootFolder());
+    const qint64 id = Db::createGallery({0, dialog.name(), dialog.rootFolder(), dialog.allowUpscale()});
     if (id == 0) {
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося створити галерею:\n%1").arg(Db::lastError()));
         return;
@@ -325,6 +325,7 @@ void MainWindow::editGallery()
     Gallery updated = original;
     updated.name = dialog.name();
     updated.rootFolder = dialog.rootFolder();
+    updated.allowUpscale = dialog.allowUpscale();
     if (!Db::updateGallery(updated)) {
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти галерею:\n%1").arg(Db::lastError()));
         return;
@@ -510,7 +511,8 @@ void MainWindow::loadPage(int page)
 
 void MainWindow::openThumbnail(int index)
 {
-    if (index < 0 || index >= m_pageRecords.size())
+    const Gallery *gallery = currentGallery();
+    if (!gallery || index < 0 || index >= m_pageRecords.size())
         return;
     const QString path = absolutePath(m_pageRecords[index].relativePath);
     if (!QFileInfo::exists(path)) {
@@ -518,7 +520,21 @@ void MainWindow::openThumbnail(int index)
                              tr("Файлу більше немає:\n%1\n\nЗроби рескан.").arg(QDir::toNativeSeparators(path)));
         return;
     }
-    auto *viewer = new ImageViewer(path, this);
+
+    // The arrows in the viewer walk through the whole search result, not just this page.
+    const QList<ImageRecord> all = Db::searchImages(gallery->id, m_includeTags, m_excludeTags, 0, -1, nullptr);
+    QStringList paths;
+    paths.reserve(all.size());
+    int current = 0;
+    for (const ImageRecord &rec : all) {
+        if (rec.id == m_pageRecords[index].id)
+            current = int(paths.size());
+        paths << absolutePath(rec.relativePath);
+    }
+    if (paths.isEmpty())
+        paths << path;
+
+    auto *viewer = new ImageViewer(paths, current, gallery->allowUpscale, this);
     viewer->show();
 }
 

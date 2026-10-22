@@ -11,6 +11,7 @@ struct Gallery
     qint64 id = 0;
     QString name;
     QString rootFolder;
+    bool allowUpscale = false; // viewer may enlarge images beyond their original size
 };
 
 struct ImageRecord
@@ -38,7 +39,7 @@ bool setSetting(const QString &key, const QString &value);
 
 QList<Gallery> galleries();
 // Returns the new gallery id, or 0 on failure.
-qint64 createGallery(const QString &name, const QString &rootFolder);
+qint64 createGallery(const Gallery &gallery);
 bool updateGallery(const Gallery &gallery);
 // Removes the gallery and everything that belongs to it (images, tags). Files are not touched.
 // Takes an explicit connection so it can run in a worker thread.
@@ -49,7 +50,7 @@ QStringList tagsForImage(qint64 imageId);
 
 // Images of the gallery having ALL of includeTags and NONE of excludeTags,
 // best rating first, then by file name.
-// Empty includeTags means "any image".
+// Empty includeTags means "any image". limit < 0 means "no limit".
 QList<ImageRecord> searchImages(qint64 galleryId,
                                 const QStringList &includeTags,
                                 const QStringList &excludeTags,

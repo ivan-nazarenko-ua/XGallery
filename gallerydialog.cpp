@@ -1,5 +1,6 @@
 #include "gallerydialog.h"
 
+#include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
@@ -17,7 +18,11 @@ GalleryDialog::GalleryDialog(const Gallery &gallery, const QStringList &otherNam
     , m_otherNames(otherNames)
     , m_nameEdit(new QLineEdit(gallery.name, this))
     , m_rootEdit(new QLineEdit(QDir::toNativeSeparators(gallery.rootFolder), this))
+    , m_allowUpscaleCheck(new QCheckBox(tr("Дозволити збільшення зображень"), this))
 {
+    m_allowUpscaleCheck->setChecked(gallery.allowUpscale);
+    m_allowUpscaleCheck->setToolTip(tr("У вікні перегляду маленькі зображення розтягуватимуться під розмір вікна.\n"
+                                       "Якщо вимкнено — зображення не буде більшим за оригінал."));
     const bool creating = gallery.id == 0;
     setWindowTitle(creating ? tr("Нова галерея") : tr("Редагування галереї"));
     setMinimumWidth(520);
@@ -31,6 +36,7 @@ GalleryDialog::GalleryDialog(const Gallery &gallery, const QStringList &otherNam
     auto *form = new QFormLayout;
     form->addRow(tr("Назва:"), m_nameEdit);
     form->addRow(tr("Коренева папка:"), rootRow);
+    form->addRow(QString(), m_allowUpscaleCheck);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     buttons->button(QDialogButtonBox::Ok)->setText(creating ? tr("Створити") : tr("Зберегти"));
@@ -58,6 +64,11 @@ QString GalleryDialog::rootFolder() const
 {
     const QString text = m_rootEdit->text().trimmed();
     return text.isEmpty() ? QString() : QDir::cleanPath(QDir::fromNativeSeparators(text));
+}
+
+bool GalleryDialog::allowUpscale() const
+{
+    return m_allowUpscaleCheck->isChecked();
 }
 
 void GalleryDialog::browse()

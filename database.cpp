@@ -133,18 +133,20 @@ QList<Gallery> galleries()
 {
     QList<Gallery> result;
     QSqlQuery q(mainDb());
-    if (exec(q, "SELECT id, name, root FROM galleries ORDER BY name COLLATE NOCASE"))
+    if (exec(q, "SELECT id, name, root, allow_upscale FROM galleries ORDER BY name COLLATE NOCASE"))
         while (q.next())
-            result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toString()});
+            result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toString(),
+                           q.value(3).toBool()});
     return result;
 }
 
-qint64 createGallery(const QString &name, const QString &rootFolder)
+qint64 createGallery(const Gallery &gallery)
 {
     QSqlQuery q(mainDb());
-    q.prepare("INSERT INTO galleries(name, root) VALUES(?, ?)");
-    q.addBindValue(name);
-    q.addBindValue(rootFolder);
+    q.prepare("INSERT INTO galleries(name, root, allow_upscale) VALUES(?, ?, ?)");
+    q.addBindValue(gallery.name);
+    q.addBindValue(gallery.rootFolder);
+    q.addBindValue(gallery.allowUpscale ? 1 : 0);
     if (!exec(q))
         return 0;
     return q.lastInsertId().toLongLong();
@@ -153,9 +155,10 @@ qint64 createGallery(const QString &name, const QString &rootFolder)
 bool updateGallery(const Gallery &gallery)
 {
     QSqlQuery q(mainDb());
-    q.prepare("UPDATE galleries SET name = ?, root = ? WHERE id = ?");
+    q.prepare("UPDATE galleries SET name = ?, root = ?, allow_upscale = ? WHERE id = ?");
     q.addBindValue(gallery.name);
     q.addBindValue(gallery.rootFolder);
+    q.addBindValue(gallery.allowUpscale ? 1 : 0);
     q.addBindValue(gallery.id);
     return exec(q);
 }
