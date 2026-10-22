@@ -9,6 +9,7 @@ struct ScanStats
     int added = 0;
     int updated = 0;
     int removed = 0;
+    int moved = 0;      // moved/renamed: record kept with its rating and manual tags
     int unchanged = 0;
     int failed = 0;     // files that could not be read/hashed
     QString error;      // fatal error; empty on success

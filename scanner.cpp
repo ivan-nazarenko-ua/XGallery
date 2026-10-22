@@ -24,7 +24,24 @@ struct KnownFile
     qint64 id;
     qint64 size;
     qint64 mtime;
+    QString sha256;
 };
+
+// A file found on disk that has no record yet.
+struct NewFile
+{
+    QString relative;
+    QString name;
+    qint64 size;
+    qint64 mtime;
+    QString sha256;
+};
+
+// sha256 + size: what identifies the same content at another path.
+QString contentKey(const QString &sha256, qint64 size)
+{
+    return sha256 + ':' + QString::number(size);
+}
 
 QString sha256Of(const QString &path)
 {
@@ -131,7 +148,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
     QHash<QString, KnownFile> known;
     {
         QSqlQuery q(db);
-        q.prepare("SELECT id, path, size, mtime FROM images WHERE gallery_id = ?");
+        q.prepare("SELECT id, path, size, mtime, sha256 FROM images WHERE gallery_id = ?");
         q.addBindValue(galleryId);
         if (!q.exec()) {
             stats.error = q.lastError().text();
@@ -139,7 +156,8 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
         }
         while (q.next())
             known.insert(q.value(1).toString(),
-                         {q.value(0).toLongLong(), q.value(2).toLongLong(), q.value(3).toLongLong()});
+                         {q.value(0).toLongLong(), q.value(2).toLongLong(), q.value(3).toLongLong(),
+                          q.value(4).toString()});
     }
 
     // 2. What is on disk.
@@ -181,6 +199,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
     };
 
     promise.setProgressRange(0, int(files.size()));
+    QList<NewFile> newFiles;
     QSet<QString> seen;
     seen.reserve(files.size());
     for (int i = 0; i < files.size(); ++i) {
@@ -211,44 +230,93 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
             continue;
         }
 
-        qint64 imageId;
         if (k != known.constEnd()) {
-            imageId = k->id;
+            // Same path, new content: keeps its folder tags (same path) and manual edits.
             update.addBindValue(size);
             update.addBindValue(mtime);
             update.addBindValue(hash);
-            update.addBindValue(imageId);
+            update.addBindValue(k->id);
             if (!update.exec())
                 return rollback(update.lastError().text());
             ++stats.updated;
         } else {
-            insert.addBindValue(galleryId);
-            insert.addBindValue(relative);
-            insert.addBindValue(fi.fileName());
-            insert.addBindValue(size);
-            insert.addBindValue(mtime);
-            insert.addBindValue(hash);
-            if (!insert.exec())
-                return rollback(insert.lastError().text());
-            imageId = insert.lastInsertId().toLongLong();
-            ++stats.added;
+            newFiles.append({relative, fi.fileName(), size, mtime, hash}); // decided below
         }
-
-        // Folder tags only for new files: a changed file keeps its path, hence its folder tags.
-        if (k != known.constEnd())
-            continue;
-        QString error;
-        if (!tagWriter.addTags(imageId, tagsFromRelativePath(relative), &error))
-            return rollback(error);
     }
     promise.setProgressValueAndText(int(files.size()),
                                     QCoreApplication::translate("Scanner", "Прибираю видалені файли…"));
 
-    // 4. Forget files that disappeared (image_tags go away via ON DELETE CASCADE).
+    // 4. Moved/renamed files: a record whose file disappeared plus a new file with the same
+    //    content (sha256 + size). Only unambiguous 1:1 pairs count; copies stay new files.
+    //    The record keeps its id, rating and manual tags; folder tags follow the new path.
+    QHash<QString, QStringList> missingByContent; // content key -> old relative paths
+    for (auto k = known.constBegin(); k != known.constEnd(); ++k)
+        if (!seen.contains(k.key()))
+            missingByContent[contentKey(k->sha256, k->size)] << k.key();
+    QHash<QString, int> newByContent;
+    for (const NewFile &file : std::as_const(newFiles))
+        ++newByContent[contentKey(file.sha256, file.size)];
+
+    QSqlQuery move(db);
+    move.prepare("UPDATE images SET path = ?, name = ?, size = ?, mtime = ? WHERE id = ?");
+    QSqlQuery dropFolderTag(db);
+    dropFolderTag.prepare("DELETE FROM image_tags WHERE image_id = ? AND tag_id IN "
+                          "(SELECT id FROM tags WHERE gallery_id = ? AND name = ?)");
+    QSet<QString> movedFrom;
+
+    for (const NewFile &file : std::as_const(newFiles)) {
+        const QString key = contentKey(file.sha256, file.size);
+        const QStringList oldPaths = missingByContent.value(key);
+        QString error;
+
+        if (oldPaths.size() == 1 && newByContent.value(key) == 1) {
+            const QString &oldPath = oldPaths.first();
+            const qint64 imageId = known.value(oldPath).id;
+            move.addBindValue(file.relative);
+            move.addBindValue(file.name);
+            move.addBindValue(file.size);
+            move.addBindValue(file.mtime);
+            move.addBindValue(imageId);
+            if (!move.exec())
+                return rollback(move.lastError().text());
+
+            // Old folder names that are not on the new path stop being tags of this file.
+            const QStringList newFolders = tagsFromRelativePath(file.relative);
+            for (const QString &folder : tagsFromRelativePath(oldPath)) {
+                if (newFolders.contains(folder))
+                    continue;
+                dropFolderTag.addBindValue(imageId);
+                dropFolderTag.addBindValue(galleryId);
+                dropFolderTag.addBindValue(folder);
+                if (!dropFolderTag.exec())
+                    return rollback(dropFolderTag.lastError().text());
+            }
+            if (!tagWriter.addTags(imageId, newFolders, &error))
+                return rollback(error);
+            movedFrom.insert(oldPath);
+            ++stats.moved;
+            continue;
+        }
+
+        insert.addBindValue(galleryId);
+        insert.addBindValue(file.relative);
+        insert.addBindValue(file.name);
+        insert.addBindValue(file.size);
+        insert.addBindValue(file.mtime);
+        insert.addBindValue(file.sha256);
+        if (!insert.exec())
+            return rollback(insert.lastError().text());
+        // Folder tags only for new files: changed ones keep theirs (same path) and manual edits.
+        if (!tagWriter.addTags(insert.lastInsertId().toLongLong(), tagsFromRelativePath(file.relative), &error))
+            return rollback(error);
+        ++stats.added;
+    }
+
+    // 5. Forget files that disappeared (image_tags go away via ON DELETE CASCADE).
     QSqlQuery remove(db);
     remove.prepare("DELETE FROM images WHERE id = ?");
     for (auto k = known.constBegin(); k != known.constEnd(); ++k) {
-        if (seen.contains(k.key()))
+        if (seen.contains(k.key()) || movedFrom.contains(k.key()))
             continue;
         remove.addBindValue(k->id);
         if (!remove.exec())

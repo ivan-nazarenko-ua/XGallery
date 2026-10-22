@@ -356,8 +356,9 @@ void MainWindow::startRescan()
             QMessageBox::warning(this, tr("Рескан"), tr("Рескан не вдався:\n%1").arg(stats.error));
             return;
         }
-        QString message = tr("Додано: %1, оновлено: %2, видалено: %3, без змін: %4")
-                              .arg(stats.added).arg(stats.updated).arg(stats.removed).arg(stats.unchanged);
+        QString message = tr("Додано: %1, переміщено: %2, оновлено: %3, видалено: %4, без змін: %5")
+                              .arg(stats.added).arg(stats.moved).arg(stats.updated).arg(stats.removed)
+                              .arg(stats.unchanged);
         if (stats.failed > 0)
             message += tr(", не вдалося прочитати: %1").arg(stats.failed);
         statusBar()->showMessage(tr("Рескан завершено. ") + message);
