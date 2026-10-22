@@ -20,8 +20,6 @@ namespace Scanner {
 // Meant to run in a worker thread (QtConcurrent::run); opens its own DB connection.
 void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootFolder);
 
-QStringList imageNameFilters();
-
 } // namespace Scanner
 
 #endif // SCANNER_H

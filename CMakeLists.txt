@@ -31,6 +31,8 @@ set(PROJECT_SOURCES
         imagemetadialog.cpp
         migrations.h
         migrations.cpp
+        mediafiles.h
+        mediafiles.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -61,6 +63,11 @@ target_link_libraries(XGallery PRIVATE
     Qt${QT_VERSION_MAJOR}::Sql
     Qt${QT_VERSION_MAJOR}::Concurrent
 )
+
+if(WIN32)
+    # Explorer thumbnails for videos (mediafiles.cpp)
+    target_link_libraries(XGallery PRIVATE ole32 shell32 uuid)
+endif()
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

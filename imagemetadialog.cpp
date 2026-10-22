@@ -1,12 +1,13 @@
 #include "imagemetadialog.h"
 
+#include "mediafiles.h"
+
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
-#include <QImageReader>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -46,12 +47,7 @@ ImageMetaDialog::ImageMetaDialog(const QString &filePath, const QStringList &ima
     auto *preview = new QLabel(this);
     preview->setFixedSize(PreviewSize, PreviewSize);
     preview->setAlignment(Qt::AlignCenter);
-    QImageReader reader(filePath);
-    reader.setAutoTransform(true);
-    const QSize original = reader.size();
-    if (original.isValid())
-        reader.setScaledSize(original.scaled(PreviewSize, PreviewSize, Qt::KeepAspectRatio));
-    const QImage image = reader.read();
+    const QImage image = MediaFiles::makeThumbnail(filePath, PreviewSize); // also handles videos
     if (image.isNull())
         preview->setText(tr("(не читається)"));
     else

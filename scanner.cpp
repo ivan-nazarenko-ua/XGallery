@@ -10,7 +10,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
-#include <QImageReader>
 #include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -36,6 +35,14 @@ QString sha256Of(const QString &path)
     if (!hash.addData(&f))
         return {};
     return QString::fromLatin1(hash.result().toHex());
+}
+
+// Service files that never belong in a gallery (Thumbs.db, desktop.ini, ...).
+// Records of such files already in the DB are dropped by the next rescan as "missing".
+bool isExcluded(const QString &path)
+{
+    static const QStringList suffixes = {"db", "ini"};
+    return suffixes.contains(QFileInfo(path).suffix(), Qt::CaseInsensitive);
 }
 
 // Every folder between the root and the file becomes a tag.
@@ -137,15 +144,20 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
 
     // 2. What is on disk.
     promise.setProgressRange(0, 0);
-    promise.setProgressValueAndText(0, QCoreApplication::translate("Scanner", "Шукаю зображення…"));
+    promise.setProgressValueAndText(0, QCoreApplication::translate("Scanner", "Шукаю файли…"));
     QStringList files;
-    QDirIterator it(rootFolder, Scanner::imageNameFilters(), QDir::Files | QDir::Readable,
+    // Every file, whatever its type. Hidden/system ones too: Windows sometimes marks
+    // ordinary files that way (and hidden folders are then also walked into).
+    QDirIterator it(rootFolder, QDir::Files | QDir::Readable | QDir::Hidden | QDir::System,
                     QDirIterator::Subdirectories);
     while (it.hasNext()) {
-        files << it.next();
+        const QString path = it.next();
+        if (isExcluded(path))
+            continue;
+        files << path;
         if (files.size() % 500 == 0)
             promise.setProgressValueAndText(
-                0, QCoreApplication::translate("Scanner", "Шукаю зображення… знайдено %1").arg(files.size()));
+                0, QCoreApplication::translate("Scanner", "Шукаю файли… знайдено %1").arg(files.size()));
         if (promise.isCanceled())
             return stats;
     }
@@ -259,17 +271,6 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
 } // namespace
 
 namespace Scanner {
-
-QStringList imageNameFilters()
-{
-    static const char *candidates[] = {"jpg", "jpeg", "png", "bmp", "gif", "webp", "tif", "tiff"};
-    const QList<QByteArray> supported = QImageReader::supportedImageFormats();
-    QStringList filters;
-    for (const char *ext : candidates)
-        if (supported.contains(QByteArray(ext)))
-            filters << QStringLiteral("*.") + QLatin1String(ext);
-    return filters;
-}
 
 void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootFolder)
 {

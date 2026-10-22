@@ -5,11 +5,13 @@
 #include "gallerydialog.h"
 #include "imagemetadialog.h"
 #include "imageviewer.h"
+#include "mediafiles.h"
 #include "scanner.h"
 
 #include <QApplication>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileInfo>
 #include <QFutureWatcher>
@@ -26,24 +28,12 @@
 #include <QSplitter>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <QUrl>
 #include <QtConcurrent>
 
 namespace {
 
 const char *CurrentGalleryKey = "current_gallery";
-
-QImage makeThumbnail(const QString &path, int size)
-{
-    QImageReader reader(path);
-    reader.setAutoTransform(true);
-    const QSize original = reader.size();
-    if (original.isValid() && (original.width() > size || original.height() > size))
-        reader.setScaledSize(original.scaled(size, size, Qt::KeepAspectRatio)); // cheap for JPEG
-    QImage image = reader.read();
-    if (!image.isNull() && (image.width() > size || image.height() > size))
-        image = image.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    return image;
-}
 
 } // namespace
 
@@ -485,10 +475,21 @@ void MainWindow::loadPage(int page)
             const ImageRecord &rec = m_pageRecords[i];
             const QString name = QFileInfo(rec.relativePath).fileName();
             button->setText(button->fontMetrics().elidedText(name, Qt::ElideMiddle, ThumbnailSize));
+            QString hint;
+            switch (MediaFiles::kindOf(rec.relativePath)) {
+            case MediaFiles::Kind::Image:
+                hint = tr("Клік — відкрити, правий клік — редагувати");
+                break;
+            case MediaFiles::Kind::Video:
+                hint = tr("Клік — відкрити в програмі для відео, правий клік — редагувати");
+                break;
+            case MediaFiles::Kind::Other:
+                break;
+            }
             button->setToolTip(QDir::toNativeSeparators(rec.relativePath) + "\n"
                                + tr("Оцінка: ") + QString::number(rec.rating) + "\n"
-                               + tr("Теги: ") + Db::tagsForImage(rec.id).join(", ") + "\n\n"
-                               + tr("Клік — відкрити, правий клік — редагувати"));
+                               + tr("Теги: ") + Db::tagsForImage(rec.id).join(", ")
+                               + (hint.isEmpty() ? QString() : "\n\n" + hint));
             button->setEnabled(true);
         } else {
             button->setText(QString());
@@ -516,7 +517,7 @@ void MainWindow::loadPage(int page)
         }
     });
     watcher->setFuture(QtConcurrent::mapped(std::move(paths),[](const QString &path) {
-        return makeThumbnail(path, ThumbnailSize);
+        return MediaFiles::makeThumbnail(path, ThumbnailSize);
     }));
 }
 
@@ -526,18 +527,32 @@ void MainWindow::openThumbnail(int index)
     if (!gallery || index < 0 || index >= m_pageRecords.size())
         return;
     const QString path = absolutePath(m_pageRecords[index].relativePath);
+    const MediaFiles::Kind kind = MediaFiles::kindOf(path);
+    if (kind == MediaFiles::Kind::Other)
+        return; // nothing to open for now
     if (!QFileInfo::exists(path)) {
         QMessageBox::warning(this, tr("Файл не знайдено"),
                              tr("Файлу більше немає:\n%1\n\nЗроби рескан.").arg(QDir::toNativeSeparators(path)));
         return;
     }
 
-    // The arrows in the viewer walk through the whole search result, not just this page.
+    if (kind == MediaFiles::Kind::Video) {
+        if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path)))
+            QMessageBox::warning(this, tr("Відео"),
+                                 tr("Не вдалося відкрити файл:\n%1\n\nМожливо, у Windows немає програми для цього типу файлів.")
+                                     .arg(QDir::toNativeSeparators(path)));
+        return;
+    }
+
+    // The arrows in the viewer walk through the images of the whole search result
+    // (not just this page); videos and other files are skipped.
     const QList<ImageRecord> all = Db::searchImages(gallery->id, m_includeTags, m_excludeTags, 0, -1, nullptr);
     QStringList paths;
     paths.reserve(all.size());
     int current = 0;
     for (const ImageRecord &rec : all) {
+        if (MediaFiles::kindOf(rec.relativePath) != MediaFiles::Kind::Image)
+            continue;
         if (rec.id == m_pageRecords[index].id)
             current = int(paths.size());
         paths << absolutePath(rec.relativePath);
@@ -556,6 +571,8 @@ void MainWindow::editImageMeta(int index)
         return;
     const ImageRecord record = m_pageRecords[index];
     const qint64 galleryId = gallery->id;
+    if (MediaFiles::kindOf(record.relativePath) == MediaFiles::Kind::Other)
+        return; // nothing to do for other files for now
 
     ImageMetaDialog dialog(absolutePath(record.relativePath), Db::tagsForImage(record.id), record.rating,
                            Db::allTags(galleryId), this);
