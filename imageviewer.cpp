@@ -1,0 +1,70 @@
+#include "imageviewer.h"
+
+#include <QDir>
+#include <QFileInfo>
+#include <QGuiApplication>
+#include <QImageReader>
+#include <QKeyEvent>
+#include <QLabel>
+#include <QScreen>
+#include <QVBoxLayout>
+
+ImageViewer::ImageViewer(const QString &filePath, QWidget *parent)
+    : QWidget(parent, Qt::Window)
+    , m_label(new QLabel(this))
+{
+    setAttribute(Qt::WA_DeleteOnClose);
+    setWindowTitle(QFileInfo(filePath).fileName() + " — " + QDir::toNativeSeparators(filePath));
+
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_label);
+    m_label->setAlignment(Qt::AlignCenter);
+    m_label->setMinimumSize(1, 1);
+    m_label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+    setStyleSheet("background-color: #202020; color: #dddddd;");
+
+    QImageReader reader(filePath);
+    reader.setAutoTransform(true); // respect EXIF orientation
+    const QImage image = reader.read();
+    if (image.isNull())
+        m_label->setText(tr("Не вдалося відкрити зображення:\n%1").arg(reader.errorString()));
+    else
+        m_original = QPixmap::fromImage(image);
+
+    const QRect available = screen() ? screen()->availableGeometry() : QRect(0, 0, 1280, 800);
+    QSize size = m_original.isNull() ? QSize(480, 320) : m_original.size();
+    size = size.boundedTo(available.size() * 0.85);
+    if (!m_original.isNull())
+        size = m_original.size().scaled(size, Qt::KeepAspectRatio);
+    resize(size.expandedTo(QSize(320, 240)));
+}
+
+void ImageViewer::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    updatePixmap();
+}
+
+void ImageViewer::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Escape)
+        close();
+    else
+        QWidget::keyPressEvent(event);
+}
+
+void ImageViewer::updatePixmap()
+{
+    if (m_original.isNull())
+        return;
+    const qreal dpr = devicePixelRatioF();
+    const QSize target = m_label->size() * dpr;
+    if (m_original.width() <= target.width() && m_original.height() <= target.height()) {
+        m_label->setPixmap(m_original); // never upscale
+        return;
+    }
+    QPixmap scaled = m_original.scaled(target, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    scaled.setDevicePixelRatio(dpr);
+    m_label->setPixmap(scaled);
+}

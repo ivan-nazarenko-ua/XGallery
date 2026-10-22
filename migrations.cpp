@@ -1,0 +1,237 @@
+#include "migrations.h"
+
+#include <QFileInfo>
+#include <QList>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QStringList>
+#include <QVariant>
+
+namespace {
+
+// Thrown-away helper state for one step: a query plus the error sink.
+class Sql
+{
+public:
+    Sql(QSqlDatabase &db, QString *error) : m_db(db), m_q(db), m_error(error) {}
+
+    QSqlDatabase &db() { return m_db; }
+    QSqlQuery &query() { return m_q; }
+
+    bool exec(const QString &sql)
+    {
+        if (m_q.exec(sql))
+            return true;
+        *m_error = m_q.lastError().text() + "\n" + sql;
+        return false;
+    }
+
+    bool exec()
+    {
+        if (m_q.exec())
+            return true;
+        *m_error = m_q.lastError().text();
+        return false;
+    }
+
+    bool hasColumn(const QString &table, const QString &column)
+    {
+        QSqlQuery q(m_db);
+        if (!q.exec(QString("PRAGMA table_info(%1)").arg(table)))
+            return false;
+        while (q.next())
+            if (q.value(1).toString() == column)
+                return true;
+        return false;
+    }
+
+private:
+    QSqlDatabase &m_db;
+    QSqlQuery m_q;
+    QString *m_error;
+};
+
+// ---- v0 -> v1: galleries --------------------------------------------------------------
+// Fresh DB: creates the v1 schema.
+// Pre-galleries DB (single root folder in settings, images/tags without gallery_id):
+// moves its data into one gallery, keeping ids, so nothing has to be re-hashed.
+bool toV1Galleries(Sql &s)
+{
+    const bool legacy = s.db().tables().contains("images") && !s.hasColumn("images", "gallery_id");
+    if (legacy
+        && !(s.exec("ALTER TABLE image_tags RENAME TO image_tags_v0")
+             && s.exec("ALTER TABLE images RENAME TO images_v0")
+             && s.exec("ALTER TABLE tags RENAME TO tags_v0")
+             && s.exec("DROP INDEX IF EXISTS idx_images_sha256")
+             && s.exec("DROP INDEX IF EXISTS idx_image_tags_tag")))
+        return false;
+
+    const bool created =
+        s.exec("CREATE TABLE IF NOT EXISTS settings ("
+               " key TEXT PRIMARY KEY,"
+               " value TEXT)")
+        && s.exec("CREATE TABLE IF NOT EXISTS galleries ("
+                  " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                  " name TEXT NOT NULL UNIQUE,"
+                  " root TEXT NOT NULL)")
+        && s.exec("CREATE TABLE IF NOT EXISTS images ("
+                  " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                  " gallery_id INTEGER NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,"
+                  " path TEXT NOT NULL,"         // relative to the gallery root, '/' separated
+                  " size INTEGER NOT NULL,"
+                  " mtime INTEGER NOT NULL,"     // ms since epoch, UTC
+                  " sha256 TEXT NOT NULL,"
+                  " added_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),"
+                  " UNIQUE (gallery_id, path))")
+        && s.exec("CREATE INDEX IF NOT EXISTS idx_images_sha256 ON images(sha256)")
+        && s.exec("CREATE TABLE IF NOT EXISTS tags ("
+                  " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                  " gallery_id INTEGER NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,"
+                  " name TEXT NOT NULL,"
+                  " UNIQUE (gallery_id, name))")
+        && s.exec("CREATE TABLE IF NOT EXISTS image_tags ("
+                  " image_id INTEGER NOT NULL REFERENCES images(id) ON DELETE CASCADE,"
+                  " tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,"
+                  " PRIMARY KEY (image_id, tag_id))")
+        && s.exec("CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag_id)");
+    if (!created)
+        return false;
+    if (!legacy)
+        return true;
+
+    QSqlQuery &q = s.query();
+    QString root;
+    if (q.exec("SELECT value FROM settings WHERE key = 'root_folder'") && q.next())
+        root = q.value(0).toString();
+    q.finish();
+    if (!s.exec("SELECT COUNT(*) FROM images_v0") || !q.next())
+        return false;
+    const bool hasImages = q.value(0).toInt() > 0;
+    q.finish();
+
+    if (!root.isEmpty() || hasImages) {
+        QString name = QFileInfo(root).fileName();
+        if (name.isEmpty())
+            name = QStringLiteral("Моя галерея");
+        q.prepare("INSERT INTO galleries(name, root) VALUES(?, ?)");
+        q.addBindValue(name);
+        q.addBindValue(root);
+        if (!s.exec())
+            return false;
+        const QString gid = QString::number(q.lastInsertId().toLongLong());
+
+        if (!s.exec("INSERT INTO images(id, gallery_id, path, size, mtime, sha256, added_at) "
+                    "SELECT id, " + gid + ", path, size, mtime, sha256, added_at FROM images_v0")
+            || !s.exec("INSERT INTO tags(id, gallery_id, name) SELECT id, " + gid + ", name FROM tags_v0")
+            || !s.exec("INSERT INTO image_tags(image_id, tag_id) SELECT image_id, tag_id FROM image_tags_v0")
+            || !s.exec("INSERT OR REPLACE INTO settings(key, value) VALUES('current_gallery', " + gid + ")"))
+            return false;
+    }
+
+    return s.exec("DROP TABLE image_tags_v0")
+        && s.exec("DROP TABLE images_v0")
+        && s.exec("DROP TABLE tags_v0")
+        && s.exec("DELETE FROM settings WHERE key = 'root_folder'");
+}
+
+// ---- v1 -> v2: rating + file name for sorting -------------------------------------------
+bool toV2RatingAndName(Sql &s)
+{
+    if (!s.exec("ALTER TABLE images ADD COLUMN rating INTEGER NOT NULL DEFAULT 50")
+        || !s.exec("ALTER TABLE images ADD COLUMN name TEXT NOT NULL DEFAULT ''"))
+        return false;
+
+    // SQLite has no basename(): fill the file name from the relative path here.
+    QList<QPair<qint64, QString>> rows;
+    QSqlQuery &q = s.query();
+    if (!s.exec("SELECT id, path FROM images"))
+        return false;
+    while (q.next())
+        rows.append({q.value(0).toLongLong(), q.value(1).toString()});
+    q.finish();
+
+    q.prepare("UPDATE images SET name = ? WHERE id = ?");
+    for (const auto &row : std::as_const(rows)) {
+        q.addBindValue(row.second.section('/', -1));
+        q.addBindValue(row.first);
+        if (!s.exec())
+            return false;
+    }
+
+    return s.exec("CREATE INDEX IF NOT EXISTS idx_images_order "
+                  "ON images(gallery_id, rating DESC, name COLLATE NOCASE)");
+}
+
+} // namespace
+
+struct Migrations::Step
+{
+    bool (*apply)(Sql &);
+    bool needsForeignKeysOff; // table rebuilds must not trigger cascades
+};
+
+static const QList<Migrations::Step> &steps();
+
+int Migrations::latestVersion()
+{
+    return int(steps().size());
+}
+
+bool Migrations::run(QSqlDatabase &db, QString *error)
+{
+    QSqlQuery q(db);
+    if (!q.exec("PRAGMA user_version") || !q.next()) {
+        *error = q.lastError().text();
+        return false;
+    }
+    const int version = q.value(0).toInt();
+    q.finish();
+
+    for (int v = version; v < latestVersion(); ++v)
+        if (!runStep(db, steps().at(v), v + 1, error))
+            return false;
+
+    if (!q.exec("PRAGMA foreign_keys = ON")) {
+        *error = q.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool Migrations::runStep(QSqlDatabase &db, const Step &step, int toVersion, QString *error)
+{
+    QSqlQuery q(db);
+    // Can't be changed inside a transaction, so it is set before.
+    if (!q.exec(QString("PRAGMA foreign_keys = %1").arg(step.needsForeignKeysOff ? "OFF" : "ON"))) {
+        *error = q.lastError().text();
+        return false;
+    }
+    if (!db.transaction()) {
+        *error = db.lastError().text();
+        return false;
+    }
+
+    bool ok;
+    {
+        Sql s(db, error);
+        ok = step.apply(s) && s.exec(QString("PRAGMA user_version = %1").arg(toVersion));
+    }
+    if (ok && db.commit())
+        return true;
+
+    if (error->isEmpty())
+        *error = db.lastError().text();
+    *error = QString("Міграція БД до версії %1 не вдалася: %2").arg(toVersion).arg(*error);
+    db.rollback();
+    return false;
+}
+
+// Index i migrates from version i to i + 1. Append only.
+static const QList<Migrations::Step> &steps()
+{
+    static const QList<Migrations::Step> list = {
+        {toV1Galleries, true},
+        {toV2RatingAndName, false},
+    };
+    return list;
+}

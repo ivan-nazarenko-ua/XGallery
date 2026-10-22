@@ -1,0 +1,64 @@
+#ifndef DATABASE_H
+#define DATABASE_H
+
+#include <QList>
+#include <QSqlDatabase>
+#include <QString>
+#include <QStringList>
+
+struct Gallery
+{
+    qint64 id = 0;
+    QString name;
+    QString rootFolder;
+};
+
+struct ImageRecord
+{
+    qint64 id = 0;
+    QString relativePath;
+    int rating = 50;
+};
+
+namespace Db {
+
+// Connection used by the GUI thread. Worker threads must open their own.
+inline constexpr const char *MainConnection = "xgallery_main";
+
+QString databasePath();
+
+// Opens (or reuses) a named connection and makes sure the schema exists (migrating old DBs).
+// Returns a closed database on failure; see lastError().
+QSqlDatabase open(const QString &connectionName);
+void close(const QString &connectionName);
+QString lastError();
+
+QString setting(const QString &key, const QString &defaultValue = {});
+bool setSetting(const QString &key, const QString &value);
+
+QList<Gallery> galleries();
+// Returns the new gallery id, or 0 on failure.
+qint64 createGallery(const QString &name, const QString &rootFolder);
+bool updateGallery(const Gallery &gallery);
+// Removes the gallery and everything that belongs to it (images, tags). Files are not touched.
+// Takes an explicit connection so it can run in a worker thread.
+bool deleteGallery(const QSqlDatabase &db, qint64 galleryId);
+
+QStringList allTags(qint64 galleryId);
+QStringList tagsForImage(qint64 imageId);
+
+// Images of the gallery having ALL of includeTags and NONE of excludeTags,
+// best rating first, then by file name.
+// Empty includeTags means "any image".
+QList<ImageRecord> searchImages(qint64 galleryId,
+                                const QStringList &includeTags,
+                                const QStringList &excludeTags,
+                                int offset, int limit, int *totalCount);
+
+// Replaces the image's rating and tag set in one transaction. New tag names are created;
+// tags of the gallery that end up unused are deleted.
+bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringList &tags);
+
+} // namespace Db
+
+#endif // DATABASE_H
