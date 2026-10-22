@@ -43,7 +43,8 @@ MainWindow::MainWindow(QWidget *parent)
     , m_busyDialog(new BusyDialog(this))
 {
     ui->setupUi(this);
-    setWindowTitle("XGallery");
+    // Mode in the title, so two running copies (portable and installed) can be told apart.
+    setWindowTitle(Db::isPortable() ? "XGallery [Portable]" : "XGallery [Full]");
 
     m_busyShowTimer.setSingleShot(true);
     m_busyShowTimer.setInterval(250); // don't flash the dialog for very short jobs
@@ -58,7 +59,11 @@ MainWindow::MainWindow(QWidget *parent)
         return;
     }
 
+    Db::makeRootsPortable();
     reloadGalleries(Db::setting(CurrentGalleryKey).toLongLong());
+    statusBar()->showMessage((Db::isPortable() ? tr("Портабл-режим. ") : QString())
+                                 + tr("База даних: %1").arg(QDir::toNativeSeparators(Db::databasePath())),
+                             10000);
 }
 
 MainWindow::~MainWindow()

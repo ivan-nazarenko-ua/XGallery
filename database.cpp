@@ -2,10 +2,13 @@
 
 #include "migrations.h"
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
+#include <QStorageInfo>
 #include <QVariant>
 
 namespace {
@@ -69,9 +72,37 @@ namespace Db {
 
 QString databasePath()
 {
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir().mkpath(dir);
-    return QDir(dir).filePath("xgallery.sqlite");
+    // Decided once per run so every connection (incl. worker threads) uses the same file.
+    static const QString path = [] {
+        const QString fileName = QStringLiteral("xgallery.sqlite");
+
+        // Portable mode: a DB lying next to the exe wins (e.g. the program runs from a USB stick).
+        const QString portable = QDir(QCoreApplication::applicationDirPath()).filePath(fileName);
+        if (QFileInfo(portable).isFile())
+            return portable;
+
+        const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        QDir().mkpath(dir);
+        return QDir(dir).filePath(fileName);
+    }();
+    return path;
+}
+
+bool isPortable()
+{
+    return QFileInfo(databasePath()).absolutePath() == QFileInfo(QCoreApplication::applicationDirPath()).absoluteFilePath();
+}
+
+bool isOnProgramDrive(const QString &folder)
+{
+    const QString programRoot = QStorageInfo(QCoreApplication::applicationDirPath()).rootPath();
+    const QString folderRoot = QStorageInfo(folder).rootPath();
+    return !folderRoot.isEmpty() && folderRoot.compare(programRoot, Qt::CaseInsensitive) == 0;
+}
+
+QString programDrive()
+{
+    return QDir::toNativeSeparators(QStorageInfo(QCoreApplication::applicationDirPath()).rootPath());
 }
 
 QSqlDatabase open(const QString &connectionName)
@@ -129,13 +160,53 @@ bool setSetting(const QString &key, const QString &value)
     return exec(q);
 }
 
+// In portable mode the root is stored relative to the exe folder, so the gallery survives the
+// USB stick getting another drive letter. In memory Gallery::rootFolder is always absolute.
+static QString storedRoot(const QString &absoluteRoot)
+{
+    if (!isPortable() || !isOnProgramDrive(absoluteRoot))
+        return absoluteRoot;
+    return QDir(QCoreApplication::applicationDirPath()).relativeFilePath(absoluteRoot);
+}
+
+static QString resolvedRoot(const QString &stored)
+{
+    if (stored.isEmpty() || !QDir::isRelativePath(stored))
+        return stored;
+    return QDir::cleanPath(QDir(QCoreApplication::applicationDirPath()).absoluteFilePath(stored));
+}
+
+bool makeRootsPortable()
+{
+    if (!isPortable())
+        return true;
+    QList<QPair<qint64, QString>> toFix;
+    QSqlQuery q(mainDb());
+    if (!exec(q, "SELECT id, root FROM galleries"))
+        return false;
+    while (q.next()) {
+        const QString root = q.value(1).toString();
+        if (!QDir::isRelativePath(root) && isOnProgramDrive(root))
+            toFix.append({q.value(0).toLongLong(), storedRoot(root)});
+    }
+    q.finish();
+    q.prepare("UPDATE galleries SET root = ? WHERE id = ?");
+    for (const auto &fix : std::as_const(toFix)) {
+        q.addBindValue(fix.second);
+        q.addBindValue(fix.first);
+        if (!exec(q))
+            return false;
+    }
+    return true;
+}
+
 QList<Gallery> galleries()
 {
     QList<Gallery> result;
     QSqlQuery q(mainDb());
     if (exec(q, "SELECT id, name, root, allow_upscale FROM galleries ORDER BY name COLLATE NOCASE"))
         while (q.next())
-            result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toString(),
+            result.append({q.value(0).toLongLong(), q.value(1).toString(), resolvedRoot(q.value(2).toString()),
                            q.value(3).toBool()});
     return result;
 }
@@ -145,7 +216,7 @@ qint64 createGallery(const Gallery &gallery)
     QSqlQuery q(mainDb());
     q.prepare("INSERT INTO galleries(name, root, allow_upscale) VALUES(?, ?, ?)");
     q.addBindValue(gallery.name);
-    q.addBindValue(gallery.rootFolder);
+    q.addBindValue(storedRoot(gallery.rootFolder));
     q.addBindValue(gallery.allowUpscale ? 1 : 0);
     if (!exec(q))
         return 0;
@@ -157,7 +228,7 @@ bool updateGallery(const Gallery &gallery)
     QSqlQuery q(mainDb());
     q.prepare("UPDATE galleries SET name = ?, root = ?, allow_upscale = ? WHERE id = ?");
     q.addBindValue(gallery.name);
-    q.addBindValue(gallery.rootFolder);
+    q.addBindValue(storedRoot(gallery.rootFolder));
     q.addBindValue(gallery.allowUpscale ? 1 : 0);
     q.addBindValue(gallery.id);
     return exec(q);

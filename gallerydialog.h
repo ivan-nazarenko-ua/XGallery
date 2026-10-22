@@ -29,6 +29,8 @@ public slots:
 
 private:
     void browse();
+    // Portable mode only allows roots on the program's drive; shows an error otherwise.
+    bool checkDrive(const QString &folder);
     void requestDelete();
 
     Gallery m_gallery;

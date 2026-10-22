@@ -1,12 +1,14 @@
 #include "gallerydialog.h"
 
 #include <QCheckBox>
+#include <QCoreApplication>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
+#include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
@@ -36,6 +38,16 @@ GalleryDialog::GalleryDialog(const Gallery &gallery, const QStringList &otherNam
     auto *form = new QFormLayout;
     form->addRow(tr("Назва:"), m_nameEdit);
     form->addRow(tr("Коренева папка:"), rootRow);
+    if (Db::isPortable()) {
+        auto *hint = new QLabel(tr("Портабл-режим: коренева папка має бути на диску %1, де лежить програма.")
+                                    .arg(Db::programDrive()),
+                                this);
+        hint->setWordWrap(true);
+        QFont font = hint->font();
+        font.setItalic(true);
+        hint->setFont(font);
+        form->addRow(QString(), hint);
+    }
     form->addRow(QString(), m_allowUpscaleCheck);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -73,11 +85,14 @@ bool GalleryDialog::allowUpscale() const
 
 void GalleryDialog::browse()
 {
-    const QString current = rootFolder();
-    const QString folder = QFileDialog::getExistingDirectory(
-        this, tr("Обери кореневу папку галереї"),
-        current.isEmpty() ? QDir::homePath() : current);
-    if (folder.isEmpty())
+    QString start = rootFolder();
+    if (Db::isPortable() && (start.isEmpty() || !Db::isOnProgramDrive(start)))
+        start = QCoreApplication::applicationDirPath();
+    else if (start.isEmpty())
+        start = QDir::homePath();
+
+    const QString folder = QFileDialog::getExistingDirectory(this, tr("Обери кореневу папку галереї"), start);
+    if (folder.isEmpty() || !checkDrive(folder))
         return;
     m_rootEdit->setText(QDir::toNativeSeparators(QDir::cleanPath(folder)));
     if (m_nameEdit->text().trimmed().isEmpty())
@@ -101,7 +116,23 @@ void GalleryDialog::accept()
         m_rootEdit->setFocus();
         return;
     }
+    if (!checkDrive(rootFolder())) {
+        m_rootEdit->setFocus();
+        return;
+    }
     QDialog::accept();
+}
+
+bool GalleryDialog::checkDrive(const QString &folder)
+{
+    if (!Db::isPortable() || Db::isOnProgramDrive(folder))
+        return true;
+    QMessageBox::warning(this, windowTitle(),
+                         tr("Програма працює в портабл-режимі (база даних лежить поруч з exe), тому "
+                            "коренева папка має бути на тому ж диску, що й програма: %1\n\n"
+                            "Обрана папка: %2")
+                             .arg(Db::programDrive(), QDir::toNativeSeparators(folder)));
+    return false;
 }
 
 void GalleryDialog::requestDelete()

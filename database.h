@@ -31,7 +31,16 @@ inline constexpr const char *MainConnection = "xgallery_main";
 // tag editor rejects them, so it can't collide with a real tag.
 inline const QString NoTagsPseudoTag = QStringLiteral("<без тегів>");
 
+// xgallery.sqlite next to the exe if it exists (portable mode), otherwise in AppData.
 QString databasePath();
+// The DB lies next to the exe. Gallery roots must then be on the program's drive and are
+// stored relative to the exe folder (Gallery::rootFolder is still absolute in memory).
+bool isPortable();
+bool isOnProgramDrive(const QString &folder);
+QString programDrive(); // e.g. "E:\"
+// Portable mode: converts absolute roots on the program's drive (e.g. from a DB copied
+// from AppData) to relative ones. No-op otherwise.
+bool makeRootsPortable();
 
 // Opens (or reuses) a named connection and makes sure the schema exists (migrating old DBs).
 // Returns a closed database on failure; see lastError().
