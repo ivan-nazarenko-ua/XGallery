@@ -1,0 +1,71 @@
+# XGallery — notes for Claude
+
+Desktop photo-gallery manager. Qt 6.8.1 Widgets, C++17, SQLite, Windows (MinGW).
+The owner (Ivan) talks in Ukrainian; all UI strings are Ukrainian. Code, comments and
+commit messages are English. Features are added incrementally on request.
+
+## Build
+
+```powershell
+$env:PATH = "C:\Qt\Tools\mingw1310_64\bin;C:\Qt\Tools\Ninja;C:\Qt\6.8.1\mingw_64\bin;" + $env:PATH
+cd build\Desktop_Qt_6_8_1_MinGW_64_bit-Debug      # Qt Creator's build dir
+C:\Qt\Tools\CMake_64\bin\cmake.exe .               # only when files were added to CMakeLists.txt
+C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
+```
+
+- Keep the build free of warnings.
+- New source files go into `PROJECT_SOURCES` in `CMakeLists.txt`. Windows-only libs
+  (`ole32 shell32 uuid`, for Explorer thumbnails) are linked under `if(WIN32)`.
+- There are no unit tests in the repo. Verify logic with a throwaway console program in the
+  scratchpad that compiles the needed `.cpp` files (`database`, `migrations`, `scanner`,
+  `mediafiles`, `imagerotation`) and sets `QCoreApplication::setApplicationName("XGalleryScanTest")`
+  so it never touches the real DB. Delete `%APPDATA%\XGalleryScanTest` afterwards.
+- Do not put test files into the user's Recycle Bin, and do not read the user's personal files.
+- The shell Claude runs in sees a virtualized `%APPDATA%`, not the user's real DB.
+
+## Architecture
+
+| File | Role |
+|---|---|
+| `main.cpp` | App/organization name (`Nova30`/`XGallery`) → AppData location |
+| `mainwindow.*` | Everything in the main window: gallery combo, search, sort, tag list, 4×4 grid, File menu actions, busy handling |
+| `database.*` | `Db::` — connection handling, settings, galleries, search, metadata, duplicates. GUI thread uses `Db::MainConnection` |
+| `migrations.*` | Schema versions (`PRAGMA user_version`), one step per version |
+| `scanner.*` | Worker-thread jobs: rescan, import, junk search; sha256; folder → tag rules |
+| `mediafiles.*` | File kind by extension (image / video / other) and thumbnails (videos via `IShellItemImageFactory`, others as an extension card) |
+| `imageviewer.*` | Viewer window: fit/upscale, arrows (circular), double-click full screen, right-click rotation |
+| `imagerotation.*` | Saving rotations to disk (lossless for JPEG via EXIF orientation) |
+| `gallerydialog.*`, `imagemetadialog.*`, `duplicatesdialog.*`, `busydialog.*` | Dialogs |
+
+## Rules that must keep holding
+
+- **Schema changes only through `migrations.cpp`**: append a new step function to the list,
+  never edit existing steps. Current version: 4 (galleries; rating+name; allow_upscale; no commas in tags).
+- **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
+  `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
+  unlocked first and the handler may start the next job). Worker code opens its own DB
+  connection (`Db::open(uniqueName)` … `Db::close`).
+- **DB paths are relative to the gallery root**, `/`-separated. In portable mode (DB next to the
+  exe) gallery roots are stored relative to the exe dir and must be on the exe's drive;
+  `Gallery::rootFolder` in memory is always absolute.
+- **Tags**: per gallery. Folder names between root and file become tags; commas → space
+  (`tagsFromRelativePath`). Manual tags must not contain `,` `<` `>`. `Db::NoTagsPseudoTag`
+  (`<без тегів>`) is search-only, never stored. Unused tags are deleted after every change.
+- **Rescan**: all files incl. hidden/system, except `*.db`/`*.ini`. Unchanged = same size+mtime
+  (no re-hash). Folder tags are added only to new files, so manual tag edits survive.
+  Moves/renames: a missing record + one new file with the same sha256+size (1:1 only) keep
+  id, rating and manual tags; old-folder tags are swapped for new ones.
+  All files of one scan/import get the same `added_at` (for "newest first").
+- **Import** (add files/folder): copy, never move; skip duplicates (DB, same batch, or same
+  name+content already in the target); name clash → `name (1).ext`; records are written
+  immediately (no rescan needed).
+- **Deleting user files**: always ask first. Single files and duplicates go to the Recycle Bin
+  (`QFile::moveToTrash`); if that fails, nothing is deleted. "Видалити сміття" deletes
+  `Thumbs.db`/`desktop.ini` and empty folders permanently (as the owner asked), still behind a
+  confirmation.
+- **Rotation**: JPEG only edits/adds the EXIF orientation tag (never re-encodes unless the
+  file is malformed; then quality 100 with the EXIF block copied). Other formats are
+  re-encoded losslessly. Pending turns are counted mod 4; 0 = nothing to save.
+- Sorting: Classic = rating DESC, name NOCASE; NewestFirst = added_at DESC then classic;
+  LargestFirst = size DESC then classic. The viewer walks the full search result (images only)
+  in the same order.
