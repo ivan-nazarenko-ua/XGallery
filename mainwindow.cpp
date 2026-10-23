@@ -206,14 +206,22 @@ void MainWindow::buildUi()
         gridLayout->addWidget(button, i / GridColumns, i % GridColumns);
         m_thumbButtons << button;
 
-        // Selection for bulk tag editing (reset whenever a page is loaded).
+        // Selection for bulk tag editing; it is kept by image id across pages and searches.
         auto *check = new QCheckBox(button);
         check->setToolTip(tr("Обрати для групового редагування тегів (правий клік на будь-якому прев'ю)"));
         check->setStyleSheet("QCheckBox { background-color: rgba(255, 255, 255, 200); border-radius: 3px;"
                              " padding: 2px; }");
         check->move(4, 4);
         check->hide();
-        connect(check, &QCheckBox::toggled, this, &MainWindow::updateSelectAllButton);
+        connect(check, &QCheckBox::toggled, this, [this, i](bool on) {
+            if (i >= m_pageRecords.size())
+                return;
+            if (on)
+                m_selectedIds.insert(m_pageRecords[i].id);
+            else
+                m_selectedIds.remove(m_pageRecords[i].id);
+            updateSelectionUi();
+        });
         m_thumbChecks << check;
     }
     splitter->addWidget(gridHost);
@@ -236,15 +244,22 @@ void MainWindow::buildUi()
     connect(m_nextButton, &QPushButton::clicked, this, &MainWindow::showNextPage);
     pageRow->addWidget(m_nextButton);
     pageRow->addSpacing(24);
-    // Ticks every checkbox on the page for bulk tag editing; when all are ticked, clears them.
+    // Bulk selection: "select all" works on this page, "clear all" on every page.
     m_selectAllButton = new QPushButton(tr("Обрати всі"));
+    m_selectAllButton->setToolTip(tr("Відмітити всі файли на цій сторінці"));
     connect(m_selectAllButton, &QPushButton::clicked, this, [this] {
-        const bool check = !allChecked();
         for (QCheckBox *box : std::as_const(m_thumbChecks))
             if (!box->isHidden())
-                box->setChecked(check);
+                box->setChecked(true);
     });
     pageRow->addWidget(m_selectAllButton);
+    m_clearSelectionButton = new QPushButton(tr("Зняти всі"));
+    m_clearSelectionButton->setToolTip(tr("Зняти позначки з усіх файлів на всіх сторінках"));
+    connect(m_clearSelectionButton, &QPushButton::clicked, this, &MainWindow::clearSelection);
+    pageRow->addWidget(m_clearSelectionButton);
+    m_selectionLabel = new QLabel;
+    m_selectionLabel->setMinimumWidth(110);
+    pageRow->addWidget(m_selectionLabel);
     pageRow->addStretch();
     mainLayout->addLayout(pageRow);
 
@@ -303,6 +318,7 @@ void MainWindow::onGalleryChanged(int index)
     m_excludeEdit->clear();
     m_includeTags.clear();
     m_excludeTags.clear();
+    m_selectedIds.clear(); // the selection belongs to the previous gallery
     reloadTags();
     loadPage(0);
 }
@@ -597,7 +613,10 @@ void MainWindow::loadPage(int page)
         QToolButton *button = m_thumbButtons[i];
         button->setIcon(QIcon());
         QCheckBox *check = m_thumbChecks[i];
-        check->setChecked(false);
+        {
+            const QSignalBlocker blocker(check); // just showing the stored selection
+            check->setChecked(i < m_pageRecords.size() && m_selectedIds.contains(m_pageRecords[i].id));
+        }
         check->setVisible(i < m_pageRecords.size()
                           && MediaFiles::kindOf(m_pageRecords[i].relativePath) != MediaFiles::Kind::Other);
         if (i < m_pageRecords.size()) {
@@ -628,7 +647,7 @@ void MainWindow::loadPage(int page)
         }
     }
 
-    updateSelectAllButton();
+    updateSelectionUi();
 
     if (m_pageRecords.isEmpty())
         return;
@@ -698,14 +717,34 @@ void MainWindow::openThumbnail(int index)
     const qint64 galleryId = gallery->id;
     const QString root = gallery->rootFolder;
     connect(viewer, &ImageViewer::fileChanged, this, [this, galleryId, root](const QString &file) {
-        const QFileInfo fi(file);
-        Db::updateImageFile(galleryId, QDir(root).relativeFilePath(file), fi.size(),
-                            fi.lastModified(QTimeZone::UTC).toMSecsSinceEpoch(), Scanner::fileSha256(file));
-        const Gallery *current = currentGallery();
-        if (current && current->id == galleryId && !isBusy())
-            loadPage(m_page);
+        fileRewritten(galleryId, root, file);
     });
     viewer->show();
+}
+
+void MainWindow::fileRewritten(qint64 galleryId, const QString &root, const QString &file)
+{
+    const QFileInfo fi(file);
+    Db::updateImageFile(galleryId, QDir(root).relativeFilePath(file), fi.size(),
+                        fi.lastModified(QTimeZone::UTC).toMSecsSinceEpoch(), Scanner::fileSha256(file));
+    const Gallery *current = currentGallery();
+    if (current && current->id == galleryId && !isBusy())
+        loadPage(m_page);
+}
+
+// Connects what a metadata dialog needs from the main window.
+void MainWindow::wireMetaDialog(ImageMetaDialog &dialog)
+{
+    const Gallery *gallery = currentGallery();
+    dialog.setAllowUpscale(gallery->allowUpscale);
+    connect(&dialog, &ImageMetaDialog::tagActivated, this, [this](const QString &tag) {
+        addTagToEdit(m_includeEdit, tag); // the search itself waits for "Шукати"
+    });
+    const qint64 galleryId = gallery->id;
+    const QString root = gallery->rootFolder;
+    connect(&dialog, &ImageMetaDialog::fileChanged, this, [this, galleryId, root](const QString &file) {
+        fileRewritten(galleryId, root, file);
+    });
 }
 
 void MainWindow::editImageMeta(int index)
@@ -715,26 +754,26 @@ void MainWindow::editImageMeta(int index)
         return;
     const qint64 galleryId = gallery->id;
 
-    QList<int> checked;
-    for (int i = 0; i < m_pageRecords.size() && i < m_thumbChecks.size(); ++i)
-        if (!m_thumbChecks[i]->isHidden() && m_thumbChecks[i]->isChecked())
-            checked << i;
-    if (checked.size() > 1) {
-        editTagsOfSelection(checked);
+    if (m_selectedIds.size() > 1) {
+        editTagsOfSelection();
         return;
     }
-    if (checked.size() == 1)
-        index = checked.first(); // one file chosen: edit that one, wherever the click was
-
-    const ImageRecord record = m_pageRecords[index];
+    ImageRecord record = m_pageRecords[index];
+    if (m_selectedIds.size() == 1) {
+        // One file chosen (maybe on another page): edit that one, wherever the click was.
+        const QList<ImageRecord> chosen = Db::imagesByIds(galleryId, m_selectedIds.values());
+        if (chosen.isEmpty()) {
+            clearSelection(); // it no longer exists
+        } else {
+            record = chosen.first();
+        }
+    }
     if (MediaFiles::kindOf(record.relativePath) == MediaFiles::Kind::Other)
         return; // nothing to do for other files for now
 
     const QString path = absolutePath(record.relativePath);
     ImageMetaDialog dialog({path}, Db::tagsForImage(record.id), record.rating, Db::allTags(galleryId), this);
-    connect(&dialog, &ImageMetaDialog::tagActivated, this, [this](const QString &tag) {
-        addTagToEdit(m_includeEdit, tag); // the search itself waits for "Шукати"
-    });
+    wireMetaDialog(dialog);
     const int result = dialog.exec();
 
     if (result == ImageMetaDialog::DeleteRequested) {
@@ -749,6 +788,7 @@ void MainWindow::editImageMeta(int index)
             QMessageBox::warning(this, tr("Помилка БД"),
                                  tr("Файл у Кошику, але прибрати запис з бази не вдалося:\n%1\n\nЗроби рескан.")
                                      .arg(Db::lastError()));
+        m_selectedIds.remove(record.id);
         statusBar()->showMessage(tr("У Кошику: %1").arg(QFileInfo(record.relativePath).fileName()), 5000);
         reloadTags();
         loadPage(m_page);
@@ -766,41 +806,55 @@ void MainWindow::editImageMeta(int index)
     loadPage(m_page); // rating may have moved the image
 }
 
-bool MainWindow::allChecked() const
+void MainWindow::clearSelection()
 {
-    bool any = false;
-    for (QCheckBox *box : m_thumbChecks) {
+    m_selectedIds.clear();
+    for (QCheckBox *box : std::as_const(m_thumbChecks)) {
+        const QSignalBlocker blocker(box);
+        box->setChecked(false);
+    }
+    updateSelectionUi();
+}
+
+void MainWindow::updateSelectionUi()
+{
+    bool anyOnPage = false;
+    bool allOnPage = true;
+    for (QCheckBox *box : std::as_const(m_thumbChecks)) {
         if (box->isHidden())
             continue;
-        if (!box->isChecked())
-            return false;
-        any = true;
+        anyOnPage = true;
+        allOnPage = allOnPage && box->isChecked();
     }
-    return any;
+    m_selectAllButton->setEnabled(anyOnPage && !allOnPage);
+    m_clearSelectionButton->setEnabled(!m_selectedIds.isEmpty());
+    m_selectionLabel->setText(m_selectedIds.isEmpty() ? QString()
+                                                      : tr("Обрано: %1").arg(m_selectedIds.size()));
 }
 
-void MainWindow::updateSelectAllButton()
-{
-    bool any = false;
-    for (QCheckBox *box : std::as_const(m_thumbChecks))
-        any = any || !box->isHidden();
-    m_selectAllButton->setEnabled(any);
-    m_selectAllButton->setText(allChecked() ? tr("Зняти всі") : tr("Обрати всі"));
-}
-
-void MainWindow::editTagsOfSelection(const QList<int> &indices)
+void MainWindow::editTagsOfSelection()
 {
     const Gallery *gallery = currentGallery();
     if (!gallery)
         return;
     const qint64 galleryId = gallery->id;
 
+    // The selection may span pages and searches; files deleted meanwhile drop out.
+    const QList<ImageRecord> records = Db::imagesByIds(galleryId, m_selectedIds.values());
+    m_selectedIds.clear();
+    for (const ImageRecord &rec : records)
+        m_selectedIds.insert(rec.id);
+    updateSelectionUi();
+    if (records.size() < 2) {
+        loadPage(m_page);
+        return;
+    }
+
     QStringList paths;
     QList<qint64> ids;
     QStringList common;
     bool first = true;
-    for (int i : indices) {
-        const ImageRecord &rec = m_pageRecords[i];
+    for (const ImageRecord &rec : records) {
         paths << absolutePath(rec.relativePath);
         ids << rec.id;
         const QStringList tags = Db::tagsForImage(rec.id);
@@ -815,9 +869,7 @@ void MainWindow::editTagsOfSelection(const QList<int> &indices)
     }
 
     ImageMetaDialog dialog(paths, common, 50, Db::allTags(galleryId), this);
-    connect(&dialog, &ImageMetaDialog::tagActivated, this, [this](const QString &tag) {
-        addTagToEdit(m_includeEdit, tag); // the search itself waits for "Шукати"
-    });
+    wireMetaDialog(dialog);
     if (dialog.exec() != QDialog::Accepted)
         return;
     const QStringList added = dialog.addedTags();

@@ -88,6 +88,9 @@ QList<ImageRecord> searchImages(qint64 galleryId,
 // tags of the gallery that end up unused are deleted.
 bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringList &tags);
 
+// The gallery's records with these ids (ids that no longer exist are skipped), sorted by path.
+QList<ImageRecord> imagesByIds(qint64 galleryId, const QList<qint64> &imageIds);
+
 // Renames a tag of the gallery. newName must be normalized and not taken (UNIQUE fails otherwise).
 bool renameTag(qint64 galleryId, const QString &oldName, const QString &newName);
 

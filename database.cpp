@@ -420,6 +420,24 @@ bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringLi
     return false;
 }
 
+QList<ImageRecord> imagesByIds(qint64 galleryId, const QList<qint64> &imageIds)
+{
+    QList<ImageRecord> result;
+    if (imageIds.isEmpty())
+        return result;
+    QStringList ids;
+    for (qint64 id : imageIds)
+        ids << QString::number(id); // numbers only, safe to inline
+    QSqlQuery q(mainDb());
+    q.prepare("SELECT id, path, rating, size FROM images WHERE gallery_id = ? AND id IN (" + ids.join(',')
+              + ") ORDER BY path COLLATE NOCASE");
+    q.addBindValue(galleryId);
+    if (exec(q))
+        while (q.next())
+            result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toInt(), q.value(3).toLongLong()});
+    return result;
+}
+
 bool renameTag(qint64 galleryId, const QString &oldName, const QString &newName)
 {
     QSqlQuery q(mainDb());

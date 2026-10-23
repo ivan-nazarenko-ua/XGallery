@@ -5,6 +5,7 @@
 #include <QStringList>
 
 class QComboBox;
+class QLabel;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
@@ -25,6 +26,9 @@ public:
     ImageMetaDialog(const QStringList &filePaths, const QStringList &imageTags, int rating,
                     const QStringList &galleryTags, QWidget *parent = nullptr);
 
+    // Viewer setting of the gallery, for images opened from this dialog.
+    void setAllowUpscale(bool allow);
+
     QStringList tags() const;
     QStringList addedTags() const;   // compared with the tags the dialog started with
     QStringList removedTags() const;
@@ -33,6 +37,14 @@ public:
 signals:
     // Double click on a tag: put it into the main window's search ("Містить").
     void tagActivated(const QString &tag);
+    // A viewer opened from here rewrote the file (saved rotation).
+    void fileChanged(const QString &path);
+
+public slots:
+    void done(int result) override;
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void addTag(const QString &tag);
@@ -40,10 +52,15 @@ private:
     void addNewTag();
     void removeSelectedTags();
     void refresh();
+    void updatePreview();
+    void openFile(int index); // click on the preview / on a row of the bulk list
 
     QStringList m_galleryTags;
     QStringList m_tags;
     QStringList m_initialTags;
+    QStringList m_filePaths;
+    bool m_allowUpscale = false;
+    QLabel *m_preview = nullptr;
 
     QListWidget *m_tagList;
     QPushButton *m_removeButton;

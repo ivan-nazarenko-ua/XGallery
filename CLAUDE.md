@@ -72,6 +72,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - Sorting: Classic = rating DESC, name NOCASE; NewestFirst = added_at DESC then classic;
   LargestFirst = size DESC then classic. The viewer walks the full search result (images only)
   in the same order.
-- Bulk tag edit: checkboxes on thumbnails (hidden for "other" files, reset on every page load);
-  right click with 2+ checked → `Db::applyTagChanges` (add/remove diff against the common tags).
+- Bulk tag edit: checkboxes on thumbnails (hidden for "other" files). The selection is a set of image ids
+  (`m_selectedIds`) kept across pages/searches, cleared by "Зняти всі" or a gallery switch; "Обрати всі"
+  ticks the current page only. Right click with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.
   Double click on a tag in the metadata dialog adds it to "Містить" without searching.

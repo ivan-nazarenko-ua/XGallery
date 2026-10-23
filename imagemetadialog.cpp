@@ -1,9 +1,11 @@
 #include "imagemetadialog.h"
 
 #include "database.h"
+#include "imageviewer.h"
 #include "mediafiles.h"
 
 #include <QComboBox>
+#include <QDesktopServices>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileInfo>
@@ -12,10 +14,12 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMouseEvent>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QShortcut>
 #include <QSpinBox>
+#include <QUrl>
 #include <QVBoxLayout>
 
 namespace {
@@ -49,27 +53,39 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
     setMinimumWidth(560);
 
     // Preview + path (single file) or the list of chosen files (bulk)
+    m_filePaths = filePaths;
     auto *preview = new QLabel(this);
+    m_preview = preview;
     preview->setFixedSize(PreviewSize, PreviewSize);
     preview->setAlignment(Qt::AlignCenter);
-    QLabel *pathLabel;
+    QWidget *pathLabel;
     if (bulk) {
         preview->setText(tr("Обрано файлів: %1").arg(filePaths.size()));
-        QStringList names;
-        for (const QString &path : filePaths)
-            names << QFileInfo(path).fileName();
-        pathLabel = new QLabel(names.join('\n'), this);
-        pathLabel->setMaximumWidth(PreviewSize);
+        preview->setFixedHeight(40);
+        // May be dozens of files (the selection spans pages): a scrollable list.
+        auto *files = new QListWidget(this);
+        for (const QString &path : filePaths) {
+            auto *item = new QListWidgetItem(QFileInfo(path).fileName(), files);
+            item->setToolTip(QDir::toNativeSeparators(path));
+        }
+        files->setSelectionMode(QAbstractItemView::NoSelection);
+        files->setFixedWidth(PreviewSize);
+        files->setToolTip(tr("Клік — відкрити файл"));
+        connect(files, &QListWidget::itemClicked, this,
+                [this, files](QListWidgetItem *item) { openFile(files->row(item)); });
+        pathLabel = files;
     } else {
-        const QImage image = MediaFiles::makeThumbnail(filePath, PreviewSize); // also handles videos
-        if (image.isNull())
-            preview->setText(tr("(не читається)"));
-        else
-            preview->setPixmap(QPixmap::fromImage(image));
-        pathLabel = new QLabel(QDir::toNativeSeparators(filePath), this);
+        updatePreview();
+        if (MediaFiles::kindOf(filePath) != MediaFiles::Kind::Other) {
+            preview->setCursor(Qt::PointingHandCursor);
+            preview->setToolTip(tr("Клік — відкрити"));
+            preview->installEventFilter(this);
+        }
+        auto *label = new QLabel(QDir::toNativeSeparators(filePath), this);
+        label->setWordWrap(true);
+        label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        pathLabel = label;
     }
-    pathLabel->setWordWrap(true);
-    pathLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
     // Tags
     m_tagList->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -153,6 +169,75 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
 
     std::sort(m_tags.begin(), m_tags.end(), lessCaseInsensitive);
     refresh();
+}
+
+void ImageMetaDialog::setAllowUpscale(bool allow)
+{
+    m_allowUpscale = allow;
+}
+
+void ImageMetaDialog::updatePreview()
+{
+    const QImage image = MediaFiles::makeThumbnail(m_filePaths.value(0), PreviewSize); // also handles videos
+    if (image.isNull())
+        m_preview->setText(tr("(не читається)"));
+    else
+        m_preview->setPixmap(QPixmap::fromImage(image));
+}
+
+bool ImageMetaDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_preview && event->type() == QEvent::MouseButtonRelease
+        && static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton) {
+        openFile(0);
+        return true;
+    }
+    return QDialog::eventFilter(watched, event);
+}
+
+// Image: viewer walking through the images of this dialog (just one in single mode).
+// Video: the program Windows associates with it. Anything else: nothing.
+void ImageMetaDialog::openFile(int index)
+{
+    const QString path = m_filePaths.value(index);
+    switch (MediaFiles::kindOf(path)) {
+    case MediaFiles::Kind::Image: {
+        QStringList images;
+        int current = 0;
+        for (int i = 0; i < m_filePaths.size(); ++i) {
+            if (MediaFiles::kindOf(m_filePaths[i]) != MediaFiles::Kind::Image)
+                continue;
+            if (i == index)
+                current = int(images.size());
+            images << m_filePaths[i];
+        }
+        // A child of the dialog, so it works while the dialog is modal and closes with it.
+        auto *viewer = new ImageViewer(images, current, m_allowUpscale, this);
+        connect(viewer, &ImageViewer::fileChanged, this, [this](const QString &file) {
+            if (m_filePaths.size() == 1)
+                updatePreview(); // a saved rotation shows up here too
+            emit fileChanged(file);
+        });
+        viewer->show();
+        break;
+    }
+    case MediaFiles::Kind::Video:
+        if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path)))
+            QMessageBox::warning(this, windowTitle(),
+                                 tr("Не вдалося відкрити файл:\n%1").arg(QDir::toNativeSeparators(path)));
+        break;
+    case MediaFiles::Kind::Other:
+        break;
+    }
+}
+
+void ImageMetaDialog::done(int result)
+{
+    // Open viewers may hold an unsaved rotation: let them ask first; "Cancel" keeps the dialog open.
+    for (ImageViewer *viewer : findChildren<ImageViewer *>(Qt::FindDirectChildrenOnly))
+        if (!viewer->close())
+            return;
+    QDialog::done(result);
 }
 
 QStringList ImageMetaDialog::tags() const

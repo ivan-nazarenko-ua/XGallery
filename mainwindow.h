@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QSet>
 #include <QTimer>
 
 #include "database.h"
@@ -24,6 +25,7 @@ class QToolButton;
 QT_END_NAMESPACE
 
 class BusyDialog;
+class ImageMetaDialog;
 
 class MainWindow : public QMainWindow
 {
@@ -47,8 +49,9 @@ private slots:
     void showNextPage();
     void openThumbnail(int index);
     void editImageMeta(int index);
-    void editTagsOfSelection(const QList<int> &indices);
-    void updateSelectAllButton();
+    void editTagsOfSelection(); // all selected files, on any page
+    void clearSelection();
+    void updateSelectionUi();
     void findDuplicates();
     void deleteJunk(); // Thumbs.db, desktop.ini and empty folders
     void addFilesToGallery();
@@ -68,13 +71,15 @@ private:
     const Gallery *currentGallery() const;
     QStringList galleryNamesExcept(qint64 galleryId) const;
     Db::SortOrder sortOrder() const;
-    bool allChecked() const; // every visible thumbnail checkbox is ticked (and there is one)
     // Asks for a first-level folder of the gallery (existing, or a new name). Empty on cancel.
     QString chooseRootTag(const QString &title, const QString &suggestion);
     // Collects files (in a worker) with collect(), then copies them into the gallery.
     void runImport(std::function<QList<Scanner::ImportItem>()> collect);
     void reloadTags();
     void loadPage(int page);
+    // A file was rewritten by the program (saved rotation): refresh its DB record and the grid.
+    void fileRewritten(qint64 galleryId, const QString &root, const QString &file);
+    void wireMetaDialog(ImageMetaDialog &dialog);
     void addTagToEdit(QLineEdit *edit, const QString &tag);
     QString absolutePath(const QString &relativePath) const;
     static QStringList parseTags(const QString &text);
@@ -102,6 +107,9 @@ private:
     QPushButton *m_prevButton = nullptr;
     QPushButton *m_nextButton = nullptr;
     QPushButton *m_selectAllButton = nullptr;
+    QPushButton *m_clearSelectionButton = nullptr;
+    QLabel *m_selectionLabel = nullptr;
+    QSet<qint64> m_selectedIds; // bulk-edit selection, kept across pages and searches
     QLabel *m_pageLabel = nullptr;
 
     QStringList m_includeTags;
