@@ -71,7 +71,7 @@ QStringList tagsFromRelativePath(const QString &relativePath)
         parts.removeLast(); // the file name itself
     QStringList tags;
     for (const QString &folder : std::as_const(parts)) {
-        const QString tag = QString(folder).replace(',', ' ').simplified();
+        const QString tag = Db::normalizeTag(QString(folder).replace(',', ' '));
         if (!tag.isEmpty() && !tags.contains(tag))
             tags << tag;
     }

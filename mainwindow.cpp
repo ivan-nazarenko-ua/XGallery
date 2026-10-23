@@ -10,6 +10,7 @@
 #include "scanner.h"
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDesktopServices>
@@ -136,6 +137,11 @@ void MainWindow::buildUi()
     m_includeEdit->setPlaceholderText(tr("тег1, тег2 (усі одночасно)"));
     m_includeEdit->setClearButtonEnabled(true);
     searchRow->addWidget(m_includeEdit, 1);
+    m_exactCheck = new QCheckBox(tr("Жорстко"));
+    m_exactCheck->setToolTip(tr("Лише файли, що мають рівно ці теги й жодних інших.\n"
+                                "Поле «Не містить» тоді не враховується."));
+    connect(m_exactCheck, &QCheckBox::toggled, this, [this](bool on) { m_excludeEdit->setEnabled(!on); });
+    searchRow->addWidget(m_exactCheck);
     searchRow->addWidget(new QLabel(tr("Не містить:")));
     m_excludeEdit = new QLineEdit;
     m_excludeEdit->setPlaceholderText(tr("тег3, тег4 (жодного з них)"));
@@ -199,6 +205,16 @@ void MainWindow::buildUi()
         connect(button, &QWidget::customContextMenuRequested, this, [this, i] { editImageMeta(i); });
         gridLayout->addWidget(button, i / GridColumns, i % GridColumns);
         m_thumbButtons << button;
+
+        // Selection for bulk tag editing (reset whenever a page is loaded).
+        auto *check = new QCheckBox(button);
+        check->setToolTip(tr("Обрати для групового редагування тегів (правий клік на будь-якому прев'ю)"));
+        check->setStyleSheet("QCheckBox { background-color: rgba(255, 255, 255, 200); border-radius: 3px;"
+                             " padding: 2px; }");
+        check->move(4, 4);
+        check->hide();
+        connect(check, &QCheckBox::toggled, this, &MainWindow::updateSelectAllButton);
+        m_thumbChecks << check;
     }
     splitter->addWidget(gridHost);
     splitter->setStretchFactor(0, 0);
@@ -219,6 +235,16 @@ void MainWindow::buildUi()
     m_nextButton = new QPushButton(tr("Наступна ▶"));
     connect(m_nextButton, &QPushButton::clicked, this, &MainWindow::showNextPage);
     pageRow->addWidget(m_nextButton);
+    pageRow->addSpacing(24);
+    // Ticks every checkbox on the page for bulk tag editing; when all are ticked, clears them.
+    m_selectAllButton = new QPushButton(tr("Обрати всі"));
+    connect(m_selectAllButton, &QPushButton::clicked, this, [this] {
+        const bool check = !allChecked();
+        for (QCheckBox *box : std::as_const(m_thumbChecks))
+            if (!box->isHidden())
+                box->setChecked(check);
+    });
+    pageRow->addWidget(m_selectAllButton);
     pageRow->addStretch();
     mainLayout->addLayout(pageRow);
 
@@ -405,7 +431,7 @@ QStringList MainWindow::parseTags(const QString &text)
 {
     QStringList tags;
     for (const QString &part : text.split(',', Qt::SkipEmptyParts)) {
-        const QString tag = part.trimmed();
+        const QString tag = Db::normalizeTag(part);
         if (!tag.isEmpty() && !tags.contains(tag))
             tags << tag;
     }
@@ -416,6 +442,10 @@ void MainWindow::applySearch()
 {
     m_includeTags = parseTags(m_includeEdit->text());
     m_excludeTags = parseTags(m_excludeEdit->text());
+    m_exactTags = m_exactCheck->isChecked();
+    // Show what is actually searched for (normalized spelling).
+    m_includeEdit->setText(m_includeTags.join(", "));
+    m_excludeEdit->setText(m_excludeTags.join(", "));
     loadPage(0);
 }
 
@@ -423,6 +453,7 @@ void MainWindow::clearSearch()
 {
     m_includeEdit->clear();
     m_excludeEdit->clear();
+    m_exactCheck->setChecked(false);
     applySearch();
 }
 
@@ -449,7 +480,61 @@ void MainWindow::showTagMenu(const QPoint &pos)
         addTagToEdit(m_excludeEdit, tag);
         applySearch();
     });
+    if (tag != Db::NoTagsPseudoTag) { // the service tag has a fixed name
+        menu.addSeparator();
+        menu.addAction(tr("Перейменувати…"), this, [this, tag] { renameTag(tag); });
+    }
     menu.exec(m_tagList->viewport()->mapToGlobal(pos));
+}
+
+void MainWindow::renameTag(const QString &oldName)
+{
+    const Gallery *gallery = currentGallery();
+    if (isBusy() || !gallery)
+        return;
+    const qint64 galleryId = gallery->id;
+
+    QString text = oldName;
+    for (;;) {
+        bool ok = false;
+        text = QInputDialog::getText(this, tr("Перейменувати тег"), tr("Нова назва тегу «%1»:").arg(oldName),
+                                     QLineEdit::Normal, text, &ok);
+        if (!ok)
+            return;
+        const QString newName = Db::normalizeTag(text);
+        if (newName.isEmpty() || newName == oldName)
+            return; // nothing to change
+        if (newName.contains(',') || newName.contains('<') || newName.contains('>')) {
+            QMessageBox::warning(this, tr("Перейменувати тег"), tr("Назва тегу не може містити символи «,», «<» і «>»."));
+            continue;
+        }
+        if (Db::allTags(galleryId).contains(newName)) {
+            QMessageBox::warning(this, tr("Перейменувати тег"),
+                                 tr("Тег «%1» вже існує. Перейменування скасовано.").arg(newName));
+            return;
+        }
+        if (!Db::renameTag(galleryId, oldName, newName)) {
+            QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося перейменувати тег:\n%1").arg(Db::lastError()));
+            return;
+        }
+
+        // Keep the search fields pointing at the same tag.
+        for (QLineEdit *edit : {m_includeEdit, m_excludeEdit}) {
+            QStringList tags = parseTags(edit->text());
+            const qsizetype i = tags.indexOf(oldName);
+            if (i >= 0) {
+                tags[i] = newName;
+                edit->setText(tags.join(", "));
+            }
+        }
+        m_includeTags.replaceInStrings(QRegularExpression("^" + QRegularExpression::escape(oldName) + "$"), newName);
+        m_excludeTags.replaceInStrings(QRegularExpression("^" + QRegularExpression::escape(oldName) + "$"), newName);
+
+        statusBar()->showMessage(tr("Тег «%1» перейменовано на «%2»").arg(oldName, newName), 5000);
+        reloadTags();
+        loadPage(m_page);
+        return;
+    }
 }
 
 void MainWindow::reloadTags()
@@ -496,7 +581,7 @@ void MainWindow::loadPage(int page)
     m_page = page;
     const Gallery *gallery = currentGallery();
     m_pageRecords = Db::searchImages(gallery ? gallery->id : 0, m_includeTags, m_excludeTags, page * PageSize, PageSize,
-                                     &m_totalCount, sortOrder());
+                                     &m_totalCount, sortOrder(), m_exactTags);
     if (m_pageRecords.isEmpty() && page > 0 && m_totalCount > 0) {
         // The page shrank (e.g. after editing tags): show the last one that exists.
         loadPage((m_totalCount - 1) / PageSize);
@@ -511,6 +596,10 @@ void MainWindow::loadPage(int page)
     for (int i = 0; i < m_thumbButtons.size(); ++i) {
         QToolButton *button = m_thumbButtons[i];
         button->setIcon(QIcon());
+        QCheckBox *check = m_thumbChecks[i];
+        check->setChecked(false);
+        check->setVisible(i < m_pageRecords.size()
+                          && MediaFiles::kindOf(m_pageRecords[i].relativePath) != MediaFiles::Kind::Other);
         if (i < m_pageRecords.size()) {
             const ImageRecord &rec = m_pageRecords[i];
             const QString name = QFileInfo(rec.relativePath).fileName();
@@ -538,6 +627,8 @@ void MainWindow::loadPage(int page)
             button->setEnabled(false);
         }
     }
+
+    updateSelectAllButton();
 
     if (m_pageRecords.isEmpty())
         return;
@@ -588,7 +679,7 @@ void MainWindow::openThumbnail(int index)
     // The arrows in the viewer walk through the images of the whole search result
     // (not just this page); videos and other files are skipped.
     const QList<ImageRecord> all = Db::searchImages(gallery->id, m_includeTags, m_excludeTags, 0, -1, nullptr,
-                                                    sortOrder());
+                                                    sortOrder(), m_exactTags);
     QStringList paths;
     paths.reserve(all.size());
     int current = 0;
@@ -622,13 +713,28 @@ void MainWindow::editImageMeta(int index)
     const Gallery *gallery = currentGallery();
     if (isBusy() || !gallery || index < 0 || index >= m_pageRecords.size())
         return;
-    const ImageRecord record = m_pageRecords[index];
     const qint64 galleryId = gallery->id;
+
+    QList<int> checked;
+    for (int i = 0; i < m_pageRecords.size() && i < m_thumbChecks.size(); ++i)
+        if (!m_thumbChecks[i]->isHidden() && m_thumbChecks[i]->isChecked())
+            checked << i;
+    if (checked.size() > 1) {
+        editTagsOfSelection(checked);
+        return;
+    }
+    if (checked.size() == 1)
+        index = checked.first(); // one file chosen: edit that one, wherever the click was
+
+    const ImageRecord record = m_pageRecords[index];
     if (MediaFiles::kindOf(record.relativePath) == MediaFiles::Kind::Other)
         return; // nothing to do for other files for now
 
     const QString path = absolutePath(record.relativePath);
-    ImageMetaDialog dialog(path, Db::tagsForImage(record.id), record.rating, Db::allTags(galleryId), this);
+    ImageMetaDialog dialog({path}, Db::tagsForImage(record.id), record.rating, Db::allTags(galleryId), this);
+    connect(&dialog, &ImageMetaDialog::tagActivated, this, [this](const QString &tag) {
+        addTagToEdit(m_includeEdit, tag); // the search itself waits for "Шукати"
+    });
     const int result = dialog.exec();
 
     if (result == ImageMetaDialog::DeleteRequested) {
@@ -658,6 +764,74 @@ void MainWindow::editImageMeta(int index)
     statusBar()->showMessage(tr("Збережено: %1").arg(QFileInfo(record.relativePath).fileName()), 5000);
     reloadTags();
     loadPage(m_page); // rating may have moved the image
+}
+
+bool MainWindow::allChecked() const
+{
+    bool any = false;
+    for (QCheckBox *box : m_thumbChecks) {
+        if (box->isHidden())
+            continue;
+        if (!box->isChecked())
+            return false;
+        any = true;
+    }
+    return any;
+}
+
+void MainWindow::updateSelectAllButton()
+{
+    bool any = false;
+    for (QCheckBox *box : std::as_const(m_thumbChecks))
+        any = any || !box->isHidden();
+    m_selectAllButton->setEnabled(any);
+    m_selectAllButton->setText(allChecked() ? tr("Зняти всі") : tr("Обрати всі"));
+}
+
+void MainWindow::editTagsOfSelection(const QList<int> &indices)
+{
+    const Gallery *gallery = currentGallery();
+    if (!gallery)
+        return;
+    const qint64 galleryId = gallery->id;
+
+    QStringList paths;
+    QList<qint64> ids;
+    QStringList common;
+    bool first = true;
+    for (int i : indices) {
+        const ImageRecord &rec = m_pageRecords[i];
+        paths << absolutePath(rec.relativePath);
+        ids << rec.id;
+        const QStringList tags = Db::tagsForImage(rec.id);
+        if (first) {
+            common = tags;
+            first = false;
+        } else {
+            common.erase(std::remove_if(common.begin(), common.end(),
+                                        [&tags](const QString &t) { return !tags.contains(t); }),
+                         common.end());
+        }
+    }
+
+    ImageMetaDialog dialog(paths, common, 50, Db::allTags(galleryId), this);
+    connect(&dialog, &ImageMetaDialog::tagActivated, this, [this](const QString &tag) {
+        addTagToEdit(m_includeEdit, tag); // the search itself waits for "Шукати"
+    });
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    const QStringList added = dialog.addedTags();
+    const QStringList removed = dialog.removedTags();
+    if (added.isEmpty() && removed.isEmpty())
+        return;
+
+    if (!Db::applyTagChanges(galleryId, ids, added, removed)) {
+        QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти зміни:\n%1").arg(Db::lastError()));
+        return;
+    }
+    statusBar()->showMessage(tr("Теги оновлено у файлів: %1").arg(ids.size()), 5000);
+    reloadTags();
+    loadPage(m_page);
 }
 
 Db::SortOrder MainWindow::sortOrder() const

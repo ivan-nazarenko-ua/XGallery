@@ -32,6 +32,10 @@ inline constexpr const char *MainConnection = "xgallery_main";
 // tag editor rejects them, so it can't collide with a real tag.
 inline const QString NoTagsPseudoTag = QStringLiteral("<без тегів>");
 
+// The one spelling of a tag: whitespace collapsed, first letter upper case, the rest lower
+// ("нове СВЯТО" -> "Нове свято"). Every tag is normalized before it is stored or searched for.
+QString normalizeTag(const QString &tag);
+
 // xgallery.sqlite next to the exe if it exists (portable mode), otherwise in AppData.
 QString databasePath();
 // The DB lies next to the exe. Gallery roots must then be on the program's drive and are
@@ -72,15 +76,25 @@ enum class SortOrder {
 // Images of the gallery having ALL of includeTags and NONE of excludeTags.
 // Empty includeTags means "any image". limit < 0 means "no limit".
 // NoTagsPseudoTag may be used in either list.
+// exactTags: images whose tag set is exactly includeTags (no other tags); excludeTags is ignored.
 QList<ImageRecord> searchImages(qint64 galleryId,
                                 const QStringList &includeTags,
                                 const QStringList &excludeTags,
                                 int offset, int limit, int *totalCount,
-                                SortOrder order = SortOrder::Classic);
+                                SortOrder order = SortOrder::Classic,
+                                bool exactTags = false);
 
 // Replaces the image's rating and tag set in one transaction. New tag names are created;
 // tags of the gallery that end up unused are deleted.
 bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringList &tags);
+
+// Renames a tag of the gallery. newName must be normalized and not taken (UNIQUE fails otherwise).
+bool renameTag(qint64 galleryId, const QString &oldName, const QString &newName);
+
+// Bulk edit: adds/removes the given tags on every image (an image that already has an added
+// tag keeps it once). Unused tags are deleted afterwards. One transaction.
+bool applyTagChanges(qint64 galleryId, const QList<qint64> &imageIds,
+                     const QStringList &added, const QStringList &removed);
 
 // The file at relativePath was rewritten by the program (e.g. rotated): refresh its record.
 bool updateImageFile(qint64 galleryId, const QString &relativePath, qint64 size, qint64 mtime,

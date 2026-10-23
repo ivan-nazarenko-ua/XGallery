@@ -37,6 +37,7 @@ set(PROJECT_SOURCES
         duplicatesdialog.cpp
         imagerotation.h
         imagerotation.cpp
+        resources.qrc
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -69,6 +70,10 @@ target_link_libraries(XGallery PRIVATE
 )
 
 if(WIN32)
+    # Program icon for the .exe (Explorer, taskbar)
+    target_sources(XGallery PRIVATE xgallery.rc)
+    # windres doesn't track the .ico it embeds
+    set_source_files_properties(xgallery.rc PROPERTIES OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xgallery.ico)
     # Explorer thumbnails for videos (mediafiles.cpp)
     target_link_libraries(XGallery PRIVATE ole32 shell32 uuid)
 endif()

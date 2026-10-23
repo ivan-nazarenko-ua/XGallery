@@ -1,7 +1,9 @@
 #include "migrations.h"
 
 #include <QFileInfo>
+#include <QHash>
 #include <QList>
+#include <QMap>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStringList>
@@ -221,6 +223,71 @@ bool toV4NoCommasInTags(Sql &s)
     return true;
 }
 
+// ---- v4 -> v5: one spelling per tag ------------------------------------------------------
+// "коти", "КОТИ" and "Коти" become "Коти": whitespace collapsed, first letter upper case,
+// the rest lower. Tags that end up with the same name in a gallery are merged.
+// (The rule is spelled out here instead of calling Db::normalizeTag so this step never changes.)
+// Empty names can't happen (rescan/import never create them), so they are left alone.
+bool toV5NormalizedTags(Sql &s)
+{
+    struct Tag { qint64 id; qint64 galleryId; QString name; };
+    QList<Tag> tags;
+    QSqlQuery &q = s.query();
+    if (!s.exec("SELECT id, gallery_id, name FROM tags ORDER BY id"))
+        return false;
+    while (q.next())
+        tags.append({q.value(0).toLongLong(), q.value(1).toLongLong(), q.value(2).toString()});
+    q.finish();
+
+    // Group all spellings by gallery + target name.
+    QMap<QPair<qint64, QString>, QList<Tag>> groups;
+    for (const Tag &tag : std::as_const(tags)) {
+        const QString t = tag.name.simplified();
+        const QString name = t.isEmpty() ? t : t.left(1).toUpper() + t.mid(1).toLower();
+        groups[{tag.galleryId, name}].append(tag);
+    }
+
+    for (auto g = groups.constBegin(); g != groups.constEnd(); ++g) {
+        const QString &name = g.key().second;
+        const QList<Tag> &spellings = g.value();
+        // Keep the tag that already has the right spelling, otherwise the oldest one.
+        qsizetype keep = 0;
+        for (qsizetype i = 0; i < spellings.size(); ++i)
+            if (spellings[i].name == name)
+                keep = i;
+        const qint64 keeperId = spellings[keep].id;
+
+        // Other spellings: move their links to the keeper, then drop them.
+        for (qsizetype i = 0; i < spellings.size(); ++i) {
+            if (i == keep)
+                continue;
+            q.prepare("INSERT OR IGNORE INTO image_tags(image_id, tag_id) "
+                      "SELECT image_id, ? FROM image_tags WHERE tag_id = ?");
+            q.addBindValue(keeperId);
+            q.addBindValue(spellings[i].id);
+            if (!s.exec())
+                return false;
+            q.prepare("DELETE FROM image_tags WHERE tag_id = ?");
+            q.addBindValue(spellings[i].id);
+            if (!s.exec())
+                return false;
+            q.prepare("DELETE FROM tags WHERE id = ?");
+            q.addBindValue(spellings[i].id);
+            if (!s.exec())
+                return false;
+        }
+        // Only now the name is free for the keeper.
+        if (spellings[keep].name != name) {
+            q.prepare("UPDATE tags SET name = ? WHERE id = ?");
+            q.addBindValue(name);
+            q.addBindValue(keeperId);
+            if (!s.exec())
+                return false;
+        }
+    }
+    return true;
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -293,6 +360,7 @@ static const QList<Migrations::Step> &steps()
         {toV2RatingAndName, false},
         {toV3AllowUpscale, false},
         {toV4NoCommasInTags, false},
+        {toV5NormalizedTags, false},
     };
     return list;
 }

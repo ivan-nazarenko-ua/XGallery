@@ -35,12 +35,14 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `mediafiles.*` | File kind by extension (image / video / other) and thumbnails (videos via `IShellItemImageFactory`, others as an extension card) |
 | `imageviewer.*` | Viewer window: fit/upscale, arrows (circular), double-click full screen, right-click rotation |
 | `imagerotation.*` | Saving rotations to disk (lossless for JPEG via EXIF orientation) |
-| `gallerydialog.*`, `imagemetadialog.*`, `duplicatesdialog.*`, `busydialog.*` | Dialogs |
+| `gallerydialog.*`, `imagemetadialog.*`, `duplicatesdialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no rating/delete) |
+| `xgallery.ico`, `xgallery.rc`, `resources.qrc` | Program icon, rendered from `logo.svg` (each size 16–256 px rendered directly, centred on a transparent square, PNG entries). Rebuild the .ico when the SVG changes |
 
 ## Rules that must keep holding
 
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
-  never edit existing steps. Current version: 4 (galleries; rating+name; allow_upscale; no commas in tags).
+  never edit existing steps. Current version: 5 (galleries; rating+name; allow_upscale; no commas in tags;
+  normalized tag spelling).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -48,8 +50,9 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - **DB paths are relative to the gallery root**, `/`-separated. In portable mode (DB next to the
   exe) gallery roots are stored relative to the exe dir and must be on the exe's drive;
   `Gallery::rootFolder` in memory is always absolute.
-- **Tags**: per gallery. Folder names between root and file become tags; commas → space
-  (`tagsFromRelativePath`). Manual tags must not contain `,` `<` `>`. `Db::NoTagsPseudoTag`
+- **Tags**: per gallery, always in `Db::normalizeTag` spelling (whitespace collapsed, first letter upper,
+  rest lower) — when stored, and for search input. Folder names between root and file become tags;
+  commas → space (`tagsFromRelativePath`). Manual tags must not contain `,` `<` `>`. `Db::NoTagsPseudoTag`
   (`<без тегів>`) is search-only, never stored. Unused tags are deleted after every change.
 - **Rescan**: all files incl. hidden/system, except `*.db`/`*.ini`. Unchanged = same size+mtime
   (no re-hash). Folder tags are added only to new files, so manual tag edits survive.
@@ -69,3 +72,6 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - Sorting: Classic = rating DESC, name NOCASE; NewestFirst = added_at DESC then classic;
   LargestFirst = size DESC then classic. The viewer walks the full search result (images only)
   in the same order.
+- Bulk tag edit: checkboxes on thumbnails (hidden for "other" files, reset on every page load);
+  right click with 2+ checked → `Db::applyTagChanges` (add/remove diff against the common tags).
+  Double click on a tag in the metadata dialog adds it to "Містить" without searching.

@@ -1,5 +1,6 @@
 #include "imagemetadialog.h"
 
+#include "database.h"
 #include "mediafiles.h"
 
 #include <QComboBox>
@@ -28,11 +29,12 @@ bool lessCaseInsensitive(const QString &a, const QString &b)
 
 } // namespace
 
-ImageMetaDialog::ImageMetaDialog(const QString &filePath, const QStringList &imageTags, int rating,
+ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList &imageTags, int rating,
                                  const QStringList &galleryTags, QWidget *parent)
     : QDialog(parent)
     , m_galleryTags(galleryTags)
     , m_tags(imageTags)
+    , m_initialTags(imageTags)
     , m_tagList(new QListWidget(this))
     , m_removeButton(new QPushButton(tr("Видалити тег"), this))
     , m_existingCombo(new QComboBox(this))
@@ -40,20 +42,32 @@ ImageMetaDialog::ImageMetaDialog(const QString &filePath, const QStringList &ima
     , m_newTagEdit(new QLineEdit(this))
     , m_ratingSpin(new QSpinBox(this))
 {
-    setWindowTitle(tr("Метаінформація — %1").arg(QFileInfo(filePath).fileName()));
+    const bool bulk = filePaths.size() > 1;
+    const QString filePath = filePaths.value(0);
+    setWindowTitle(bulk ? tr("Групове редагування тегів — файлів: %1").arg(filePaths.size())
+                        : tr("Метаінформація — %1").arg(QFileInfo(filePath).fileName()));
     setMinimumWidth(560);
 
-    // Preview + path
+    // Preview + path (single file) or the list of chosen files (bulk)
     auto *preview = new QLabel(this);
     preview->setFixedSize(PreviewSize, PreviewSize);
     preview->setAlignment(Qt::AlignCenter);
-    const QImage image = MediaFiles::makeThumbnail(filePath, PreviewSize); // also handles videos
-    if (image.isNull())
-        preview->setText(tr("(не читається)"));
-    else
-        preview->setPixmap(QPixmap::fromImage(image));
-
-    auto *pathLabel = new QLabel(QDir::toNativeSeparators(filePath), this);
+    QLabel *pathLabel;
+    if (bulk) {
+        preview->setText(tr("Обрано файлів: %1").arg(filePaths.size()));
+        QStringList names;
+        for (const QString &path : filePaths)
+            names << QFileInfo(path).fileName();
+        pathLabel = new QLabel(names.join('\n'), this);
+        pathLabel->setMaximumWidth(PreviewSize);
+    } else {
+        const QImage image = MediaFiles::makeThumbnail(filePath, PreviewSize); // also handles videos
+        if (image.isNull())
+            preview->setText(tr("(не читається)"));
+        else
+            preview->setPixmap(QPixmap::fromImage(image));
+        pathLabel = new QLabel(QDir::toNativeSeparators(filePath), this);
+    }
     pathLabel->setWordWrap(true);
     pathLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
@@ -63,6 +77,10 @@ ImageMetaDialog::ImageMetaDialog(const QString &filePath, const QStringList &ima
         m_removeButton->setEnabled(!m_tagList->selectedItems().isEmpty());
     });
     connect(m_removeButton, &QPushButton::clicked, this, &ImageMetaDialog::removeSelectedTags);
+    m_tagList->setToolTip(tr("Подвійний клік — додати тег у поле «Містить» головного вікна"));
+    connect(m_tagList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
+        emit tagActivated(item->text());
+    });
     auto *deleteShortcut = new QShortcut(QKeySequence::Delete, m_tagList);
     connect(deleteShortcut, &QShortcut::activated, this, &ImageMetaDialog::removeSelectedTags);
 
@@ -85,10 +103,13 @@ ImageMetaDialog::ImageMetaDialog(const QString &filePath, const QStringList &ima
     auto *form = new QFormLayout;
     form->addRow(tr("Наявний тег:"), existingRow);
     form->addRow(tr("Новий тег:"), newRow);
-    form->addRow(tr("Оцінка:"), m_ratingSpin);
+    if (!bulk)
+        form->addRow(tr("Оцінка:"), m_ratingSpin);
+    else
+        m_ratingSpin->hide();
 
     auto *tagsColumn = new QVBoxLayout;
-    tagsColumn->addWidget(new QLabel(tr("Теги зображення:"), this));
+    tagsColumn->addWidget(new QLabel(bulk ? tr("Спільні теги обраних файлів:") : tr("Теги зображення:"), this));
     tagsColumn->addWidget(m_tagList, 1);
     tagsColumn->addWidget(m_removeButton, 0, Qt::AlignLeft);
     tagsColumn->addLayout(form);
@@ -108,6 +129,7 @@ ImageMetaDialog::ImageMetaDialog(const QString &filePath, const QStringList &ima
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     QPushButton *deleteButton = buttons->addButton(tr("Видалити файл…"), QDialogButtonBox::DestructiveRole);
+    deleteButton->setVisible(!bulk);
     connect(deleteButton, &QPushButton::clicked, this, [this, filePath] {
         QMessageBox box(QMessageBox::Warning, tr("Видалити файл"),
                         tr("Перемістити файл у Кошик і прибрати його з галереї?\n\n%1")
@@ -138,6 +160,24 @@ QStringList ImageMetaDialog::tags() const
     return m_tags;
 }
 
+QStringList ImageMetaDialog::addedTags() const
+{
+    QStringList added;
+    for (const QString &tag : m_tags)
+        if (!m_initialTags.contains(tag))
+            added << tag;
+    return added;
+}
+
+QStringList ImageMetaDialog::removedTags() const
+{
+    QStringList removed;
+    for (const QString &tag : m_initialTags)
+        if (!m_tags.contains(tag))
+            removed << tag;
+    return removed;
+}
+
 int ImageMetaDialog::rating() const
 {
     return m_ratingSpin->value();
@@ -159,7 +199,7 @@ void ImageMetaDialog::addExistingTag()
 
 void ImageMetaDialog::addNewTag()
 {
-    const QString tag = m_newTagEdit->text().trimmed();
+    const QString tag = Db::normalizeTag(m_newTagEdit->text());
     if (tag.isEmpty())
         return;
     // Commas separate tags in the search fields; '<' '>' are reserved for service tags like "<без тегів>".

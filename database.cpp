@@ -54,7 +54,7 @@ QStringList normalized(const QStringList &tags)
 {
     QStringList out;
     for (const QString &t : tags) {
-        const QString s = t.trimmed();
+        const QString s = Db::normalizeTag(t);
         if (!s.isEmpty() && !out.contains(s))
             out << s;
     }
@@ -69,6 +69,14 @@ QSqlDatabase mainDb()
 } // namespace
 
 namespace Db {
+
+QString normalizeTag(const QString &tag)
+{
+    const QString t = tag.simplified();
+    if (t.isEmpty() || t == NoTagsPseudoTag)
+        return t;
+    return t.left(1).toUpper() + t.mid(1).toLower();
+}
 
 QString databasePath()
 {
@@ -271,12 +279,17 @@ QStringList tagsForImage(qint64 imageId)
 QList<ImageRecord> searchImages(qint64 galleryId,
                                 const QStringList &includeTags,
                                 const QStringList &excludeTags,
-                                int offset, int limit, int *totalCount, SortOrder order)
+                                int offset, int limit, int *totalCount, SortOrder order,
+                                bool exactTags)
 {
     QStringList inc = normalized(includeTags);
     QStringList exc = normalized(excludeTags);
     const bool onlyUntagged = inc.removeAll(NoTagsPseudoTag) > 0;
-    const bool skipUntagged = exc.removeAll(NoTagsPseudoTag) > 0;
+    bool skipUntagged = exc.removeAll(NoTagsPseudoTag) > 0;
+    if (exactTags) {
+        exc.clear(); // "exactly these tags" already rules everything else out
+        skipUntagged = false;
+    }
 
     // Tag ids are unique per gallery, so filtering tags by gallery_id is enough inside the subqueries.
     QStringList where{"i.gallery_id = ?"};
@@ -295,6 +308,10 @@ QList<ImageRecord> searchImages(qint64 galleryId,
         for (const QString &t : inc)
             binds << t;
     }
+    // Exact mode: having all the wanted tags and exactly that many tags means no others.
+    // (Empty include list = images without tags.)
+    if (exactTags)
+        where << QString("(SELECT COUNT(*) FROM image_tags it WHERE it.image_id = i.id) = %1").arg(inc.size());
     if (!exc.isEmpty()) {
         where << QString("i.id NOT IN (SELECT it.image_id FROM image_tags it "
                          "JOIN tags t ON t.id = it.tag_id WHERE t.gallery_id = ? AND t.name IN (%1))")
@@ -393,6 +410,71 @@ bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringLi
                   "AND id NOT IN (SELECT DISTINCT tag_id FROM image_tags)");
         q.addBindValue(galleryId);
         return exec(q);
+    }();
+
+    if (ok && db.commit())
+        return true;
+    if (ok)
+        g_lastError = db.lastError().text();
+    db.rollback();
+    return false;
+}
+
+bool renameTag(qint64 galleryId, const QString &oldName, const QString &newName)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("UPDATE tags SET name = ? WHERE gallery_id = ? AND name = ?");
+    q.addBindValue(newName);
+    q.addBindValue(galleryId);
+    q.addBindValue(oldName);
+    return exec(q);
+}
+
+bool applyTagChanges(qint64 galleryId, const QList<qint64> &imageIds,
+                     const QStringList &added, const QStringList &removed)
+{
+    QSqlDatabase db = mainDb();
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return false;
+    }
+
+    const bool ok = [&] {
+        QSqlQuery insertTag(db), link(db), unlink(db), cleanup(db);
+        insertTag.prepare("INSERT OR IGNORE INTO tags(gallery_id, name) VALUES(?, ?)");
+        link.prepare("INSERT OR IGNORE INTO image_tags(image_id, tag_id) "
+                     "SELECT ?, id FROM tags WHERE gallery_id = ? AND name = ?");
+        unlink.prepare("DELETE FROM image_tags WHERE image_id = ? AND tag_id IN "
+                       "(SELECT id FROM tags WHERE gallery_id = ? AND name = ?)");
+
+        for (const QString &tag : normalized(added)) {
+            if (tag == NoTagsPseudoTag)
+                continue; // service tag, never stored
+            insertTag.addBindValue(galleryId);
+            insertTag.addBindValue(tag);
+            if (!exec(insertTag))
+                return false;
+            for (qint64 id : imageIds) {
+                link.addBindValue(id); // OR IGNORE: already there -> stays once
+                link.addBindValue(galleryId);
+                link.addBindValue(tag);
+                if (!exec(link))
+                    return false;
+            }
+        }
+        for (const QString &tag : normalized(removed)) {
+            for (qint64 id : imageIds) {
+                unlink.addBindValue(id);
+                unlink.addBindValue(galleryId);
+                unlink.addBindValue(tag);
+                if (!exec(unlink))
+                    return false;
+            }
+        }
+        cleanup.prepare("DELETE FROM tags WHERE gallery_id = ? "
+                        "AND id NOT IN (SELECT DISTINCT tag_id FROM image_tags)");
+        cleanup.addBindValue(galleryId);
+        return exec(cleanup);
     }();
 
     if (ok && db.commit())

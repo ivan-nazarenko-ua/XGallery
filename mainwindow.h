@@ -13,6 +13,7 @@ QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
 }
+class QCheckBox;
 class QComboBox;
 class QFutureWatcherBase;
 class QLabel;
@@ -46,11 +47,14 @@ private slots:
     void showNextPage();
     void openThumbnail(int index);
     void editImageMeta(int index);
+    void editTagsOfSelection(const QList<int> &indices);
+    void updateSelectAllButton();
     void findDuplicates();
     void deleteJunk(); // Thumbs.db, desktop.ini and empty folders
     void addFilesToGallery();
     void addFolderToGallery();
     void showTagMenu(const QPoint &pos);
+    void renameTag(const QString &oldName);
 
 private:
     static constexpr int GridColumns = 4;
@@ -64,6 +68,7 @@ private:
     const Gallery *currentGallery() const;
     QStringList galleryNamesExcept(qint64 galleryId) const;
     Db::SortOrder sortOrder() const;
+    bool allChecked() const; // every visible thumbnail checkbox is ticked (and there is one)
     // Asks for a first-level folder of the gallery (existing, or a new name). Empty on cancel.
     QString chooseRootTag(const QString &title, const QString &suggestion);
     // Collects files (in a worker) with collect(), then copies them into the gallery.
@@ -90,14 +95,18 @@ private:
     QPushButton *m_rescanButton = nullptr;
     QLineEdit *m_includeEdit = nullptr;
     QLineEdit *m_excludeEdit = nullptr;
+    QCheckBox *m_exactCheck = nullptr; // "Жорстко": exactly the included tags
     QListWidget *m_tagList = nullptr;
     QList<QToolButton *> m_thumbButtons;
+    QList<QCheckBox *> m_thumbChecks; // one per thumbnail, for bulk tag editing
     QPushButton *m_prevButton = nullptr;
     QPushButton *m_nextButton = nullptr;
+    QPushButton *m_selectAllButton = nullptr;
     QLabel *m_pageLabel = nullptr;
 
     QStringList m_includeTags;
     QStringList m_excludeTags;
+    bool m_exactTags = false;
     QList<ImageRecord> m_pageRecords;
     int m_page = 0;
     int m_totalCount = 0;

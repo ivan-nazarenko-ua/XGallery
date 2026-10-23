@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>xgallery.ico</file>
+    </qresource>
+</RCC>
