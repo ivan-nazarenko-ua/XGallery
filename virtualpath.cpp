@@ -77,9 +77,12 @@ bool update(const QSqlDatabase &db, const QList<qint64> &imageIds, QString *erro
             names << tags.value(0).toString();
         tags.finish();
 
+        // An image without tags has an empty path. It must be bound as '' : a null QString
+        // becomes NULL and breaks the NOT NULL columns.
         const QString path = build(names);
-        store.addBindValue(path);
-        store.addBindValue(sortKey(path));
+        const QString key = sortKey(path);
+        store.addBindValue(path.isNull() ? QStringLiteral("") : path);
+        store.addBindValue(key.isNull() ? QStringLiteral("") : key);
         store.addBindValue(id);
         if (!store.exec()) {
             *error = store.lastError().text();

@@ -15,6 +15,9 @@ namespace ImageRotation {
 // Can the file be written back at all (e.g. GIF can't)?
 bool canSave(const QString &path);
 
+// Animated or multi-page file (WebP, TIFF...): re-encoding would keep only the first frame.
+bool isMultiFrame(const QString &path);
+
 // True if rotating this file only touches the EXIF orientation tag.
 bool isLossless(const QString &path);
 

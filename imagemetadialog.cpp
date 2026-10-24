@@ -287,9 +287,7 @@ void ImageMetaDialog::addNewTag()
     const QString tag = Db::normalizeTag(m_newTagEdit->text());
     if (tag.isEmpty())
         return;
-    // Commas separate tags in the search fields; '<' '>' are reserved for service tags like "<без тегів>";
-    // '/' joins tags into the virtual path, and '\' is kept out along with it.
-    if (tag.contains(',') || tag.contains('<') || tag.contains('>') || tag.contains('/') || tag.contains('\\')) {
+    if (!Db::isValidTagName(tag)) {
         QMessageBox::warning(this, windowTitle(), tr("Назва тегу не може містити символи «,», «<», «>», «/» і «\\»."));
         return;
     }

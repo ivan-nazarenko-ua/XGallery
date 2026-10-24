@@ -116,7 +116,11 @@ void GalleryDialog::accept()
         m_rootEdit->setFocus();
         return;
     }
-    if (!checkDrive(rootFolder())) {
+    // An existing root on another drive (e.g. a DB copied from AppData) stays editable;
+    // only a newly chosen root must be on the program's drive.
+    const bool rootChanged = QDir::cleanPath(rootFolder()).compare(QDir::cleanPath(m_gallery.rootFolder),
+                                                                    Qt::CaseInsensitive) != 0;
+    if (rootChanged && !checkDrive(rootFolder())) {
         m_rootEdit->setFocus();
         return;
     }

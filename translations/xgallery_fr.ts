@@ -1,4 +1,5 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
 <TS version="2.1" language="fr" sourcelanguage="uk">
 <context>
     <name>BusyDialog</name>
@@ -21,7 +22,7 @@
         <source>Відміть файли, які треба видалити. Вони підуть у Кошик і зникнуть з бази.
 Якщо відмітити всі файли групи, перший з них залишиться.</source>
         <translation>Cochez les fichiers à supprimer. Ils iront dans la Corbeille et seront retirés de la base.
-Si tous les fichiers d'un groupe sont cochés, le premier est conservé.</translation>
+Si tous les fichiers d&apos;un groupe sont cochés, le premier est conservé.</translation>
     </message>
     <message>
         <source>Закрити</source>
@@ -33,7 +34,7 @@ Si tous les fichiers d'un groupe sont cochés, le premier est conservé.</transl
     </message>
     <message>
         <source>   (файлу вже немає на диску)</source>
-        <translation>   (le fichier n'existe plus sur le disque)</translation>
+        <translation>   (le fichier n&apos;existe plus sur le disque)</translation>
     </message>
     <message>
         <source>Дублікатів не знайдено.</source>
@@ -56,7 +57,7 @@ Si tous les fichiers d'un groupe sont cochés, le premier est conservé.</transl
 %1
 
 Зроби рескан, щоб прибрати записи.</source>
-        <translation>Les fichiers sont dans la Corbeille, mais la base n'a pas pu être mise à jour :
+        <translation>Les fichiers sont dans la Corbeille, mais la base n&apos;a pas pu être mise à jour :
 %1
 
 Lancez une analyse pour retirer les enregistrements.</translation>
@@ -65,7 +66,7 @@ Lancez une analyse pour retirer les enregistrements.</translation>
         <source>Ці файли не вдалося перемістити в Кошик, вони залишились на місці й у базі:
 
 %1</source>
-        <translation>Ces fichiers n'ont pas pu être mis à la Corbeille ; ils restent sur le disque et dans la base :
+        <translation>Ces fichiers n&apos;ont pas pu être mis à la Corbeille ; ils restent sur le disque et dans la base :
 
 %1</translation>
     </message>
@@ -74,13 +75,13 @@ Lancez une analyse pour retirer les enregistrements.</translation>
     <name>GalleryDialog</name>
     <message>
         <source>Дозволити збільшення зображень</source>
-        <translation>Autoriser l'agrandissement des images</translation>
+        <translation>Autoriser l&apos;agrandissement des images</translation>
     </message>
     <message>
         <source>У вікні перегляду маленькі зображення розтягуватимуться під розмір вікна.
 Якщо вимкнено — зображення не буде більшим за оригінал.</source>
         <translation>Les petites images sont étirées à la taille de la visionneuse.
-Désactivé : une image n'est jamais affichée plus grande que l'original.</translation>
+Désactivé : une image n&apos;est jamais affichée plus grande que l&apos;original.</translation>
     </message>
     <message>
         <source>Нова галерея</source>
@@ -142,7 +143,7 @@ Désactivé : une image n'est jamais affichée plus grande que l'original.</tran
         <source>Програма працює в портабл-режимі (база даних лежить поруч з exe), тому коренева папка має бути на тому ж диску, що й програма: %1
 
 Обрана папка: %2</source>
-        <translation>Le programme fonctionne en mode portable (la base de données est à côté de l'exe), le dossier racine doit donc être sur le même disque que le programme : %1
+        <translation>Le programme fonctionne en mode portable (la base de données est à côté de l&apos;exe), le dossier racine doit donc être sur le même disque que le programme : %1
 
 Dossier choisi : %2</translation>
     </message>
@@ -221,7 +222,7 @@ Les fichiers sur le disque resteront inchangés.</translation>
     </message>
     <message>
         <source>Теги зображення:</source>
-        <translation>Tags de l'image :</translation>
+        <translation>Tags de l&apos;image :</translation>
     </message>
     <message>
         <source>Зберегти</source>
@@ -258,7 +259,7 @@ Les fichiers sur le disque resteront inchangés.</translation>
     <message>
         <source>Не вдалося відкрити файл:
 %1</source>
-        <translation>Impossible d'ouvrir le fichier :
+        <translation>Impossible d&apos;ouvrir le fichier :
 %1</translation>
     </message>
     <message>
@@ -271,6 +272,10 @@ Les fichiers sur le disque resteront inchangés.</translation>
     <message>
         <source>Цей формат файлу не можна зберегти.</source>
         <translation>Ce format de fichier ne peut pas être enregistré.</translation>
+    </message>
+    <message>
+        <source>Файл має кілька кадрів, а зберегти можна лише один.</source>
+        <translation>Le fichier contient plusieurs images, mais une seule peut être enregistrée.</translation>
     </message>
 </context>
 <context>
@@ -290,7 +295,7 @@ Les fichiers sur le disque resteront inchangés.</translation>
     <message>
         <source>Не вдалося відкрити зображення:
 %1</source>
-        <translation>Impossible d'ouvrir l'image :
+        <translation>Impossible d&apos;ouvrir l&apos;image :
 %1</translation>
     </message>
     <message>
@@ -309,17 +314,21 @@ PNG, BMP, TIFF, WebP — без втрати якості, але їхні ме�
         <translation>Pour enregistrer la rotation, le fichier sera réécrit.
 PNG, BMP, TIFF, WebP : sans perte de qualité, mais leurs métadonnées peuvent être perdues ; JPEG à structure inhabituelle : qualité 100, EXIF conservé.
 
-Écraser l'original ?</translation>
+Écraser l&apos;original ?</translation>
     </message>
     <message>
         <source>Не вдалося зберегти файл:
 %1</source>
-        <translation>Impossible d'enregistrer le fichier :
+        <translation>Impossible d&apos;enregistrer le fichier :
 %1</translation>
     </message>
     <message>
         <source>Зберегти поворот у файл?</source>
         <translation>Enregistrer la rotation dans le fichier ?</translation>
+    </message>
+    <message>
+        <source>Це анімація або багатосторінковий файл. Після перезапису лишився б тільки перший кадр, тому поворот не збережено.</source>
+        <translation>C&apos;est une animation ou un fichier à plusieurs pages. Le réécrire ne garderait que la première image, la rotation n&apos;a donc pas été enregistrée.</translation>
     </message>
 </context>
 <context>
@@ -331,7 +340,7 @@ PNG, BMP, TIFF, WebP : sans perte de qualité, mais leurs métadonnées peuvent 
     <message>
         <source>Не вдалося відкрити базу даних %1:
 %2</source>
-        <translation>Impossible d'ouvrir la base de données %1 :
+        <translation>Impossible d&apos;ouvrir la base de données %1 :
 %2</translation>
     </message>
     <message>
@@ -422,7 +431,7 @@ Le champ « Ne contient pas » est alors ignoré.</translation>
     </message>
     <message>
         <source>тег3, тег4 (жодного з них)</source>
-        <translation>tag3, tag4 (aucun d'eux)</translation>
+        <translation>tag3, tag4 (aucun d&apos;eux)</translation>
     </message>
     <message>
         <source>Шукати</source>
@@ -442,11 +451,11 @@ Le champ « Ne contient pas » est alors ignoré.</translation>
     </message>
     <message>
         <source>Спочатку новіші</source>
-        <translation>Plus récents d'abord</translation>
+        <translation>Plus récents d&apos;abord</translation>
     </message>
     <message>
         <source>Спершу більші</source>
-        <translation>Plus gros d'abord</translation>
+        <translation>Plus gros d&apos;abord</translation>
     </message>
     <message>
         <source>Теги</source>
@@ -467,8 +476,8 @@ Le champ « Ne contient pas » est alors ignoré.</translation>
 Clic droit : choisir où ajouter.</translation>
     </message>
     <message>
-        <source>Обрати для групового редагування тегів (правий клік на будь-якому прев'ю)</source>
-        <translation>Sélectionner pour la modification groupée des tags (clic droit sur n'importe quelle vignette)</translation>
+        <source>Обрати для групового редагування тегів (правий клік на будь-якому прев&apos;ю)</source>
+        <translation>Sélectionner pour la modification groupée des tags (clic droit sur n&apos;importe quelle vignette)</translation>
     </message>
     <message>
         <source>◀ Попередня</source>
@@ -496,7 +505,7 @@ Clic droit : choisir où ajouter.</translation>
     </message>
     <message>
         <source>Галерей ще немає — натисни «Створити».</source>
-        <translation>Aucune galerie pour l'instant — cliquez sur « Créer ».</translation>
+        <translation>Aucune galerie pour l&apos;instant — cliquez sur « Créer ».</translation>
     </message>
     <message>
         <source>Не вдалося створити галерею:
@@ -506,7 +515,7 @@ Clic droit : choisir où ajouter.</translation>
     </message>
     <message>
         <source>Галерею «%1» створено. Запустити рескан зараз?</source>
-        <translation>Galerie « %1 » créée. Lancer l'analyse maintenant ?</translation>
+        <translation>Galerie « %1 » créée. Lancer l&apos;analyse maintenant ?</translation>
     </message>
     <message>
         <source>Видаляю галерею «%1»…</source>
@@ -514,7 +523,7 @@ Clic droit : choisir où ajouter.</translation>
     </message>
     <message>
         <source>Галерею «%1» видалено. Файли на диску не змінювались.</source>
-        <translation>Galerie « %1 » supprimée. Les fichiers sur le disque n'ont pas été modifiés.</translation>
+        <translation>Galerie « %1 » supprimée. Les fichiers sur le disque n&apos;ont pas été modifiés.</translation>
     </message>
     <message>
         <source>Не вдалося видалити галерею:
@@ -525,14 +534,14 @@ Clic droit : choisir où ajouter.</translation>
     <message>
         <source>Не вдалося зберегти галерею:
 %1</source>
-        <translation>Impossible d'enregistrer la galerie :
+        <translation>Impossible d&apos;enregistrer la galerie :
 %1</translation>
     </message>
     <message>
         <source>Кореневу папку змінено. Запустити рескан зараз?
 
 Записи про файли, яких немає в новій папці, буде прибрано з бази.</source>
-        <translation>Le dossier racine a changé. Lancer l'analyse maintenant ?
+        <translation>Le dossier racine a changé. Lancer l&apos;analyse maintenant ?
 
 Les fichiers absents du nouveau dossier seront retirés de la base.</translation>
     </message>
@@ -549,7 +558,7 @@ Les fichiers absents du nouveau dossier seront retirés de la base.</translation
     <message>
         <source>Рескан не вдався:
 %1</source>
-        <translation>L'analyse a échoué :
+        <translation>L&apos;analyse a échoué :
 %1</translation>
     </message>
     <message>
@@ -607,7 +616,7 @@ Les fichiers absents du nouveau dossier seront retirés de la base.</translation
         <translation>Images sans aucun tag</translation>
     </message>
     <message>
-        <source>Завантажую прев'юшки…</source>
+        <source>Завантажую прев&apos;юшки…</source>
         <translation>Chargement des vignettes…</translation>
     </message>
     <message>
@@ -647,7 +656,7 @@ Les fichiers absents du nouveau dossier seront retirés de la base.</translation
 %1
 
 Зроби рескан.</source>
-        <translation>Le fichier n'existe plus :
+        <translation>Le fichier n&apos;existe plus :
 %1
 
 Lancez une analyse.</translation>
@@ -661,10 +670,10 @@ Lancez une analyse.</translation>
 %1
 
 Можливо, у Windows немає програми для цього типу файлів.</source>
-        <translation>Impossible d'ouvrir le fichier :
+        <translation>Impossible d&apos;ouvrir le fichier :
 %1
 
-Windows n'a peut-être aucun programme pour ce type de fichier.</translation>
+Windows n&apos;a peut-être aucun programme pour ce type de fichier.</translation>
     </message>
     <message>
         <source>Видалити файл</source>
@@ -673,7 +682,7 @@ Windows n'a peut-être aucun programme pour ce type de fichier.</translation>
     <message>
         <source>Не вдалося перемістити файл у Кошик, нічого не видалено:
 %1</source>
-        <translation>Impossible de mettre le fichier à la Corbeille, rien n'a été supprimé :
+        <translation>Impossible de mettre le fichier à la Corbeille, rien n&apos;a été supprimé :
 %1</translation>
     </message>
     <message>
@@ -681,7 +690,7 @@ Windows n'a peut-être aucun programme pour ce type de fichier.</translation>
 %1
 
 Зроби рескан.</source>
-        <translation>Le fichier est dans la Corbeille, mais son enregistrement n'a pas pu être retiré de la base :
+        <translation>Le fichier est dans la Corbeille, mais son enregistrement n&apos;a pas pu être retiré de la base :
 %1
 
 Lancez une analyse.</translation>
@@ -693,7 +702,7 @@ Lancez une analyse.</translation>
     <message>
         <source>Не вдалося зберегти зміни:
 %1</source>
-        <translation>Impossible d'enregistrer les modifications :
+        <translation>Impossible d&apos;enregistrer les modifications :
 %1</translation>
     </message>
     <message>
@@ -714,7 +723,7 @@ Lancez une analyse.</translation>
     </message>
     <message>
         <source>Спершу створи галерею.</source>
-        <translation>Créez d'abord une galerie.</translation>
+        <translation>Créez d&apos;abord une galerie.</translation>
     </message>
     <message>
         <source>Сміття</source>
@@ -754,19 +763,19 @@ Les supprimer définitivement (sans passer par la Corbeille) ?</translation>
         <source>Ці папки видалити не вдалося (можливо, зайняті або немає прав):
 
 %1</source>
-        <translation>Ces dossiers n'ont pas pu être supprimés (ils sont peut-être utilisés ou l'accès est refusé) :
+        <translation>Ces dossiers n&apos;ont pas pu être supprimés (ils sont peut-être utilisés ou l&apos;accès est refusé) :
 
 %1</translation>
     </message>
     <message>
         <source>Папка галереї (вона ж перший тег).
 Можна вписати нову назву — папку буде створено:</source>
-        <translation>Dossier de la galerie (c'est aussi le premier tag).
+        <translation>Dossier de la galerie (c&apos;est aussi le premier tag).
 Vous pouvez saisir un nouveau nom — le dossier sera créé :</translation>
     </message>
     <message>
-        <source>Недопустима назва папки. Не можна використовувати символи \ / : * ? " &lt; &gt; |</source>
-        <translation>Nom de dossier invalide. Ces caractères sont interdits : \ / : * ? " &lt; &gt; |</translation>
+        <source>Недопустима назва папки. Не можна використовувати символи \ / : * ? &quot; &lt; &gt; |</source>
+        <translation>Nom de dossier invalide. Ces caractères sont interdits : \ / : * ? &quot; &lt; &gt; |</translation>
     </message>
     <message>
         <source>Додати файли</source>
@@ -828,20 +837,24 @@ Vous pouvez saisir un nouveau nom — le dossier sera créé :</translation>
 Спочатку новіші: за датою додавання в галерею, потім як класичне.
 Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.</source>
         <translation>Classique : par chemin virtuel (tous les tags du fichier par ordre alphabétique, séparés par « / »),
-puis par note (la plus haute d'abord), puis par nom de fichier.
-Plus récents d'abord : par date d'ajout à la galerie, puis classique.
-Plus gros d'abord : par taille de fichier (les plus gros d'abord), puis classique.</translation>
+puis par note (la plus haute d&apos;abord), puis par nom de fichier.
+Plus récents d&apos;abord : par date d&apos;ajout à la galerie, puis classique.
+Plus gros d&apos;abord : par taille de fichier (les plus gros d&apos;abord), puis classique.</translation>
     </message>
     <message>
         <source>Назва тегу не може містити символи «,», «&lt;», «&gt;», «/» і «\».</source>
         <translation>Un nom de tag ne peut pas contenir « , », « &lt; », « &gt; », « / » ni « \ ».</translation>
+    </message>
+    <message>
+        <source>Видаляю сміття…</source>
+        <translation>Suppression des fichiers inutiles…</translation>
     </message>
 </context>
 <context>
     <name>Scanner</name>
     <message>
         <source>Папка не існує: %1</source>
-        <translation>Le dossier n'existe pas : %1</translation>
+        <translation>Le dossier n&apos;existe pas : %1</translation>
     </message>
     <message>
         <source>Шукаю файли…</source>
@@ -867,7 +880,7 @@ Plus gros d'abord : par taille de fichier (les plus gros d'abord), puis classiqu
     </message>
     <message>
         <source>Папка галереї не існує: %1</source>
-        <translation>Le dossier de la galerie n'existe pas : %1</translation>
+        <translation>Le dossier de la galerie n&apos;existe pas : %1</translation>
     </message>
     <message>
         <source>Копіюю %1 з %2
@@ -878,7 +891,7 @@ Plus gros d'abord : par taille de fichier (les plus gros d'abord), puis classiqu
     <message>
         <source>Файли скопійовано, але записати їх у базу не вдалося (зроби рескан):
 %1</source>
-        <translation>Les fichiers ont été copiés mais n'ont pas pu être enregistrés dans la base (lancez une analyse) :
+        <translation>Les fichiers ont été copiés mais n&apos;ont pas pu être enregistrés dans la base (lancez une analyse) :
 %1</translation>
     </message>
 </context>

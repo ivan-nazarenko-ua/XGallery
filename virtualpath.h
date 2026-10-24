@@ -19,6 +19,12 @@ QString build(QStringList tags);
 // ignored), then Ukrainian/Russian letters in their alphabetical order, then digits
 // ("Маша/Море/001"); '/' sorts before everything, so "Маша" comes before "Маша Петрівна"
 // and "Маша/Море". Changing this order needs a migration step that recomputes the paths.
+//
+// The key is not meant to be read: '/' becomes U+0001, whitespace U+0002, letters and digits
+// code points in the Private Use Area (U+E000...), so a DB editor shows it as garbage. It is
+// still valid UTF-8 TEXT that SQLite stores unchanged. Sorting relies on SQLite's default
+// BINARY collation (UTF-8 byte order = code point order): never compare it with NOCASE or
+// another collation, and don't edit it by hand (it's recomputed from the tags anyway).
 QString sortKey(const QString &virtualPath);
 
 // Recomputes vpath/vpath_key of the images from their current tags (on `db`, inside the

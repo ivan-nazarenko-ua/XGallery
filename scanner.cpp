@@ -56,11 +56,35 @@ QString sha256Of(const QString &path)
 }
 
 // Service files that never belong in a gallery (Thumbs.db, desktop.ini, ...).
+// The program's folder (exe, DLLs, portable DB) or anything inside it. Nothing there is a
+// user's file, even when a gallery root contains it (portable mode on a USB stick).
+// path must be absolute.
+bool isInProgramFolder(const QString &path)
+{
+    static const QString programDir = QDir::cleanPath(QCoreApplication::applicationDirPath());
+    const QString p = QDir::cleanPath(path);
+    return p.compare(programDir, Qt::CaseInsensitive) == 0
+           || p.startsWith(programDir + '/', Qt::CaseInsensitive);
+}
+
 // Records of such files already in the DB are dropped by the next rescan as "missing".
+// The program's folder and its own DB (with the SQLite side files) are excluded too.
+// A bare file name is checked by its suffix only.
 bool isExcluded(const QString &path)
 {
     static const QStringList suffixes = {"db", "ini"};
-    return suffixes.contains(QFileInfo(path).suffix(), Qt::CaseInsensitive);
+    if (suffixes.contains(QFileInfo(path).suffix(), Qt::CaseInsensitive))
+        return true;
+    if (QDir::isRelativePath(path))
+        return false;
+    if (isInProgramFolder(path))
+        return true;
+    static const QString dbPath = QFileInfo(Db::databasePath()).absoluteFilePath();
+    const QString absolute = QFileInfo(path).absoluteFilePath();
+    for (const char *side : {"", "-journal", "-wal", "-shm"})
+        if (absolute.compare(dbPath + QLatin1String(side), Qt::CaseInsensitive) == 0)
+            return true;
+    return false;
 }
 
 // Every folder between the root and the file becomes a tag.
@@ -345,12 +369,11 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
         ++stats.removed;
     }
 
-    QSqlQuery cleanup(db);
-    cleanup.prepare("DELETE FROM tags WHERE gallery_id = ? "
-                    "AND id NOT IN (SELECT DISTINCT tag_id FROM image_tags)");
-    cleanup.addBindValue(galleryId);
-    if (!cleanup.exec())
-        return rollback(cleanup.lastError().text());
+    {
+        QString error;
+        if (!Db::deleteUnusedTags(db, galleryId, &error))
+            return rollback(error);
+    }
 
     if (!db.commit())
         return rollback(db.lastError().text());
@@ -555,6 +578,10 @@ JunkScan findJunk(const QString &rootFolder)
     while (it.hasNext()) {
         it.next();
         const QFileInfo fi = it.fileInfo();
+        if (isInProgramFolder(fi.absoluteFilePath())) {
+            notEmpty.insert(fi.absolutePath()); // the program's folder is never touched and keeps its parent
+            continue;
+        }
         if (fi.isDir() && !fi.isSymLink() && !fi.isJunction())
             dirs << fi.absoluteFilePath();
         else if (fi.isFile() && !fi.isSymLink() && isJunkFile(fi.fileName()))
@@ -572,6 +599,35 @@ JunkScan findJunk(const QString &rootFolder)
             notEmpty.insert(QFileInfo(dir).absolutePath());
         else
             result.emptyFolders << dir;
+    }
+    return result;
+}
+
+JunkRemoval removeJunk(const JunkScan &junk)
+{
+    JunkRemoval result;
+    // Junk files first; failures are silently skipped (they are often locked by Explorer).
+    QStringList keptJunk;
+    for (const QString &file : junk.junkFiles) {
+        QFile::setPermissions(file, QFile::permissions(file) | QFile::WriteOwner | QFile::WriteUser);
+        if (QFile::remove(file))
+            ++result.removedFiles;
+        else
+            keptJunk << file;
+    }
+
+    // Then folders, deepest first, so a parent is already empty when its turn comes.
+    for (const QString &folder : junk.emptyFolders) {
+        if (QDir().rmdir(folder)) {
+            ++result.removedFolders;
+            continue;
+        }
+        // A junk file we couldn't delete keeps its folders: that's expected, not an error.
+        const bool explained = std::any_of(keptJunk.cbegin(), keptJunk.cend(), [&folder](const QString &f) {
+            return f.startsWith(folder + '/', Qt::CaseInsensitive);
+        });
+        if (!explained)
+            result.failedFolders << QDir::toNativeSeparators(folder);
     }
     return result;
 }

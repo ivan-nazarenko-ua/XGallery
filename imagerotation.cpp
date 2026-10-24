@@ -251,6 +251,11 @@ bool canSave(const QString &path)
     return QImageWriter::supportedImageFormats().contains(format);
 }
 
+bool isMultiFrame(const QString &path)
+{
+    return QImageReader(path).imageCount() > 1;
+}
+
 bool isLossless(const QString &path)
 {
     if (!isJpeg(path))
@@ -295,6 +300,10 @@ bool rotateFile(const QString &path, int quarterTurnsCcw, QString *error)
     QImage image = reader.read();
     if (image.isNull()) {
         *error = reader.errorString();
+        return false;
+    }
+    if (reader.imageCount() > 1) {
+        *error = QCoreApplication::translate("ImageRotation", "Файл має кілька кадрів, а зберегти можна лише один.");
         return false;
     }
     image = image.transformed(QTransform().rotate(-90.0 * turns));

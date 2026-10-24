@@ -27,14 +27,14 @@ namespace Db {
 // Connection used by the GUI thread. Worker threads must open their own.
 inline constexpr const char *MainConnection = "xgallery_main";
 
-// Service "tag" for search only: matches images that have no tags at all.
-// Never stored in the DB. '<' and '>' can't appear in Windows folder names, and the
-// tag editor rejects them, so it can't collide with a real tag.
-inline const QString NoTagsPseudoTag = QStringLiteral("<без тегів>");
-
 // The one spelling of a tag: whitespace collapsed, first letter upper case, the rest lower
 // ("нове СВЯТО" -> "Нове свято"). Every tag is normalized before it is stored or searched for.
 QString normalizeTag(const QString &tag);
+// Manual tags must not contain ',' (separates tags in the search fields), '<' '>' (reserved
+// for the search fields' "<без тегів>"), '/' (joins tags into the virtual path) or '\'.
+bool isValidTagName(const QString &tag);
+// Deletes the gallery's tags no image uses any more. Called after every change of tag links.
+bool deleteUnusedTags(const QSqlDatabase &db, qint64 galleryId, QString *error);
 
 // xgallery.sqlite next to the exe if it exists (portable mode), otherwise in AppData.
 QString databasePath();
@@ -73,20 +73,23 @@ enum class SortOrder {
     LargestFirst // biggest files first, then as Classic
 };
 
-// Images of the gallery having ALL of includeTags and NONE of excludeTags.
-// Empty includeTags means "any image". limit < 0 means "no limit".
-// NoTagsPseudoTag may be used in either list.
-// exactTags: images whose tag set is exactly includeTags (no other tags); excludeTags is ignored.
-QList<ImageRecord> searchImages(qint64 galleryId,
-                                const QStringList &includeTags,
-                                const QStringList &excludeTags,
-                                int offset, int limit, int *totalCount,
-                                SortOrder order = SortOrder::Classic,
-                                bool exactTags = false);
+// What a tag search asks for. Tag names are normalized by the search itself.
+struct TagQuery
+{
+    QStringList include;       // images having ALL of these; empty = any image
+    QStringList exclude;       // ... and NONE of these
+    bool onlyUntagged = false; // only images without any tag
+    bool skipUntagged = false; // no images without tags
+    bool exact = false;        // tag set is exactly `include`; exclude and skipUntagged are ignored
+};
 
-// Tags occurring in the images a search finds (same arguments as searchImages).
-QStringList tagsOfSearch(qint64 galleryId, const QStringList &includeTags,
-                         const QStringList &excludeTags, bool exactTags);
+// Images of the gallery matching the query. limit < 0 means "no limit".
+QList<ImageRecord> searchImages(qint64 galleryId, const TagQuery &query,
+                                int offset, int limit, int *totalCount,
+                                SortOrder order = SortOrder::Classic);
+
+// Tags occurring in the images a search finds.
+QStringList tagsOfSearch(qint64 galleryId, const TagQuery &query);
 
 // Replaces the image's rating and tag set in one transaction. New tag names are created;
 // tags of the gallery that end up unused are deleted.

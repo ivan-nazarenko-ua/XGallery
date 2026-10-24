@@ -1,4 +1,5 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE TS>
 <TS version="2.1" language="en" sourcelanguage="uk">
 <context>
     <name>BusyDialog</name>
@@ -132,7 +133,7 @@ When off, an image is never shown larger than the original.</translation>
     </message>
     <message>
         <source>Галерея з назвою «%1» вже існує.</source>
-        <translation>A gallery named "%1" already exists.</translation>
+        <translation>A gallery named &quot;%1&quot; already exists.</translation>
     </message>
     <message>
         <source>Обери наявну кореневу папку.</source>
@@ -152,7 +153,7 @@ Chosen folder: %2</translation>
     </message>
     <message>
         <source>Видалити галерею «%1»?</source>
-        <translation>Delete the gallery "%1"?</translation>
+        <translation>Delete the gallery &quot;%1&quot;?</translation>
     </message>
     <message>
         <source>Усю інформацію про цю галерею (зображення, теги, хеші) буде видалено з бази.
@@ -197,7 +198,7 @@ The image files on disk will stay unchanged.</translation>
     </message>
     <message>
         <source>Подвійний клік — додати тег у поле «Містить» головного вікна</source>
-        <translation>Double click: add the tag to the "Contains" field of the main window</translation>
+        <translation>Double click: add the tag to the &quot;Contains&quot; field of the main window</translation>
     </message>
     <message>
         <source>назва нового тегу</source>
@@ -263,7 +264,7 @@ The image files on disk will stay unchanged.</translation>
     </message>
     <message>
         <source>Назва тегу не може містити символи «,», «&lt;», «&gt;», «/» і «\».</source>
-        <translation>A tag name cannot contain ",", "&lt;", "&gt;", "/" or "\".</translation>
+        <translation>A tag name cannot contain &quot;,&quot;, &quot;&lt;&quot;, &quot;&gt;&quot;, &quot;/&quot; or &quot;\&quot;.</translation>
     </message>
 </context>
 <context>
@@ -271,6 +272,10 @@ The image files on disk will stay unchanged.</translation>
     <message>
         <source>Цей формат файлу не можна зберегти.</source>
         <translation>This file format cannot be saved.</translation>
+    </message>
+    <message>
+        <source>Файл має кілька кадрів, а зберегти можна лише один.</source>
+        <translation>The file has several frames, but only one can be saved.</translation>
     </message>
 </context>
 <context>
@@ -320,6 +325,10 @@ Overwrite the original?</translation>
     <message>
         <source>Зберегти поворот у файл?</source>
         <translation>Save the rotation to the file?</translation>
+    </message>
+    <message>
+        <source>Це анімація або багатосторінковий файл. Після перезапису лишився б тільки перший кадр, тому поворот не збережено.</source>
+        <translation>This is an animation or a multi-page file. Rewriting it would keep only the first frame, so the rotation was not saved.</translation>
     </message>
 </context>
 <context>
@@ -414,7 +423,7 @@ Overwrite the original?</translation>
         <source>Лише файли, що мають рівно ці теги й жодних інших.
 Поле «Не містить» тоді не враховується.</source>
         <translation>Only files that have exactly these tags and no others.
-The "Does not contain" field is ignored then.</translation>
+The &quot;Does not contain&quot; field is ignored then.</translation>
     </message>
     <message>
         <source>Не містить:</source>
@@ -463,11 +472,11 @@ The "Does not contain" field is ignored then.</translation>
     <message>
         <source>Подвійний клік — додати до «Містить».
 Правий клік — вибрати, куди додати.</source>
-        <translation>Double click: add to "Contains".
+        <translation>Double click: add to &quot;Contains&quot;.
 Right click: choose where to add.</translation>
     </message>
     <message>
-        <source>Обрати для групового редагування тегів (правий клік на будь-якому прев'ю)</source>
+        <source>Обрати для групового редагування тегів (правий клік на будь-якому прев&apos;ю)</source>
         <translation>Select for bulk tag editing (right click on any thumbnail)</translation>
     </message>
     <message>
@@ -496,7 +505,7 @@ Right click: choose where to add.</translation>
     </message>
     <message>
         <source>Галерей ще немає — натисни «Створити».</source>
-        <translation>No galleries yet — click "New".</translation>
+        <translation>No galleries yet — click &quot;New&quot;.</translation>
     </message>
     <message>
         <source>Не вдалося створити галерею:
@@ -506,15 +515,15 @@ Right click: choose where to add.</translation>
     </message>
     <message>
         <source>Галерею «%1» створено. Запустити рескан зараз?</source>
-        <translation>Gallery "%1" created. Rescan it now?</translation>
+        <translation>Gallery &quot;%1&quot; created. Rescan it now?</translation>
     </message>
     <message>
         <source>Видаляю галерею «%1»…</source>
-        <translation>Deleting the gallery "%1"…</translation>
+        <translation>Deleting the gallery &quot;%1&quot;…</translation>
     </message>
     <message>
         <source>Галерею «%1» видалено. Файли на диску не змінювались.</source>
-        <translation>Gallery "%1" deleted. Files on disk were not touched.</translation>
+        <translation>Gallery &quot;%1&quot; deleted. Files on disk were not touched.</translation>
     </message>
     <message>
         <source>Не вдалося видалити галерею:
@@ -570,11 +579,11 @@ Records of files that are not in the new folder will be removed from the databas
     </message>
     <message>
         <source>Додати до «Містить»</source>
-        <translation>Add to "Contains"</translation>
+        <translation>Add to &quot;Contains&quot;</translation>
     </message>
     <message>
         <source>Додати до «Не містить»</source>
-        <translation>Add to "Does not contain"</translation>
+        <translation>Add to &quot;Does not contain&quot;</translation>
     </message>
     <message>
         <source>Перейменувати…</source>
@@ -586,11 +595,11 @@ Records of files that are not in the new folder will be removed from the databas
     </message>
     <message>
         <source>Нова назва тегу «%1»:</source>
-        <translation>New name for the tag "%1":</translation>
+        <translation>New name for the tag &quot;%1&quot;:</translation>
     </message>
     <message>
         <source>Тег «%1» вже існує. Перейменування скасовано.</source>
-        <translation>The tag "%1" already exists. Renaming cancelled.</translation>
+        <translation>The tag &quot;%1&quot; already exists. Renaming cancelled.</translation>
     </message>
     <message>
         <source>Не вдалося перейменувати тег:
@@ -600,14 +609,14 @@ Records of files that are not in the new folder will be removed from the databas
     </message>
     <message>
         <source>Тег «%1» перейменовано на «%2»</source>
-        <translation>Tag "%1" renamed to "%2"</translation>
+        <translation>Tag &quot;%1&quot; renamed to &quot;%2&quot;</translation>
     </message>
     <message>
         <source>Зображення, у яких немає жодного тегу</source>
         <translation>Images without any tag</translation>
     </message>
     <message>
-        <source>Завантажую прев'юшки…</source>
+        <source>Завантажую прев&apos;юшки…</source>
         <translation>Loading thumbnails…</translation>
     </message>
     <message>
@@ -765,8 +774,8 @@ Delete them permanently (not to the Recycle Bin)?</translation>
 You can type a new name — the folder will be created:</translation>
     </message>
     <message>
-        <source>Недопустима назва папки. Не можна використовувати символи \ / : * ? " &lt; &gt; |</source>
-        <translation>Invalid folder name. These characters are not allowed: \ / : * ? " &lt; &gt; |</translation>
+        <source>Недопустима назва папки. Не можна використовувати символи \ / : * ? &quot; &lt; &gt; |</source>
+        <translation>Invalid folder name. These characters are not allowed: \ / : * ? &quot; &lt; &gt; |</translation>
     </message>
     <message>
         <source>Додати файли</source>
@@ -827,14 +836,18 @@ You can type a new name — the folder will be created:</translation>
 потім за оцінкою (більші спочатку), потім за іменем файлу.
 Спочатку новіші: за датою додавання в галерею, потім як класичне.
 Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.</source>
-        <translation>Classic: by virtual path (all tags of the file in alphabetical order, joined with "/"),
+        <translation>Classic: by virtual path (all tags of the file in alphabetical order, joined with &quot;/&quot;),
 then by rating (higher first), then by file name.
 Newest first: by the date added to the gallery, then classic.
 Largest first: by file size (largest first), then classic.</translation>
     </message>
     <message>
         <source>Назва тегу не може містити символи «,», «&lt;», «&gt;», «/» і «\».</source>
-        <translation>A tag name cannot contain ",", "&lt;", "&gt;", "/" or "\".</translation>
+        <translation>A tag name cannot contain &quot;,&quot;, &quot;&lt;&quot;, &quot;&gt;&quot;, &quot;/&quot; or &quot;\&quot;.</translation>
+    </message>
+    <message>
+        <source>Видаляю сміття…</source>
+        <translation>Deleting junk…</translation>
     </message>
 </context>
 <context>

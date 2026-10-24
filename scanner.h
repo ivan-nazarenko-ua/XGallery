@@ -24,7 +24,8 @@ void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootF
 // Hex sha256 of the file's content, empty if it can't be read.
 QString fileSha256(const QString &path);
 
-// Files the gallery never keeps: Thumbs.db, desktop.ini and anything else rescan skips.
+// Files the gallery never keeps: Thumbs.db, desktop.ini and anything else rescan skips
+// (incl. everything in the program's folder; pass an absolute path for that check).
 bool isIgnoredFile(const QString &path);
 
 // --- Import -------------------------------------------------------------------------------
@@ -60,8 +61,20 @@ bool isJunkFile(const QString &path);
 
 // What "Видалити сміття" removes under rootFolder (never the root itself): junk files, and
 // folders that contain nothing but junk files at any depth. Other hidden/system files count
-// as content; symlinks/junctions are never entered and count as content. Worker-thread safe.
+// as content; symlinks/junctions are never entered and count as content. The program's folder
+// is left alone and counts as content. Worker-thread safe.
 JunkScan findJunk(const QString &rootFolder);
+
+struct JunkRemoval
+{
+    int removedFiles = 0;
+    int removedFolders = 0;
+    QStringList failedFolders; // native separators; folders kept by a locked junk file are not listed
+};
+
+// Deletes what findJunk found, permanently. Junk files that can't be deleted are skipped
+// silently (Explorer often holds them). Worker-thread safe.
+JunkRemoval removeJunk(const JunkScan &junk);
 
 } // namespace Scanner
 

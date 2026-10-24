@@ -88,9 +88,11 @@ private:
     void wireMetaDialog(ImageMetaDialog &dialog);
     void addTagToEdit(QLineEdit *edit, const QString &tag);
     QString absolutePath(const QString &relativePath) const;
-    static QStringList parseTags(const QString &text); // display text -> normalized tags
+    // Search field text <-> normalized tags. "<без тегів>" (in the UI language) is not a tag:
+    // parseTags reports it in *noTags, tagsText puts it first.
+    static QStringList parseTags(const QString &text, bool *noTags = nullptr);
+    static QString tagsText(const QStringList &tags, bool noTags);
     static QString noTagsDisplayName();
-    static QStringList displayTags(const QStringList &tags); // tags -> what the UI shows
 
     // Busy indicator + UI lock while a background job runs.
     void runBusy(QFutureWatcherBase *watcher, const QString &text);
@@ -139,9 +141,7 @@ private:
     QSet<qint64> m_selectedIds; // bulk-edit selection, kept across pages and searches
     QLabel *m_pageLabel = nullptr;
 
-    QStringList m_includeTags;
-    QStringList m_excludeTags;
-    bool m_exactTags = false;
+    Db::TagQuery m_query; // the last applied search
     QList<ImageRecord> m_pageRecords;
     int m_page = 0;
     int m_totalCount = 0;

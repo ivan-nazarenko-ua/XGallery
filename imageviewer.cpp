@@ -118,6 +118,12 @@ bool ImageViewer::saveRotation()
         QMessageBox::warning(this, tr("Поворот"), tr("Файли цього формату не можна перезаписати."));
         return false;
     }
+    if (!ImageRotation::isLossless(path) && ImageRotation::isMultiFrame(path)) {
+        QMessageBox::warning(this, tr("Поворот"),
+                             tr("Це анімація або багатосторінковий файл. Після перезапису лишився б "
+                                "тільки перший кадр, тому поворот не збережено."));
+        return false;
+    }
     if (!ImageRotation::isLossless(path)
         && QMessageBox::question(this, tr("Поворот"),
                                  tr("Щоб зберегти поворот, файл буде перезаписано.\n"
@@ -241,7 +247,10 @@ void ImageViewer::updatePixmap()
     const QSize target = m_label->size() * dpr;
     const bool fits = m_original.width() <= target.width() && m_original.height() <= target.height();
     if (fits && !m_allowUpscale) {
-        m_label->setPixmap(m_original); // never bigger than the original
+        // Never bigger than the original: one image pixel per physical screen pixel.
+        QPixmap original = m_original;
+        original.setDevicePixelRatio(dpr);
+        m_label->setPixmap(original);
         return;
     }
     QPixmap scaled = m_original.scaled(target, Qt::KeepAspectRatio, Qt::SmoothTransformation);

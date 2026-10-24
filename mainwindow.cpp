@@ -340,8 +340,8 @@ void MainWindow::changeEvent(QEvent *event)
             m_rootLabel->setText(QDir::toNativeSeparators(gallery->rootFolder));
         else
             m_rootLabel->setText(tr("Галерей ще немає — натисни «Створити»."));
-        m_includeEdit->setText(displayTags(m_includeTags).join(", "));
-        m_excludeEdit->setText(displayTags(m_excludeTags).join(", "));
+        m_includeEdit->setText(tagsText(m_query.include, m_query.onlyUntagged));
+        m_excludeEdit->setText(tagsText(m_query.exclude, m_query.skipUntagged));
         reloadTags();
         refreshPageTexts();
         updateSelectionUi();
@@ -354,6 +354,13 @@ void MainWindow::closeEvent(QCloseEvent *event)
     if (isBusy()) {
         event->ignore(); // a background job still uses the DB
         return;
+    }
+    // Open viewers may hold an unsaved rotation: let them ask first; "Cancel" keeps the program open.
+    for (ImageViewer *viewer : findChildren<ImageViewer *>(Qt::FindDirectChildrenOnly)) {
+        if (!viewer->close()) {
+            event->ignore();
+            return;
+        }
     }
     QMainWindow::closeEvent(event);
 }
@@ -399,8 +406,8 @@ void MainWindow::onGalleryChanged(int index)
 
     m_includeEdit->clear();
     m_excludeEdit->clear();
-    m_includeTags.clear();
-    m_excludeTags.clear();
+    m_exactCheck->setChecked(false);
+    m_query = {};
     m_selectedIds.clear(); // the selection belongs to the previous gallery
     reloadTags();
     loadPage(0);
@@ -526,42 +533,44 @@ void MainWindow::startRescan()
     }));
 }
 
-// The service tag is stored/searched as Db::NoTagsPseudoTag but shown in the UI language.
+// Service entry of the search fields and the tag list: "images without tags". Never a real tag
+// ('<' and '>' are not allowed in tag names), shown in the UI language.
 QString MainWindow::noTagsDisplayName()
 {
     return tr("<без тегів>");
 }
 
-QStringList MainWindow::displayTags(const QStringList &tags)
+QString MainWindow::tagsText(const QStringList &tags, bool noTags)
 {
-    QStringList shown = tags;
-    shown.replaceInStrings(QRegularExpression("^" + QRegularExpression::escape(Db::NoTagsPseudoTag) + "$"),
-                           noTagsDisplayName());
-    return shown;
+    return (noTags ? QStringList{noTagsDisplayName()} + tags : tags).join(", ");
 }
 
-QStringList MainWindow::parseTags(const QString &text)
+QStringList MainWindow::parseTags(const QString &text, bool *noTags)
 {
     const QString shownNoTags = Db::normalizeTag(noTagsDisplayName());
+    if (noTags)
+        *noTags = false;
     QStringList tags;
     for (const QString &part : text.split(',', Qt::SkipEmptyParts)) {
-        QString tag = Db::normalizeTag(part);
-        if (tag == shownNoTags)
-            tag = Db::NoTagsPseudoTag;
-        if (!tag.isEmpty() && !tags.contains(tag))
+        const QString tag = Db::normalizeTag(part);
+        if (tag == shownNoTags) {
+            if (noTags)
+                *noTags = true;
+        } else if (!tag.isEmpty() && !tags.contains(tag)) {
             tags << tag;
+        }
     }
     return tags;
 }
 
 void MainWindow::applySearch()
 {
-    m_includeTags = parseTags(m_includeEdit->text());
-    m_excludeTags = parseTags(m_excludeEdit->text());
-    m_exactTags = m_exactCheck->isChecked();
+    m_query.include = parseTags(m_includeEdit->text(), &m_query.onlyUntagged);
+    m_query.exclude = parseTags(m_excludeEdit->text(), &m_query.skipUntagged);
+    m_query.exact = m_exactCheck->isChecked();
     // Show what is actually searched for (normalized spelling).
-    m_includeEdit->setText(displayTags(m_includeTags).join(", "));
-    m_excludeEdit->setText(displayTags(m_excludeTags).join(", "));
+    m_includeEdit->setText(tagsText(m_query.include, m_query.onlyUntagged));
+    m_excludeEdit->setText(tagsText(m_query.exclude, m_query.skipUntagged));
     loadPage(0);
     if (m_hideForeignTagsCheck->isChecked())
         reloadTags(); // the list follows the latest search
@@ -577,11 +586,12 @@ void MainWindow::clearSearch()
 
 void MainWindow::addTagToEdit(QLineEdit *edit, const QString &tag)
 {
-    QStringList tags = parseTags(edit->text());
-    const QString internal = parseTags(tag).value(0);
+    bool noTags = false, addNoTags = false;
+    QStringList tags = parseTags(edit->text(), &noTags);
+    const QString internal = parseTags(tag, &addNoTags).value(0);
     if (!internal.isEmpty() && !tags.contains(internal))
         tags << internal;
-    edit->setText(displayTags(tags).join(", "));
+    edit->setText(tagsText(tags, noTags || addNoTags));
 }
 
 void MainWindow::showTagMenu(const QPoint &pos)
@@ -599,7 +609,7 @@ void MainWindow::showTagMenu(const QPoint &pos)
         addTagToEdit(m_excludeEdit, tag);
         applySearch();
     });
-    if (m_tagList->row(item) != 0) { // row 0 is the service tag, which has a fixed name
+    if (!item->data(Qt::UserRole).toBool()) { // the service entry has a fixed name
         menu.addSeparator();
         menu.addAction(tr("Перейменувати…"), this, [this, tag] { renameTag(tag); });
     }
@@ -623,8 +633,7 @@ void MainWindow::renameTag(const QString &oldName)
         const QString newName = Db::normalizeTag(text);
         if (newName.isEmpty() || newName == oldName)
             return; // nothing to change
-        if (newName.contains(',') || newName.contains('<') || newName.contains('>')
-            || newName.contains('/') || newName.contains('\\')) {
+        if (!Db::isValidTagName(newName)) {
             QMessageBox::warning(this, tr("Перейменувати тег"), tr("Назва тегу не може містити символи «,», «<», «>», «/» і «\\»."));
             continue;
         }
@@ -640,15 +649,19 @@ void MainWindow::renameTag(const QString &oldName)
 
         // Keep the search fields pointing at the same tag.
         for (QLineEdit *edit : {m_includeEdit, m_excludeEdit}) {
-            QStringList tags = parseTags(edit->text());
+            bool noTags = false;
+            QStringList tags = parseTags(edit->text(), &noTags);
             const qsizetype i = tags.indexOf(oldName);
             if (i >= 0) {
                 tags[i] = newName;
-                edit->setText(displayTags(tags).join(", "));
+                edit->setText(tagsText(tags, noTags));
             }
         }
-        m_includeTags.replaceInStrings(QRegularExpression("^" + QRegularExpression::escape(oldName) + "$"), newName);
-        m_excludeTags.replaceInStrings(QRegularExpression("^" + QRegularExpression::escape(oldName) + "$"), newName);
+        for (QStringList *tags : {&m_query.include, &m_query.exclude}) {
+            const qsizetype i = tags->indexOf(oldName);
+            if (i >= 0)
+                (*tags)[i] = newName;
+        }
 
         statusBar()->showMessage(tr("Тег «%1» перейменовано на «%2»").arg(oldName, newName), 5000);
         reloadTags();
@@ -671,9 +684,10 @@ void MainWindow::reloadTags()
     noTags->setFont(font);
     noTags->setForeground(palette().color(QPalette::PlaceholderText));
     noTags->setToolTip(tr("Зображення, у яких немає жодного тегу"));
+    noTags->setData(Qt::UserRole, true); // marks the service entry
 
     if (m_hideForeignTagsCheck->isChecked())
-        m_tagList->addItems(Db::tagsOfSearch(gallery->id, m_includeTags, m_excludeTags, m_exactTags));
+        m_tagList->addItems(Db::tagsOfSearch(gallery->id, m_query));
     else
         m_tagList->addItems(Db::allTags(gallery->id));
 }
@@ -703,8 +717,8 @@ void MainWindow::loadPage(int page)
 
     m_page = page;
     const Gallery *gallery = currentGallery();
-    m_pageRecords = Db::searchImages(gallery ? gallery->id : 0, m_includeTags, m_excludeTags, page * PageSize, PageSize,
-                                     &m_totalCount, sortOrder(), m_exactTags);
+    m_pageRecords = Db::searchImages(gallery ? gallery->id : 0, m_query, page * PageSize, PageSize, &m_totalCount,
+                                     sortOrder());
     if (m_pageRecords.isEmpty() && page > 0 && m_totalCount > 0) {
         // The page shrank (e.g. after editing tags): show the last one that exists.
         loadPage((m_totalCount - 1) / PageSize);
@@ -812,8 +826,7 @@ void MainWindow::openThumbnail(int index)
 
     // The arrows in the viewer walk through the images of the whole search result
     // (not just this page); videos and other files are skipped.
-    const QList<ImageRecord> all = Db::searchImages(gallery->id, m_includeTags, m_excludeTags, 0, -1, nullptr,
-                                                    sortOrder(), m_exactTags);
+    const QList<ImageRecord> all = Db::searchImages(gallery->id, m_query, 0, -1, nullptr, sortOrder());
     QStringList paths;
     paths.reserve(all.size());
     int current = 0;
@@ -1076,40 +1089,18 @@ void MainWindow::deleteJunk()
         if (box.exec() != QMessageBox::Yes)
             return;
 
-        QApplication::setOverrideCursor(Qt::WaitCursor);
-        // Junk files first; failures are silently skipped (they are often locked by Explorer).
-        int removedFiles = 0;
-        QStringList keptJunk;
-        for (const QString &file : junk.junkFiles) {
-            QFile::setPermissions(file, QFile::permissions(file) | QFile::WriteOwner | QFile::WriteUser);
-            if (QFile::remove(file))
-                ++removedFiles;
-            else
-                keptJunk << file;
-        }
-
-        // Then folders, deepest first, so a parent is already empty when its turn comes.
-        int removedFolders = 0;
-        QStringList failed;
-        for (const QString &folder : junk.emptyFolders) {
-            if (QDir().rmdir(folder)) {
-                ++removedFolders;
-                continue;
-            }
-            // A junk file we couldn't delete keeps its folders: that's expected, not an error.
-            const bool explained = std::any_of(keptJunk.cbegin(), keptJunk.cend(), [&folder](const QString &f) {
-                return f.startsWith(folder + '/', Qt::CaseInsensitive);
-            });
-            if (!explained)
-                failed << QDir::toNativeSeparators(folder);
-        }
-        QApplication::restoreOverrideCursor();
-
-        statusBar()->showMessage(tr("Видалено файлів: %1, папок: %2").arg(removedFiles).arg(removedFolders), 10000);
-        if (!failed.isEmpty())
-            QMessageBox::warning(this, tr("Сміття"),
-                                 tr("Ці папки видалити не вдалося (можливо, зайняті або немає прав):\n\n%1")
-                                     .arg(failed.join('\n')));
+        auto *removal = new QFutureWatcher<Scanner::JunkRemoval>(this);
+        runBusy(removal, tr("Видаляю сміття…"));
+        connect(removal, &QFutureWatcherBase::finished, this, [this, removal] {
+            const Scanner::JunkRemoval done = removal->result();
+            statusBar()->showMessage(tr("Видалено файлів: %1, папок: %2").arg(done.removedFiles).arg(done.removedFolders),
+                                     10000);
+            if (!done.failedFolders.isEmpty())
+                QMessageBox::warning(this, tr("Сміття"),
+                                     tr("Ці папки видалити не вдалося (можливо, зайняті або немає прав):\n\n%1")
+                                         .arg(done.failedFolders.join('\n')));
+        });
+        removal->setFuture(QtConcurrent::run([junk] { return Scanner::removeJunk(junk); }));
     });
     watcher->setFuture(QtConcurrent::run([root] { return Scanner::findJunk(root); }));
 }
@@ -1192,7 +1183,7 @@ void MainWindow::addFolderToGallery()
     const QDir::Filters fileFilter = QDir::Files | QDir::Readable | QDir::Hidden | QDir::System;
     bool hasOwnFiles = false;
     for (const QString &name : sourceDir.entryList(fileFilter))
-        if (!Scanner::isIgnoredFile(name)) {
+        if (!Scanner::isIgnoredFile(sourceDir.filePath(name))) {
             hasOwnFiles = true;
             break;
         }

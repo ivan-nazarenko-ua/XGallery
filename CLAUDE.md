@@ -54,9 +54,13 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   `Gallery::rootFolder` in memory is always absolute.
 - **Tags**: per gallery, always in `Db::normalizeTag` spelling (whitespace collapsed, first letter upper,
   rest lower) — when stored, and for search input. Folder names between root and file become tags;
-  commas → space (`tagsFromRelativePath`). Manual tags must not contain `,` `<` `>` `/` `\`. `Db::NoTagsPseudoTag`
-  (`<без тегів>`) is search-only, never stored. Unused tags are deleted after every change.
-- **Rescan**: all files incl. hidden/system, except `*.db`/`*.ini`. Unchanged = same size+mtime
+  commas → space (`tagsFromRelativePath`). Manual tags must not contain `,` `<` `>` `/` `\`
+  (`Db::isValidTagName`). Unused tags are deleted after every change (`Db::deleteUnusedTags`).
+- **Search**: `Db::TagQuery` (include/exclude tags, onlyUntagged/skipUntagged, exact). `<без тегів>` is
+  not a tag: it exists only in `MainWindow` as text in the search fields and the tag list's service
+  entry (`parseTags` turns it into the untagged flags, `tagsText` back). `Db::` knows no service tags.
+- **Rescan**: all files incl. hidden/system, except `*.db`/`*.ini`, the program's own DB and anything
+  inside the exe folder (import and junk deletion skip that folder too). Unchanged = same size+mtime
   (no re-hash). Folder tags are added only to new files, so manual tag edits survive.
   Moves/renames: a missing record + one new file with the same sha256+size (1:1 only) keep
   id, rating and manual tags; old-folder tags are swapped for new ones.
@@ -90,5 +94,5 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   After adding/changing UI strings: run `lupdate -no-obsolete -locations none -source-language uk
   -target-language en|fr *.cpp *.h -ts translations/xgallery_en|fr.ts` and fill the new
   translations (the build embeds the .qm files via `qt_add_translations`). Keep 0 unfinished.
-  `<без тегів>` is shown translated (`noTagsDisplayName`) but stored/searched as `Db::NoTagsPseudoTag`.
+  `<без тегів>` is shown and parsed in the UI language (`noTagsDisplayName`).
 - "Сховати чужі теги": the tag list shows `Db::tagsOfSearch` (tags of the last search's results).
