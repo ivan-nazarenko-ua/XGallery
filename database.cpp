@@ -73,7 +73,7 @@ namespace Db {
 
 QString normalizeTag(const QString &tag)
 {
-    const QString t = tag.simplified();
+    const QString t = QString(tag).replace(u'_', u' ').simplified();
     if (t.isEmpty())
         return t;
     return t.left(1).toUpper() + t.mid(1).toLower();

@@ -87,6 +87,41 @@ bool isExcluded(const QString &path)
     return false;
 }
 
+// Windows device names can't be folder names, with an extension either ("CON", "nul.old").
+bool isReservedName(const QString &name)
+{
+    static const QStringList reserved = {
+        "CON", "PRN", "AUX", "NUL",
+        "COM0", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "COM¹", "COM²", "COM³",
+        "LPT0", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        "LPT¹", "LPT²", "LPT³"};
+    return reserved.contains(name.section('.', 0, 0).trimmed().toUpper());
+}
+
+// Import creates a folder with a reserved name with '_' after the name: "CON" -> "CON_",
+// "con.old" -> "con_.old". The tag stays without it (folderTagName).
+QString safeFolderName(const QString &name)
+{
+    if (!isReservedName(name))
+        return name;
+    const qsizetype dot = name.indexOf('.');
+    return dot < 0 ? name + '_' : name.left(dot) + '_' + name.mid(dot);
+}
+
+// The tag-giving name of a folder: undoes safeFolderName.
+QString folderTagName(const QString &folder)
+{
+    const qsizetype dot = folder.indexOf('.');
+    const QString stem = dot < 0 ? folder : folder.left(dot);
+    if (stem.endsWith('_')) {
+        const QString original = stem.chopped(1) + (dot < 0 ? QString() : folder.mid(dot));
+        if (isReservedName(original))
+            return original;
+    }
+    return folder;
+}
+
 // Every folder between the root and the file becomes a tag.
 // Commas separate tags in the search fields, so "name,1" becomes the tag "name 1".
 QStringList tagsFromRelativePath(const QString &relativePath)
@@ -96,7 +131,7 @@ QStringList tagsFromRelativePath(const QString &relativePath)
         parts.removeLast(); // the file name itself
     QStringList tags;
     for (const QString &folder : std::as_const(parts)) {
-        const QString tag = Db::normalizeTag(QString(folder).replace(',', ' '));
+        const QString tag = Db::normalizeTag(folderTagName(folder).replace(',', ' '));
         if (!tag.isEmpty() && !tags.contains(tag))
             tags << tag;
     }
@@ -487,8 +522,21 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
             continue;
         }
 
-        const QString targetDir = QDir::cleanPath(item.targetDir);
-        if (!root.mkpath(targetDir)) {
+        // targetDir must stay inside the gallery: relative, no "..", no drive. Reserved
+        // Windows names get a '_' (safeFolderName).
+        bool inside = !QDir::isAbsolutePath(item.targetDir);
+        QStringList segments;
+        for (const QString &segment : QDir::cleanPath(item.targetDir).split('/', Qt::SkipEmptyParts)) {
+            if (segment == ".")
+                continue;
+            if (segment == ".." || segment.contains(':') || segment.contains('\\')) {
+                inside = false;
+                break;
+            }
+            segments << safeFolderName(segment);
+        }
+        const QString targetDir = segments.join('/');
+        if (!inside || !root.mkpath(targetDir.isEmpty() ? "." : targetDir)) {
             stats.failed << QDir::toNativeSeparators(item.source);
             continue;
         }

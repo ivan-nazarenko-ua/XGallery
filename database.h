@@ -27,8 +27,9 @@ namespace Db {
 // Connection used by the GUI thread. Worker threads must open their own.
 inline constexpr const char *MainConnection = "xgallery_main";
 
-// The one spelling of a tag: whitespace collapsed, first letter upper case, the rest lower
-// ("нове СВЯТО" -> "Нове свято"). Every tag is normalized before it is stored or searched for.
+// The one spelling of a tag: '_' read as a space, whitespace collapsed, first letter upper case,
+// the rest lower ("нове СВЯТО" -> "Нове свято", "_april" -> "April"). Every tag is normalized
+// before it is stored or searched for. Changing the rule needs a migration step.
 QString normalizeTag(const QString &tag);
 // Manual tags must not contain ',' (separates tags in the search fields), '<' '>' (reserved
 // for the search fields' "<без тегів>"), '/' (joins tags into the virtual path) or '\'.

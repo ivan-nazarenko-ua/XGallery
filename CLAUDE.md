@@ -43,8 +43,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 ## Rules that must keep holding
 
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
-  never edit existing steps. Current version: 7 (galleries; rating+name; allow_upscale; no commas in tags;
-  normalized tag spelling; virtual path; virtual path with digits after letters).
+  never edit existing steps. Current version: 8 (galleries; rating+name; allow_upscale; no commas in tags;
+  normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -52,7 +52,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - **DB paths are relative to the gallery root**, `/`-separated. In portable mode (DB next to the
   exe) gallery roots are stored relative to the exe dir and must be on the exe's drive;
   `Gallery::rootFolder` in memory is always absolute.
-- **Tags**: per gallery, always in `Db::normalizeTag` spelling (whitespace collapsed, first letter upper,
+- **Tags**: per gallery, always in `Db::normalizeTag` spelling (`_` → space, whitespace collapsed, first letter upper,
   rest lower) — when stored, and for search input. Folder names between root and file become tags;
   commas → space (`tagsFromRelativePath`). Manual tags must not contain `,` `<` `>` `/` `\`
   (`Db::isValidTagName`). Unused tags are deleted after every change (`Db::deleteUnusedTags`).
@@ -67,7 +67,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   All files of one scan/import get the same `added_at` (for "newest first").
 - **Import** (add files/folder): copy, never move; skip duplicates (DB, same batch, or same
   name+content already in the target); name clash → `name (1).ext`; records are written
-  immediately (no rescan needed).
+  immediately (no rescan needed). The target folder is checked to stay inside the gallery; a
+  Windows device name (CON, NUL, COM1…) gets `_` (`CON_`, `con_.old`), its tag stays `Con`.
 - **Deleting user files**: always ask first. Single files and duplicates go to the Recycle Bin
   (`QFile::moveToTrash`); if that fails, nothing is deleted. "Видалити сміття" deletes
   `Thumbs.db`/`desktop.ini` and empty folders permanently (as the owner asked), still behind a
