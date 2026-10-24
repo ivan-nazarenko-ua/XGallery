@@ -1,6 +1,7 @@
 #include "database.h"
 
 #include "migrations.h"
+#include "virtualpath.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -276,11 +277,10 @@ QStringList tagsForImage(qint64 imageId)
     return tags;
 }
 
-QList<ImageRecord> searchImages(qint64 galleryId,
-                                const QStringList &includeTags,
-                                const QStringList &excludeTags,
-                                int offset, int limit, int *totalCount, SortOrder order,
-                                bool exactTags)
+// WHERE clause (on "images i") and its bind values for a tag search; shared by the search
+// itself and by the list of tags occurring in its results.
+static QString searchFilter(qint64 galleryId, const QStringList &includeTags,
+                            const QStringList &excludeTags, bool exactTags, QVariantList *binds)
 {
     QStringList inc = normalized(includeTags);
     QStringList exc = normalized(excludeTags);
@@ -293,7 +293,7 @@ QList<ImageRecord> searchImages(qint64 galleryId,
 
     // Tag ids are unique per gallery, so filtering tags by gallery_id is enough inside the subqueries.
     QStringList where{"i.gallery_id = ?"};
-    QVariantList binds{galleryId};
+    *binds = {galleryId};
     if (onlyUntagged)
         where << "NOT EXISTS (SELECT 1 FROM image_tags it WHERE it.image_id = i.id)";
     if (skipUntagged)
@@ -304,9 +304,9 @@ QList<ImageRecord> searchImages(qint64 galleryId,
                          "GROUP BY it.image_id HAVING COUNT(DISTINCT t.id) = %2)")
                      .arg(placeholders(inc.size()))
                      .arg(inc.size());
-        binds << galleryId;
+        *binds << galleryId;
         for (const QString &t : inc)
-            binds << t;
+            *binds << t;
     }
     // Exact mode: having all the wanted tags and exactly that many tags means no others.
     // (Empty include list = images without tags.)
@@ -316,11 +316,39 @@ QList<ImageRecord> searchImages(qint64 galleryId,
         where << QString("i.id NOT IN (SELECT it.image_id FROM image_tags it "
                          "JOIN tags t ON t.id = it.tag_id WHERE t.gallery_id = ? AND t.name IN (%1))")
                      .arg(placeholders(exc.size()));
-        binds << galleryId;
+        *binds << galleryId;
         for (const QString &t : exc)
-            binds << t;
+            *binds << t;
     }
-    const QString whereSql = " WHERE " + where.join(" AND ");
+    return " WHERE " + where.join(" AND ");
+}
+
+QStringList tagsOfSearch(qint64 galleryId, const QStringList &includeTags,
+                         const QStringList &excludeTags, bool exactTags)
+{
+    QVariantList binds;
+    const QString whereSql = searchFilter(galleryId, includeTags, excludeTags, exactTags, &binds);
+    QStringList tags;
+    QSqlQuery q(mainDb());
+    q.prepare("SELECT DISTINCT t.name FROM tags t JOIN image_tags it ON it.tag_id = t.id "
+              "WHERE it.image_id IN (SELECT i.id FROM images i" + whereSql + ") "
+              "ORDER BY t.name COLLATE NOCASE");
+    for (const QVariant &v : binds)
+        q.addBindValue(v);
+    if (exec(q))
+        while (q.next())
+            tags << q.value(0).toString();
+    return tags;
+}
+
+QList<ImageRecord> searchImages(qint64 galleryId,
+                                const QStringList &includeTags,
+                                const QStringList &excludeTags,
+                                int offset, int limit, int *totalCount, SortOrder order,
+                                bool exactTags)
+{
+    QVariantList binds;
+    const QString whereSql = searchFilter(galleryId, includeTags, excludeTags, exactTags, &binds);
 
     QSqlDatabase db = mainDb();
 
@@ -348,7 +376,9 @@ QList<ImageRecord> searchImages(qint64 galleryId,
         break;
     }
     q.prepare("SELECT i.id, i.path, i.rating, i.size FROM images i" + whereSql
-              + " ORDER BY " + firstKey + "i.rating DESC, i.name COLLATE NOCASE, i.id LIMIT ? OFFSET ?");
+              // Classic order: virtual path (tags in alphabetical order), rating, file name.
+              + " ORDER BY " + firstKey
+              + "i.vpath_key, i.rating DESC, i.name COLLATE NOCASE, i.id LIMIT ? OFFSET ?");
     for (const QVariant &v : binds)
         q.addBindValue(v);
     q.addBindValue(limit);
@@ -405,6 +435,9 @@ bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringLi
                 return false;
         }
 
+        if (!VirtualPath::update(db, {imageId}, &g_lastError))
+            return false;
+
         // Tags nobody uses any more disappear from the gallery.
         q.prepare("DELETE FROM tags WHERE gallery_id = ? "
                   "AND id NOT IN (SELECT DISTINCT tag_id FROM image_tags)");
@@ -440,12 +473,37 @@ QList<ImageRecord> imagesByIds(qint64 galleryId, const QList<qint64> &imageIds)
 
 bool renameTag(qint64 galleryId, const QString &oldName, const QString &newName)
 {
-    QSqlQuery q(mainDb());
-    q.prepare("UPDATE tags SET name = ? WHERE gallery_id = ? AND name = ?");
-    q.addBindValue(newName);
-    q.addBindValue(galleryId);
-    q.addBindValue(oldName);
-    return exec(q);
+    QSqlDatabase db = mainDb();
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return false;
+    }
+    const bool ok = [&] {
+        QSqlQuery q(db);
+        q.prepare("UPDATE tags SET name = ? WHERE gallery_id = ? AND name = ?");
+        q.addBindValue(newName);
+        q.addBindValue(galleryId);
+        q.addBindValue(oldName);
+        if (!exec(q))
+            return false;
+        // Every file with this tag gets a new virtual path.
+        QList<qint64> ids;
+        q.prepare("SELECT it.image_id FROM image_tags it JOIN tags t ON t.id = it.tag_id "
+                  "WHERE t.gallery_id = ? AND t.name = ?");
+        q.addBindValue(galleryId);
+        q.addBindValue(newName);
+        if (!exec(q))
+            return false;
+        while (q.next())
+            ids << q.value(0).toLongLong();
+        return VirtualPath::update(db, ids, &g_lastError);
+    }();
+    if (ok && db.commit())
+        return true;
+    if (ok)
+        g_lastError = db.lastError().text();
+    db.rollback();
+    return false;
 }
 
 bool applyTagChanges(qint64 galleryId, const QList<qint64> &imageIds,
@@ -489,6 +547,8 @@ bool applyTagChanges(qint64 galleryId, const QList<qint64> &imageIds,
                     return false;
             }
         }
+        if (!VirtualPath::update(db, imageIds, &g_lastError))
+            return false;
         cleanup.prepare("DELETE FROM tags WHERE gallery_id = ? "
                         "AND id NOT IN (SELECT DISTINCT tag_id FROM image_tags)");
         cleanup.addBindValue(galleryId);

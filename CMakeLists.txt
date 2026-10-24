@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Concurrent)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Concurrent)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Concurrent LinguistTools)
 
 set(PROJECT_SOURCES
         main.cpp
@@ -38,6 +38,12 @@ set(PROJECT_SOURCES
         imagerotation.h
         imagerotation.cpp
         resources.qrc
+        i18n.h
+        i18n.cpp
+        languagedialog.h
+        languagedialog.cpp
+        virtualpath.h
+        virtualpath.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -97,6 +103,13 @@ install(TARGETS XGallery
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# UI translations (source strings are Ukrainian). Update the .ts files with lupdate, then fill in
+# the translations; the .qm files are built and embedded under :/i18n automatically.
+qt_add_translations(XGallery
+    TS_FILES translations/xgallery_en.ts translations/xgallery_fr.ts
+    RESOURCE_PREFIX /i18n
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)

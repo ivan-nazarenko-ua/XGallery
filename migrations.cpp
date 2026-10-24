@@ -1,5 +1,7 @@
 #include "migrations.h"
 
+#include "virtualpath.h"
+
 #include <QFileInfo>
 #include <QHash>
 #include <QList>
@@ -33,6 +35,12 @@ public:
         if (m_q.exec())
             return true;
         *m_error = m_q.lastError().text();
+        return false;
+    }
+
+    bool fail(const QString &message)
+    {
+        *m_error = message;
         return false;
     }
 
@@ -288,6 +296,44 @@ bool toV5NormalizedTags(Sql &s)
     return true;
 }
 
+// ---- v5 -> v6: virtual path --------------------------------------------------------------
+// vpath = the file's tags in alphabetical order joined with '/', vpath_key = its sort form
+// (see virtualpath.h). Classic sorting uses vpath_key. TEXT has no length limit in SQLite.
+bool toV6VirtualPath(Sql &s)
+{
+    if (!s.exec("ALTER TABLE images ADD COLUMN vpath TEXT NOT NULL DEFAULT ''")
+        || !s.exec("ALTER TABLE images ADD COLUMN vpath_key TEXT NOT NULL DEFAULT ''")
+        || !s.exec("CREATE INDEX IF NOT EXISTS idx_images_vpath ON images(gallery_id, vpath_key)"))
+        return false;
+
+    QList<qint64> ids;
+    QSqlQuery &q = s.query();
+    if (!s.exec("SELECT id FROM images"))
+        return false;
+    while (q.next())
+        ids << q.value(0).toLongLong();
+    q.finish();
+
+    QString error;
+    return VirtualPath::update(s.db(), ids, &error) || s.fail(error);
+}
+
+// ---- v6 -> v7: digits after letters in virtual paths ---------------------------------------
+// The alphabet of VirtualPath::sortKey changed ("Маша/Море/001"): recompute every path.
+bool toV7DigitsLast(Sql &s)
+{
+    QList<qint64> ids;
+    QSqlQuery &q = s.query();
+    if (!s.exec("SELECT id FROM images"))
+        return false;
+    while (q.next())
+        ids << q.value(0).toLongLong();
+    q.finish();
+
+    QString error;
+    return VirtualPath::update(s.db(), ids, &error) || s.fail(error);
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -361,6 +407,8 @@ static const QList<Migrations::Step> &steps()
         {toV3AllowUpscale, false},
         {toV4NoCommasInTags, false},
         {toV5NormalizedTags, false},
+        {toV6VirtualPath, false},
+        {toV7DigitsLast, false},
     };
     return list;
 }

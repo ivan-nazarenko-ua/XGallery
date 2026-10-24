@@ -14,7 +14,10 @@ QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
 }
+class QAction;
 class QCheckBox;
+class QGroupBox;
+class QMenu;
 class QComboBox;
 class QFutureWatcherBase;
 class QLabel;
@@ -37,6 +40,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void changeEvent(QEvent *event) override; // language switch on the fly
 
 private slots:
     void createGallery();
@@ -66,6 +70,8 @@ private:
     static constexpr int ThumbnailSize = 160;
 
     void buildUi();
+    void retranslateUi();
+    void refreshPageTexts();
     void reloadGalleries(qint64 selectId);
     void askForRescan(const QString &question);
     const Gallery *currentGallery() const;
@@ -82,7 +88,9 @@ private:
     void wireMetaDialog(ImageMetaDialog &dialog);
     void addTagToEdit(QLineEdit *edit, const QString &tag);
     QString absolutePath(const QString &relativePath) const;
-    static QStringList parseTags(const QString &text);
+    static QStringList parseTags(const QString &text); // display text -> normalized tags
+    static QString noTagsDisplayName();
+    static QStringList displayTags(const QStringList &tags); // tags -> what the UI shows
 
     // Busy indicator + UI lock while a background job runs.
     void runBusy(QFutureWatcherBase *watcher, const QString &text);
@@ -91,6 +99,25 @@ private:
     bool isBusy() const { return m_busyDepth > 0; }
 
     Ui::MainWindow *ui;
+
+    QMenu *m_fileMenu = nullptr;
+    QAction *m_createGalleryAction = nullptr;
+    QAction *m_editGalleryAction = nullptr;
+    QAction *m_rescanAction = nullptr;
+    QAction *m_addFilesAction = nullptr;
+    QAction *m_addFolderAction = nullptr;
+    QAction *m_duplicatesAction = nullptr;
+    QAction *m_junkAction = nullptr;
+    QAction *m_quitAction = nullptr;
+    QLabel *m_galleryLabel = nullptr;
+    QPushButton *m_createGalleryButton = nullptr;
+    QLabel *m_includeLabel = nullptr;
+    QLabel *m_excludeLabel = nullptr;
+    QLabel *m_sortLabel = nullptr;
+    QPushButton *m_searchButton = nullptr;
+    QPushButton *m_clearSearchButton = nullptr;
+    QGroupBox *m_tagsBox = nullptr;
+    QCheckBox *m_hideForeignTagsCheck = nullptr; // tag list shows only tags of the last search result
 
     QList<Gallery> m_galleries;
     QComboBox *m_galleryCombo = nullptr;

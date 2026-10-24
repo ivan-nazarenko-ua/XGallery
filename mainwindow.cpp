@@ -4,11 +4,13 @@
 #include "busydialog.h"
 #include "duplicatesdialog.h"
 #include "gallerydialog.h"
+#include "i18n.h"
 #include "imagemetadialog.h"
 #include "imageviewer.h"
 #include "mediafiles.h"
 #include "scanner.h"
 
+#include <QActionGroup>
 #include <QApplication>
 #include <QCheckBox>
 #include <QCloseEvent>
@@ -88,35 +90,51 @@ MainWindow::~MainWindow()
 
 void MainWindow::buildUi()
 {
-    // Menu
-    QMenu *fileMenu = menuBar()->addMenu(tr("&Файл"));
-    fileMenu->addAction(tr("&Створити галерею…"), QKeySequence::New, this, &MainWindow::createGallery);
-    fileMenu->addAction(tr("&Редагувати галерею…"), this, &MainWindow::editGallery);
-    fileMenu->addAction(tr("Рес&кан"), QKeySequence(Qt::Key_F5), this, &MainWindow::startRescan);
-    fileMenu->addSeparator();
-    fileMenu->addAction(tr("Додати &файли в галерею…"), this, &MainWindow::addFilesToGallery);
-    fileMenu->addAction(tr("Додати п&апку в галерею…"), this, &MainWindow::addFolderToGallery);
-    fileMenu->addSeparator();
-    fileMenu->addAction(tr("Знайти &дублікати…"), this, &MainWindow::findDuplicates);
-    fileMenu->addAction(tr("Видалити &сміття…"), this, &MainWindow::deleteJunk);
-    fileMenu->addSeparator();
-    fileMenu->addAction(tr("&Вийти"), QKeySequence::Quit, this, &QWidget::close);
+    // Menu. All texts are set in retranslateUi(), so the language can change on the fly.
+    m_fileMenu = menuBar()->addMenu(QString());
+    m_createGalleryAction = m_fileMenu->addAction(QString(), QKeySequence::New, this, &MainWindow::createGallery);
+    m_editGalleryAction = m_fileMenu->addAction(QString(), this, &MainWindow::editGallery);
+    m_rescanAction = m_fileMenu->addAction(QString(), QKeySequence(Qt::Key_F5), this, &MainWindow::startRescan);
+    m_fileMenu->addSeparator();
+    m_addFilesAction = m_fileMenu->addAction(QString(), this, &MainWindow::addFilesToGallery);
+    m_addFolderAction = m_fileMenu->addAction(QString(), this, &MainWindow::addFolderToGallery);
+    m_fileMenu->addSeparator();
+    m_duplicatesAction = m_fileMenu->addAction(QString(), this, &MainWindow::findDuplicates);
+    m_junkAction = m_fileMenu->addAction(QString(), this, &MainWindow::deleteJunk);
+    m_fileMenu->addSeparator();
+    m_quitAction = m_fileMenu->addAction(QString(), QKeySequence::Quit, this, &QWidget::close);
+
+    // "Language" stays in English in every language; each item is in its own language.
+    QMenu *languageMenu = menuBar()->addMenu(QStringLiteral("&Language"));
+    auto *languageGroup = new QActionGroup(this);
+    for (const I18n::Language &language : I18n::languages()) {
+        QAction *action = languageMenu->addAction(QIcon(language.flag), language.nativeName);
+        action->setCheckable(true);
+        action->setChecked(language.code == I18n::current());
+        action->setData(language.code);
+        languageGroup->addAction(action);
+        connect(action, &QAction::triggered, this, [code = language.code] {
+            Db::setSetting(I18n::SettingKey, code);
+            I18n::apply(code); // every window gets QEvent::LanguageChange
+        });
+    }
 
     auto *central = ui->centralwidget;
     auto *mainLayout = new QVBoxLayout(central);
 
     // Gallery row
     auto *rootRow = new QHBoxLayout;
-    rootRow->addWidget(new QLabel(tr("Галерея:")));
+    m_galleryLabel = new QLabel;
+    rootRow->addWidget(m_galleryLabel);
     m_galleryCombo = new QComboBox;
     m_galleryCombo->setMinimumContentsLength(20);
     m_galleryCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     connect(m_galleryCombo, &QComboBox::currentIndexChanged, this, &MainWindow::onGalleryChanged);
     rootRow->addWidget(m_galleryCombo);
-    auto *createButton = new QPushButton(tr("Створити"));
-    connect(createButton, &QPushButton::clicked, this, &MainWindow::createGallery);
-    rootRow->addWidget(createButton);
-    m_editGalleryButton = new QPushButton(tr("Редагувати"));
+    m_createGalleryButton = new QPushButton;
+    connect(m_createGalleryButton, &QPushButton::clicked, this, &MainWindow::createGallery);
+    rootRow->addWidget(m_createGalleryButton);
+    m_editGalleryButton = new QPushButton;
     connect(m_editGalleryButton, &QPushButton::clicked, this, &MainWindow::editGallery);
     rootRow->addWidget(m_editGalleryButton);
     m_rootLabel = new QLabel;
@@ -124,47 +142,41 @@ void MainWindow::buildUi()
     m_rootLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_rootLabel->setIndent(8);
     rootRow->addWidget(m_rootLabel, 1);
-    m_rescanButton = new QPushButton(tr("Рескан"));
-    m_rescanButton->setToolTip(tr("Перечитати папку: додати нові файли, прибрати зниклі (F5)"));
+    m_rescanButton = new QPushButton;
     connect(m_rescanButton, &QPushButton::clicked, this, &MainWindow::startRescan);
     rootRow->addWidget(m_rescanButton);
     mainLayout->addLayout(rootRow);
 
     // Search row
     auto *searchRow = new QHBoxLayout;
-    searchRow->addWidget(new QLabel(tr("Містить теги:")));
+    m_includeLabel = new QLabel;
+    searchRow->addWidget(m_includeLabel);
     m_includeEdit = new QLineEdit;
-    m_includeEdit->setPlaceholderText(tr("тег1, тег2 (усі одночасно)"));
     m_includeEdit->setClearButtonEnabled(true);
     searchRow->addWidget(m_includeEdit, 1);
-    m_exactCheck = new QCheckBox(tr("Жорстко"));
-    m_exactCheck->setToolTip(tr("Лише файли, що мають рівно ці теги й жодних інших.\n"
-                                "Поле «Не містить» тоді не враховується."));
+    m_exactCheck = new QCheckBox;
     connect(m_exactCheck, &QCheckBox::toggled, this, [this](bool on) { m_excludeEdit->setEnabled(!on); });
     searchRow->addWidget(m_exactCheck);
-    searchRow->addWidget(new QLabel(tr("Не містить:")));
+    m_excludeLabel = new QLabel;
+    searchRow->addWidget(m_excludeLabel);
     m_excludeEdit = new QLineEdit;
-    m_excludeEdit->setPlaceholderText(tr("тег3, тег4 (жодного з них)"));
     m_excludeEdit->setClearButtonEnabled(true);
     searchRow->addWidget(m_excludeEdit, 1);
-    auto *searchButton = new QPushButton(tr("Шукати"));
-    searchButton->setDefault(true);
-    connect(searchButton, &QPushButton::clicked, this, &MainWindow::applySearch);
+    m_searchButton = new QPushButton;
+    m_searchButton->setDefault(true);
+    connect(m_searchButton, &QPushButton::clicked, this, &MainWindow::applySearch);
     connect(m_includeEdit, &QLineEdit::returnPressed, this, &MainWindow::applySearch);
     connect(m_excludeEdit, &QLineEdit::returnPressed, this, &MainWindow::applySearch);
-    searchRow->addWidget(searchButton);
-    auto *clearButton = new QPushButton(tr("Скинути"));
-    connect(clearButton, &QPushButton::clicked, this, &MainWindow::clearSearch);
-    searchRow->addWidget(clearButton);
+    searchRow->addWidget(m_searchButton);
+    m_clearSearchButton = new QPushButton;
+    connect(m_clearSearchButton, &QPushButton::clicked, this, &MainWindow::clearSearch);
+    searchRow->addWidget(m_clearSearchButton);
     searchRow->addSpacing(12);
-    searchRow->addWidget(new QLabel(tr("Сортування:")));
+    m_sortLabel = new QLabel;
+    searchRow->addWidget(m_sortLabel);
     m_sortCombo = new QComboBox;
-    m_sortCombo->addItem(tr("Класичне"), int(Db::SortOrder::Classic));
-    m_sortCombo->addItem(tr("Спочатку новіші"), int(Db::SortOrder::NewestFirst));
-    m_sortCombo->addItem(tr("Спершу більші"), int(Db::SortOrder::LargestFirst));
-    m_sortCombo->setToolTip(tr("Класичне: за оцінкою (більші спочатку), потім за іменем файлу.\n"
-                               "Спочатку новіші: за датою додавання в галерею, потім як класичне.\n"
-                               "Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне."));
+    for (Db::SortOrder order : {Db::SortOrder::Classic, Db::SortOrder::NewestFirst, Db::SortOrder::LargestFirst})
+        m_sortCombo->addItem(QString(), int(order));
     connect(m_sortCombo, &QComboBox::currentIndexChanged, this, [this] {
         Db::setSetting(SortOrderKey, QString::number(m_sortCombo->currentData().toInt()));
         loadPage(0);
@@ -175,11 +187,12 @@ void MainWindow::buildUi()
     // Tags list | thumbnail grid
     auto *splitter = new QSplitter(Qt::Horizontal);
 
-    auto *tagsBox = new QGroupBox(tr("Теги"));
-    auto *tagsLayout = new QVBoxLayout(tagsBox);
+    m_tagsBox = new QGroupBox;
+    auto *tagsLayout = new QVBoxLayout(m_tagsBox);
+    m_hideForeignTagsCheck = new QCheckBox;
+    connect(m_hideForeignTagsCheck, &QCheckBox::toggled, this, &MainWindow::reloadTags);
+    tagsLayout->addWidget(m_hideForeignTagsCheck);
     m_tagList = new QListWidget;
-    m_tagList->setToolTip(tr("Подвійний клік — додати до «Містить».\n"
-                             "Правий клік — вибрати, куди додати."));
     m_tagList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tagList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
         addTagToEdit(m_includeEdit, item->text());
@@ -187,7 +200,7 @@ void MainWindow::buildUi()
     });
     connect(m_tagList, &QWidget::customContextMenuRequested, this, &MainWindow::showTagMenu);
     tagsLayout->addWidget(m_tagList);
-    splitter->addWidget(tagsBox);
+    splitter->addWidget(m_tagsBox);
 
     auto *gridHost = new QWidget;
     auto *gridLayout = new QGridLayout(gridHost);
@@ -208,7 +221,6 @@ void MainWindow::buildUi()
 
         // Selection for bulk tag editing; it is kept by image id across pages and searches.
         auto *check = new QCheckBox(button);
-        check->setToolTip(tr("Обрати для групового редагування тегів (правий клік на будь-якому прев'ю)"));
         check->setStyleSheet("QCheckBox { background-color: rgba(255, 255, 255, 200); border-radius: 3px;"
                              " padding: 2px; }");
         check->move(4, 4);
@@ -233,28 +245,26 @@ void MainWindow::buildUi()
     // Paging row
     auto *pageRow = new QHBoxLayout;
     pageRow->addStretch();
-    m_prevButton = new QPushButton(tr("◀ Попередня"));
+    m_prevButton = new QPushButton;
     connect(m_prevButton, &QPushButton::clicked, this, &MainWindow::showPreviousPage);
     pageRow->addWidget(m_prevButton);
     m_pageLabel = new QLabel;
     m_pageLabel->setMinimumWidth(160);
     m_pageLabel->setAlignment(Qt::AlignCenter);
     pageRow->addWidget(m_pageLabel);
-    m_nextButton = new QPushButton(tr("Наступна ▶"));
+    m_nextButton = new QPushButton;
     connect(m_nextButton, &QPushButton::clicked, this, &MainWindow::showNextPage);
     pageRow->addWidget(m_nextButton);
     pageRow->addSpacing(24);
     // Bulk selection: "select all" works on this page, "clear all" on every page.
-    m_selectAllButton = new QPushButton(tr("Обрати всі"));
-    m_selectAllButton->setToolTip(tr("Відмітити всі файли на цій сторінці"));
+    m_selectAllButton = new QPushButton;
     connect(m_selectAllButton, &QPushButton::clicked, this, [this] {
         for (QCheckBox *box : std::as_const(m_thumbChecks))
             if (!box->isHidden())
                 box->setChecked(true);
     });
     pageRow->addWidget(m_selectAllButton);
-    m_clearSelectionButton = new QPushButton(tr("Зняти всі"));
-    m_clearSelectionButton->setToolTip(tr("Зняти позначки з усіх файлів на всіх сторінках"));
+    m_clearSelectionButton = new QPushButton;
     connect(m_clearSelectionButton, &QPushButton::clicked, this, &MainWindow::clearSelection);
     pageRow->addWidget(m_clearSelectionButton);
     m_selectionLabel = new QLabel;
@@ -263,7 +273,80 @@ void MainWindow::buildUi()
     pageRow->addStretch();
     mainLayout->addLayout(pageRow);
 
+    retranslateUi();
     resize(1150, 900);
+}
+
+// Every fixed text of the main window. Called once from buildUi() and again on every
+// language change; texts that depend on data are refreshed by the caller.
+void MainWindow::retranslateUi()
+{
+    m_fileMenu->setTitle(tr("&Файл"));
+    m_createGalleryAction->setText(tr("&Створити галерею…"));
+    m_editGalleryAction->setText(tr("&Редагувати галерею…"));
+    m_rescanAction->setText(tr("Рес&кан"));
+    m_addFilesAction->setText(tr("Додати &файли в галерею…"));
+    m_addFolderAction->setText(tr("Додати п&апку в галерею…"));
+    m_duplicatesAction->setText(tr("Знайти &дублікати…"));
+    m_junkAction->setText(tr("Видалити &сміття…"));
+    m_quitAction->setText(tr("&Вийти"));
+
+    m_galleryLabel->setText(tr("Галерея:"));
+    m_createGalleryButton->setText(tr("Створити"));
+    m_editGalleryButton->setText(tr("Редагувати"));
+    m_rescanButton->setText(tr("Рескан"));
+    m_rescanButton->setToolTip(tr("Перечитати папку: додати нові файли, прибрати зниклі (F5)"));
+
+    m_includeLabel->setText(tr("Містить теги:"));
+    m_includeEdit->setPlaceholderText(tr("тег1, тег2 (усі одночасно)"));
+    m_exactCheck->setText(tr("Жорстко"));
+    m_exactCheck->setToolTip(tr("Лише файли, що мають рівно ці теги й жодних інших.\n"
+                                "Поле «Не містить» тоді не враховується."));
+    m_excludeLabel->setText(tr("Не містить:"));
+    m_excludeEdit->setPlaceholderText(tr("тег3, тег4 (жодного з них)"));
+    m_searchButton->setText(tr("Шукати"));
+    m_clearSearchButton->setText(tr("Скинути"));
+    m_sortLabel->setText(tr("Сортування:"));
+    m_sortCombo->setItemText(0, tr("Класичне"));
+    m_sortCombo->setItemText(1, tr("Спочатку новіші"));
+    m_sortCombo->setItemText(2, tr("Спершу більші"));
+    m_sortCombo->setToolTip(tr("Класичне: за віртуальним шляхом (усі теги файлу за абеткою через «/»),\nпотім за оцінкою (більші спочатку), "
+                               "потім за іменем файлу.\n"
+                               "Спочатку новіші: за датою додавання в галерею, потім як класичне.\n"
+                               "Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне."));
+
+    m_tagsBox->setTitle(tr("Теги"));
+    m_hideForeignTagsCheck->setText(tr("Сховати чужі теги"));
+    m_hideForeignTagsCheck->setToolTip(tr("Показувати лише теги файлів, знайдених останнім пошуком"));
+    m_tagList->setToolTip(tr("Подвійний клік — додати до «Містить».\n"
+                             "Правий клік — вибрати, куди додати."));
+    for (QCheckBox *check : std::as_const(m_thumbChecks))
+        check->setToolTip(tr("Обрати для групового редагування тегів (правий клік на будь-якому прев'ю)"));
+
+    m_prevButton->setText(tr("◀ Попередня"));
+    m_nextButton->setText(tr("Наступна ▶"));
+    m_selectAllButton->setText(tr("Обрати всі"));
+    m_selectAllButton->setToolTip(tr("Відмітити всі файли на цій сторінці"));
+    m_clearSelectionButton->setText(tr("Зняти всі"));
+    m_clearSelectionButton->setToolTip(tr("Зняти позначки з усіх файлів на всіх сторінках"));
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::LanguageChange && m_fileMenu) {
+        retranslateUi();
+        // Texts built from data: gallery root line, tag list ("<без тегів>"), page label, tooltips.
+        if (const Gallery *gallery = currentGallery())
+            m_rootLabel->setText(QDir::toNativeSeparators(gallery->rootFolder));
+        else
+            m_rootLabel->setText(tr("Галерей ще немає — натисни «Створити»."));
+        m_includeEdit->setText(displayTags(m_includeTags).join(", "));
+        m_excludeEdit->setText(displayTags(m_excludeTags).join(", "));
+        reloadTags();
+        refreshPageTexts();
+        updateSelectionUi();
+    }
+    QMainWindow::changeEvent(event);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -443,11 +526,28 @@ void MainWindow::startRescan()
     }));
 }
 
+// The service tag is stored/searched as Db::NoTagsPseudoTag but shown in the UI language.
+QString MainWindow::noTagsDisplayName()
+{
+    return tr("<без тегів>");
+}
+
+QStringList MainWindow::displayTags(const QStringList &tags)
+{
+    QStringList shown = tags;
+    shown.replaceInStrings(QRegularExpression("^" + QRegularExpression::escape(Db::NoTagsPseudoTag) + "$"),
+                           noTagsDisplayName());
+    return shown;
+}
+
 QStringList MainWindow::parseTags(const QString &text)
 {
+    const QString shownNoTags = Db::normalizeTag(noTagsDisplayName());
     QStringList tags;
     for (const QString &part : text.split(',', Qt::SkipEmptyParts)) {
-        const QString tag = Db::normalizeTag(part);
+        QString tag = Db::normalizeTag(part);
+        if (tag == shownNoTags)
+            tag = Db::NoTagsPseudoTag;
         if (!tag.isEmpty() && !tags.contains(tag))
             tags << tag;
     }
@@ -460,9 +560,11 @@ void MainWindow::applySearch()
     m_excludeTags = parseTags(m_excludeEdit->text());
     m_exactTags = m_exactCheck->isChecked();
     // Show what is actually searched for (normalized spelling).
-    m_includeEdit->setText(m_includeTags.join(", "));
-    m_excludeEdit->setText(m_excludeTags.join(", "));
+    m_includeEdit->setText(displayTags(m_includeTags).join(", "));
+    m_excludeEdit->setText(displayTags(m_excludeTags).join(", "));
     loadPage(0);
+    if (m_hideForeignTagsCheck->isChecked())
+        reloadTags(); // the list follows the latest search
 }
 
 void MainWindow::clearSearch()
@@ -476,9 +578,10 @@ void MainWindow::clearSearch()
 void MainWindow::addTagToEdit(QLineEdit *edit, const QString &tag)
 {
     QStringList tags = parseTags(edit->text());
-    if (!tags.contains(tag))
-        tags << tag;
-    edit->setText(tags.join(", "));
+    const QString internal = parseTags(tag).value(0);
+    if (!internal.isEmpty() && !tags.contains(internal))
+        tags << internal;
+    edit->setText(displayTags(tags).join(", "));
 }
 
 void MainWindow::showTagMenu(const QPoint &pos)
@@ -496,7 +599,7 @@ void MainWindow::showTagMenu(const QPoint &pos)
         addTagToEdit(m_excludeEdit, tag);
         applySearch();
     });
-    if (tag != Db::NoTagsPseudoTag) { // the service tag has a fixed name
+    if (m_tagList->row(item) != 0) { // row 0 is the service tag, which has a fixed name
         menu.addSeparator();
         menu.addAction(tr("Перейменувати…"), this, [this, tag] { renameTag(tag); });
     }
@@ -520,8 +623,9 @@ void MainWindow::renameTag(const QString &oldName)
         const QString newName = Db::normalizeTag(text);
         if (newName.isEmpty() || newName == oldName)
             return; // nothing to change
-        if (newName.contains(',') || newName.contains('<') || newName.contains('>')) {
-            QMessageBox::warning(this, tr("Перейменувати тег"), tr("Назва тегу не може містити символи «,», «<» і «>»."));
+        if (newName.contains(',') || newName.contains('<') || newName.contains('>')
+            || newName.contains('/') || newName.contains('\\')) {
+            QMessageBox::warning(this, tr("Перейменувати тег"), tr("Назва тегу не може містити символи «,», «<», «>», «/» і «\\»."));
             continue;
         }
         if (Db::allTags(galleryId).contains(newName)) {
@@ -540,7 +644,7 @@ void MainWindow::renameTag(const QString &oldName)
             const qsizetype i = tags.indexOf(oldName);
             if (i >= 0) {
                 tags[i] = newName;
-                edit->setText(tags.join(", "));
+                edit->setText(displayTags(tags).join(", "));
             }
         }
         m_includeTags.replaceInStrings(QRegularExpression("^" + QRegularExpression::escape(oldName) + "$"), newName);
@@ -560,15 +664,18 @@ void MainWindow::reloadTags()
     if (!gallery)
         return;
 
-    // Service tag: always on top, always present, not stored in the DB.
-    auto *noTags = new QListWidgetItem(Db::NoTagsPseudoTag, m_tagList);
+    // Service tag: always on top, always present (also with "hide foreign tags"), not stored in the DB.
+    auto *noTags = new QListWidgetItem(noTagsDisplayName(), m_tagList);
     QFont font = noTags->font();
     font.setItalic(true);
     noTags->setFont(font);
     noTags->setForeground(palette().color(QPalette::PlaceholderText));
     noTags->setToolTip(tr("Зображення, у яких немає жодного тегу"));
 
-    m_tagList->addItems(Db::allTags(gallery->id));
+    if (m_hideForeignTagsCheck->isChecked())
+        m_tagList->addItems(Db::tagsOfSearch(gallery->id, m_includeTags, m_excludeTags, m_exactTags));
+    else
+        m_tagList->addItems(Db::allTags(gallery->id));
 }
 
 QString MainWindow::absolutePath(const QString &relativePath) const
@@ -605,13 +712,13 @@ void MainWindow::loadPage(int page)
     }
 
     const int pageCount = qMax(1, (m_totalCount + PageSize - 1) / PageSize);
-    m_pageLabel->setText(tr("Сторінка %1 з %2 (%3 зобр.)").arg(m_page + 1).arg(pageCount).arg(m_totalCount));
     m_prevButton->setEnabled(m_page > 0);
     m_nextButton->setEnabled(m_page + 1 < pageCount);
 
     for (int i = 0; i < m_thumbButtons.size(); ++i) {
         QToolButton *button = m_thumbButtons[i];
         button->setIcon(QIcon());
+        button->setEnabled(i < m_pageRecords.size());
         QCheckBox *check = m_thumbChecks[i];
         {
             const QSignalBlocker blocker(check); // just showing the stored selection
@@ -619,34 +726,8 @@ void MainWindow::loadPage(int page)
         }
         check->setVisible(i < m_pageRecords.size()
                           && MediaFiles::kindOf(m_pageRecords[i].relativePath) != MediaFiles::Kind::Other);
-        if (i < m_pageRecords.size()) {
-            const ImageRecord &rec = m_pageRecords[i];
-            const QString name = QFileInfo(rec.relativePath).fileName();
-            button->setText(button->fontMetrics().elidedText(name, Qt::ElideMiddle, ThumbnailSize));
-            QString hint;
-            switch (MediaFiles::kindOf(rec.relativePath)) {
-            case MediaFiles::Kind::Image:
-                hint = tr("Клік — відкрити, правий клік — редагувати");
-                break;
-            case MediaFiles::Kind::Video:
-                hint = tr("Клік — відкрити в програмі для відео, правий клік — редагувати");
-                break;
-            case MediaFiles::Kind::Other:
-                break;
-            }
-            button->setToolTip(QDir::toNativeSeparators(rec.relativePath) + "\n"
-                               + tr("Оцінка: ") + QString::number(rec.rating) + "\n"
-                               + tr("Розмір: ") + QLocale().formattedDataSize(rec.size) + "\n"
-                               + tr("Теги: ") + Db::tagsForImage(rec.id).join(", ")
-                               + (hint.isEmpty() ? QString() : "\n\n" + hint));
-            button->setEnabled(true);
-        } else {
-            button->setText(QString());
-            button->setToolTip(QString());
-            button->setEnabled(false);
-        }
     }
-
+    refreshPageTexts();
     updateSelectionUi();
 
     if (m_pageRecords.isEmpty())
@@ -670,6 +751,40 @@ void MainWindow::loadPage(int page)
     watcher->setFuture(QtConcurrent::mapped(std::move(paths),[](const QString &path) {
         return MediaFiles::makeThumbnail(path, ThumbnailSize);
     }));
+}
+
+// Page label and the name/tooltip of every thumbnail (no reloading of the pictures).
+void MainWindow::refreshPageTexts()
+{
+    const int pageCount = qMax(1, (m_totalCount + PageSize - 1) / PageSize);
+    m_pageLabel->setText(tr("Сторінка %1 з %2 (%3 зобр.)").arg(m_page + 1).arg(pageCount).arg(m_totalCount));
+    for (int i = 0; i < m_thumbButtons.size(); ++i) {
+        QToolButton *button = m_thumbButtons[i];
+        if (i < m_pageRecords.size()) {
+            const ImageRecord &rec = m_pageRecords[i];
+            const QString name = QFileInfo(rec.relativePath).fileName();
+            button->setText(button->fontMetrics().elidedText(name, Qt::ElideMiddle, ThumbnailSize));
+            QString hint;
+            switch (MediaFiles::kindOf(rec.relativePath)) {
+            case MediaFiles::Kind::Image:
+                hint = tr("Клік — відкрити, правий клік — редагувати");
+                break;
+            case MediaFiles::Kind::Video:
+                hint = tr("Клік — відкрити в програмі для відео, правий клік — редагувати");
+                break;
+            case MediaFiles::Kind::Other:
+                break;
+            }
+            button->setToolTip(QDir::toNativeSeparators(rec.relativePath) + "\n"
+                               + tr("Оцінка: ") + QString::number(rec.rating) + "\n"
+                               + tr("Розмір: ") + QLocale().formattedDataSize(rec.size) + "\n"
+                               + tr("Теги: ") + Db::tagsForImage(rec.id).join(", ")
+                               + (hint.isEmpty() ? QString() : "\n\n" + hint));
+        } else {
+            button->setText(QString());
+            button->setToolTip(QString());
+        }
+    }
 }
 
 void MainWindow::openThumbnail(int index)
@@ -955,7 +1070,7 @@ void MainWindow::deleteJunk()
                             .arg(junk.junkFiles.size())
                             .arg(junk.emptyFolders.size()),
                         QMessageBox::Yes | QMessageBox::No, this);
-        box.setInformativeText(tr("Список — у «Show Details…»."));
+        box.setInformativeText(tr("Повний список — у подробицях (кнопка нижче)."));
         box.setDetailedText(details.trimmed());
         box.setDefaultButton(QMessageBox::No);
         if (box.exec() != QMessageBox::Yes)

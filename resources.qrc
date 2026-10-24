@@ -1,5 +1,11 @@
 <RCC>
     <qresource prefix="/">
         <file>xgallery.ico</file>
+        <file>flags/ua.png</file>
+        <file>flags/ua@2x.png</file>
+        <file>flags/us.png</file>
+        <file>flags/us@2x.png</file>
+        <file>flags/fr.png</file>
+        <file>flags/fr@2x.png</file>
     </qresource>
 </RCC>

@@ -1,6 +1,7 @@
 #include "scanner.h"
 
 #include "database.h"
+#include "virtualpath.h"
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -273,6 +274,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
     dropFolderTag.prepare("DELETE FROM image_tags WHERE image_id = ? AND tag_id IN "
                           "(SELECT id FROM tags WHERE gallery_id = ? AND name = ?)");
     QSet<QString> movedFrom;
+    QList<qint64> retagged; // new and moved files: their tags (so their virtual path) changed
 
     for (const NewFile &file : std::as_const(newFiles)) {
         const QString key = contentKey(file.sha256, file.size);
@@ -304,6 +306,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
             if (!tagWriter.addTags(imageId, newFolders, &error))
                 return rollback(error);
             movedFrom.insert(oldPath);
+            retagged << imageId;
             ++stats.moved;
             continue;
         }
@@ -318,9 +321,16 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
         if (!insert.exec())
             return rollback(insert.lastError().text());
         // Folder tags only for new files: changed ones keep theirs (same path) and manual edits.
-        if (!tagWriter.addTags(insert.lastInsertId().toLongLong(), tagsFromRelativePath(file.relative), &error))
+        const qint64 newId = insert.lastInsertId().toLongLong();
+        if (!tagWriter.addTags(newId, tagsFromRelativePath(file.relative), &error))
             return rollback(error);
+        retagged << newId;
         ++stats.added;
+    }
+    {
+        QString error;
+        if (!VirtualPath::update(db, retagged, &error))
+            return rollback(error);
     }
 
     // 5. Forget files that disappeared (image_tags go away via ON DELETE CASCADE).
@@ -488,8 +498,10 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
         insert.addBindValue(hash);
         insert.addBindValue(addedAt);
         QString error;
-        if (!insert.exec()
-            || !tagWriter.addTags(insert.lastInsertId().toLongLong(), tagsFromRelativePath(relative), &error)) {
+        const bool inserted = insert.exec();
+        const qint64 newId = inserted ? insert.lastInsertId().toLongLong() : 0;
+        if (!inserted || !tagWriter.addTags(newId, tagsFromRelativePath(relative), &error)
+            || !VirtualPath::update(db, {newId}, &error)) {
             stats.error = error.isEmpty() ? insert.lastError().text() : error;
             db.rollback();
             stats.error = QCoreApplication::translate("Scanner", "Файли скопійовано, але записати їх у базу не вдалося "

@@ -36,13 +36,15 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `imageviewer.*` | Viewer window: fit/upscale, arrows (circular), double-click full screen, right-click rotation |
 | `imagerotation.*` | Saving rotations to disk (lossless for JPEG via EXIF orientation) |
 | `gallerydialog.*`, `imagemetadialog.*`, `duplicatesdialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no rating/delete) |
+| `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
+| `i18n.*`, `languagedialog.*`, `translations/*.ts`, `flags/` | UI language (uk source, en/fr translations), first-start flag dialog, flag SVGs + rendered PNGs (48x32 and @2x) |
 | `xgallery.ico`, `xgallery.rc`, `resources.qrc` | Program icon, rendered from `logo.svg` (each size 16–256 px rendered directly, centred on a transparent square, PNG entries). Rebuild the .ico when the SVG changes |
 
 ## Rules that must keep holding
 
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
-  never edit existing steps. Current version: 5 (galleries; rating+name; allow_upscale; no commas in tags;
-  normalized tag spelling).
+  never edit existing steps. Current version: 7 (galleries; rating+name; allow_upscale; no commas in tags;
+  normalized tag spelling; virtual path; virtual path with digits after letters).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -52,7 +54,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   `Gallery::rootFolder` in memory is always absolute.
 - **Tags**: per gallery, always in `Db::normalizeTag` spelling (whitespace collapsed, first letter upper,
   rest lower) — when stored, and for search input. Folder names between root and file become tags;
-  commas → space (`tagsFromRelativePath`). Manual tags must not contain `,` `<` `>`. `Db::NoTagsPseudoTag`
+  commas → space (`tagsFromRelativePath`). Manual tags must not contain `,` `<` `>` `/` `\`. `Db::NoTagsPseudoTag`
   (`<без тегів>`) is search-only, never stored. Unused tags are deleted after every change.
 - **Rescan**: all files incl. hidden/system, except `*.db`/`*.ini`. Unchanged = same size+mtime
   (no re-hash). Folder tags are added only to new files, so manual tag edits survive.
@@ -69,10 +71,24 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - **Rotation**: JPEG only edits/adds the EXIF orientation tag (never re-encodes unless the
   file is malformed; then quality 100 with the EXIF block copied). Other formats are
   re-encoded losslessly. Pending turns are counted mod 4; 0 = nothing to save.
-- Sorting: Classic = rating DESC, name NOCASE; NewestFirst = added_at DESC then classic;
+- **Virtual path** (`virtualpath.*`): images.vpath = the file's tags in alphabetical order joined by `/`,
+  images.vpath_key = its alphabet-aware sort key (Latin, Cyrillic, then digits: "Маша/Море/001";
+  changing that order needs a migration step that recomputes all paths). Recompute with `VirtualPath::update` whenever a file's tag
+  set changes (meta save, bulk edit, tag rename, rescan new/moved files, import).
+- Sorting: Classic = vpath_key, rating DESC, name NOCASE; NewestFirst = added_at DESC then classic;
   LargestFirst = size DESC then classic. The viewer walks the full search result (images only)
   in the same order.
 - Bulk tag edit: checkboxes on thumbnails (hidden for "other" files). The selection is a set of image ids
   (`m_selectedIds`) kept across pages/searches, cleared by "Зняти всі" or a gallery switch; "Обрати всі"
   ticks the current page only. Right click with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.
   Double click on a tag in the metadata dialog adds it to "Містить" without searching.
+- **i18n**: source strings are Ukrainian in `tr()` / `QCoreApplication::translate`. Language code
+  (uk/en/fr) is the `language` setting in the DB; not set → `LanguageDialog` at start (closing it = uk,
+  not saved). Switching (menu "Language", always English; items in their own language) calls
+  `I18n::apply` → `QEvent::LanguageChange`. `MainWindow` sets every fixed text in `retranslateUi()`
+  and refreshes data texts in `changeEvent`; dialogs pick the language up when opened.
+  After adding/changing UI strings: run `lupdate -no-obsolete -locations none -source-language uk
+  -target-language en|fr *.cpp *.h -ts translations/xgallery_en|fr.ts` and fill the new
+  translations (the build embeds the .qm files via `qt_add_translations`). Keep 0 unfinished.
+  `<без тегів>` is shown translated (`noTagsDisplayName`) but stored/searched as `Db::NoTagsPseudoTag`.
+- "Сховати чужі теги": the tag list shows `Db::tagsOfSearch` (tags of the last search's results).

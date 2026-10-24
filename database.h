@@ -68,7 +68,7 @@ QStringList allTags(qint64 galleryId);
 QStringList tagsForImage(qint64 imageId);
 
 enum class SortOrder {
-    Classic,     // best rating first, then file name
+    Classic,     // folder path inside the gallery, then best rating, then file name
     NewestFirst, // most recently added to the DB first, then as Classic
     LargestFirst // biggest files first, then as Classic
 };
@@ -83,6 +83,10 @@ QList<ImageRecord> searchImages(qint64 galleryId,
                                 int offset, int limit, int *totalCount,
                                 SortOrder order = SortOrder::Classic,
                                 bool exactTags = false);
+
+// Tags occurring in the images a search finds (same arguments as searchImages).
+QStringList tagsOfSearch(qint64 galleryId, const QStringList &includeTags,
+                         const QStringList &excludeTags, bool exactTags);
 
 // Replaces the image's rating and tag set in one transaction. New tag names are created;
 // tags of the gallery that end up unused are deleted.

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1482" height="780" viewBox="0 0 7410 3900">
+  <defs>
+    <polygon id="s" points="0.0,-120.0 26.9,-37.1 114.1,-37.1 43.6,14.2 70.5,97.1 0.0,45.8 -70.5,97.1 -43.6,14.2 -114.1,-37.1 -26.9,-37.1" fill="#FFFFFF"/>
+  </defs>
+  <rect width="7410" height="3900" fill="#FFFFFF"/>
+  <rect y="0" width="7410" height="300" fill="#B22234"/>
+  <rect y="600" width="7410" height="300" fill="#B22234"/>
+  <rect y="1200" width="7410" height="300" fill="#B22234"/>
+  <rect y="1800" width="7410" height="300" fill="#B22234"/>
+  <rect y="2400" width="7410" height="300" fill="#B22234"/>
+  <rect y="3000" width="7410" height="300" fill="#B22234"/>
+  <rect y="3600" width="7410" height="300" fill="#B22234"/>
+  <rect width="2964" height="2100" fill="#3C3B6E"/>
+  <use href="#s" xlink:href="#s" x="247" y="210"/>
+  <use href="#s" xlink:href="#s" x="741" y="210"/>
+  <use href="#s" xlink:href="#s" x="1235" y="210"/>
+  <use href="#s" xlink:href="#s" x="1729" y="210"/>
+  <use href="#s" xlink:href="#s" x="2223" y="210"/>
+  <use href="#s" xlink:href="#s" x="2717" y="210"/>
+  <use href="#s" xlink:href="#s" x="494" y="420"/>
+  <use href="#s" xlink:href="#s" x="988" y="420"/>
+  <use href="#s" xlink:href="#s" x="1482" y="420"/>
+  <use href="#s" xlink:href="#s" x="1976" y="420"/>
+  <use href="#s" xlink:href="#s" x="2470" y="420"/>
+  <use href="#s" xlink:href="#s" x="247" y="630"/>
+  <use href="#s" xlink:href="#s" x="741" y="630"/>
+  <use href="#s" xlink:href="#s" x="1235" y="630"/>
+  <use href="#s" xlink:href="#s" x="1729" y="630"/>
+  <use href="#s" xlink:href="#s" x="2223" y="630"/>
+  <use href="#s" xlink:href="#s" x="2717" y="630"/>
+  <use href="#s" xlink:href="#s" x="494" y="840"/>
+  <use href="#s" xlink:href="#s" x="988" y="840"/>
+  <use href="#s" xlink:href="#s" x="1482" y="840"/>
+  <use href="#s" xlink:href="#s" x="1976" y="840"/>
+  <use href="#s" xlink:href="#s" x="2470" y="840"/>
+  <use href="#s" xlink:href="#s" x="247" y="1050"/>
+  <use href="#s" xlink:href="#s" x="741" y="1050"/>
+  <use href="#s" xlink:href="#s" x="1235" y="1050"/>
+  <use href="#s" xlink:href="#s" x="1729" y="1050"/>
+  <use href="#s" xlink:href="#s" x="2223" y="1050"/>
+  <use href="#s" xlink:href="#s" x="2717" y="1050"/>
+  <use href="#s" xlink:href="#s" x="494" y="1260"/>
+  <use href="#s" xlink:href="#s" x="988" y="1260"/>
+  <use href="#s" xlink:href="#s" x="1482" y="1260"/>
+  <use href="#s" xlink:href="#s" x="1976" y="1260"/>
+  <use href="#s" xlink:href="#s" x="2470" y="1260"/>
+  <use href="#s" xlink:href="#s" x="247" y="1470"/>
+  <use href="#s" xlink:href="#s" x="741" y="1470"/>
+  <use href="#s" xlink:href="#s" x="1235" y="1470"/>
+  <use href="#s" xlink:href="#s" x="1729" y="1470"/>
+  <use href="#s" xlink:href="#s" x="2223" y="1470"/>
+  <use href="#s" xlink:href="#s" x="2717" y="1470"/>
+  <use href="#s" xlink:href="#s" x="494" y="1680"/>
+  <use href="#s" xlink:href="#s" x="988" y="1680"/>
+  <use href="#s" xlink:href="#s" x="1482" y="1680"/>
+  <use href="#s" xlink:href="#s" x="1976" y="1680"/>
+  <use href="#s" xlink:href="#s" x="2470" y="1680"/>
+  <use href="#s" xlink:href="#s" x="247" y="1890"/>
+  <use href="#s" xlink:href="#s" x="741" y="1890"/>
+  <use href="#s" xlink:href="#s" x="1235" y="1890"/>
+  <use href="#s" xlink:href="#s" x="1729" y="1890"/>
+  <use href="#s" xlink:href="#s" x="2223" y="1890"/>
+  <use href="#s" xlink:href="#s" x="2717" y="1890"/>
+</svg>
