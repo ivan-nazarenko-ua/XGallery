@@ -3,6 +3,9 @@
 Desktop photo-gallery manager. Qt 6.8.1 Widgets, C++17, SQLite, Windows (MinGW).
 The owner (Ivan) talks in Ukrainian; all UI strings are Ukrainian. Code, comments and
 commit messages are English. Features are added incrementally on request.
+User docs: `README.md` (English, main), `README.uk.md`, `README.fr.md` with a language switcher
+on top. When a feature changes, update all three; example file/folder names are in each file's
+language, UI labels exactly as in the translations.
 
 ## Build
 
