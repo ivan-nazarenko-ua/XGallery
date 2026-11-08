@@ -1,6 +1,6 @@
 # XGallery — notes for Claude
 
-Desktop photo-gallery manager. Qt 6.8.1 Widgets, C++17, SQLite, Windows (MinGW).
+Desktop photo-gallery manager. Qt 6 Widgets, C++17, SQLite, Windows (MinGW).
 The owner (Ivan) talks in Ukrainian; all UI strings are Ukrainian. Code, comments and
 commit messages are English. Features are added incrementally on request.
 User docs: `README.md` (English, main), `README.uk.md`, `README.fr.md` with a language switcher
@@ -10,8 +10,12 @@ language, UI labels exactly as in the translations.
 ## Build
 
 ```powershell
-$env:PATH = "C:\Qt\Tools\mingw1310_64\bin;C:\Qt\Tools\Ninja;C:\Qt\6.8.1\mingw_64\bin;" + $env:PATH
-cd build\Desktop_Qt_6_8_1_MinGW_64_bit-Debug      # Qt Creator's build dir
+# Exact versions are not fixed: use the newest installed Qt 6 and MinGW.
+$qt = Get-ChildItem C:\Qt -Directory -Filter "6.*" | Sort-Object { [version]$_.Name } | Select-Object -Last 1
+$mingw = Get-ChildItem C:\Qt\Tools -Directory -Filter "mingw*_64" | Sort-Object Name | Select-Object -Last 1
+$env:PATH = "$($mingw.FullName)\bin;C:\Qt\Tools\Ninja;$($qt.FullName)\mingw_64\bin;" + $env:PATH
+# Qt Creator's Debug build dir for that Qt
+cd (Get-ChildItem build -Directory -Filter "Desktop_Qt_$($qt.Name -replace '\.','_')_MinGW_64_bit*Debug").FullName
 C:\Qt\Tools\CMake_64\bin\cmake.exe .               # only when files were added to CMakeLists.txt
 C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 ```
@@ -100,3 +104,5 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   translations (the build embeds the .qm files via `qt_add_translations`). Keep 0 unfinished.
   `<без тегів>` is shown and parsed in the UI language (`noTagsDisplayName`).
 - "Сховати чужі теги": the tag list shows `Db::tagsOfSearch` (tags of the last search's results).
+- Tag filter field (`m_tagFilterEdit`, under that checkbox): always hides list entries not containing its text
+  (case-insensitive); the `<без тегів>` service entry always stays. Only the user changes the text; it is not saved between runs.

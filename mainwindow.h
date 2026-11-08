@@ -82,6 +82,7 @@ private:
     // Collects files (in a worker) with collect(), then copies them into the gallery.
     void runImport(std::function<QList<Scanner::ImportItem>()> collect);
     void reloadTags();
+    void applyTagFilter();
     void loadPage(int page);
     // A file was rewritten by the program (saved rotation): refresh its DB record and the grid.
     void fileRewritten(qint64 galleryId, const QString &root, const QString &file);
@@ -120,6 +121,7 @@ private:
     QPushButton *m_clearSearchButton = nullptr;
     QGroupBox *m_tagsBox = nullptr;
     QCheckBox *m_hideForeignTagsCheck = nullptr; // tag list shows only tags of the last search result
+    QLineEdit *m_tagFilterEdit = nullptr; // tag list shows only entries containing this text; kept until the app closes
 
     QList<Gallery> m_galleries;
     QComboBox *m_galleryCombo = nullptr;

@@ -78,6 +78,10 @@ leaves the files on disk untouched.
   - "Largest first" — the biggest files first (handy for freeing up space), then as in Classic.
 - **"Hide other tags"** (the checkbox above the tag list) — the list keeps only the tags of the
   files found by the last search. `<no tags>` is always shown.
+- **"Tag filter…"** (the field under that checkbox) — as you type, the tag list keeps only the
+  entries containing the text, case-insensitively (`<no tags>` always stays). It always applies, also
+  together with "Hide other tags", and the text stays until you clear it yourself (the cross in
+  the field or the keyboard) or close the program.
 
 Results are shown in pages of 16 thumbnails; use the buttons under the grid to page through.
 The tooltip of a thumbnail shows the path, rating, size and tags.

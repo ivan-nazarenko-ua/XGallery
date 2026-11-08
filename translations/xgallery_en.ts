@@ -470,6 +470,14 @@ The &quot;Does not contain&quot; field is ignored then.</translation>
         <translation>Show only the tags of the files found by the last search</translation>
     </message>
     <message>
+        <source>Фільтр тегів…</source>
+        <translation>Tag filter…</translation>
+    </message>
+    <message>
+        <source>Показувати у списку лише теги, що містять цей текст (регістр не враховується)</source>
+        <translation>Show only the tags containing this text in the list (case-insensitive)</translation>
+    </message>
+    <message>
         <source>Подвійний клік — додати до «Містить».
 Правий клік — вибрати, куди додати.</source>
         <translation>Double click: add to &quot;Contains&quot;.

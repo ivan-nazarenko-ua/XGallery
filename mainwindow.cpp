@@ -192,6 +192,10 @@ void MainWindow::buildUi()
     m_hideForeignTagsCheck = new QCheckBox;
     connect(m_hideForeignTagsCheck, &QCheckBox::toggled, this, &MainWindow::reloadTags);
     tagsLayout->addWidget(m_hideForeignTagsCheck);
+    m_tagFilterEdit = new QLineEdit;
+    m_tagFilterEdit->setClearButtonEnabled(true);
+    connect(m_tagFilterEdit, &QLineEdit::textChanged, this, &MainWindow::applyTagFilter);
+    tagsLayout->addWidget(m_tagFilterEdit);
     m_tagList = new QListWidget;
     m_tagList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tagList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
@@ -318,6 +322,8 @@ void MainWindow::retranslateUi()
     m_tagsBox->setTitle(tr("Теги"));
     m_hideForeignTagsCheck->setText(tr("Сховати чужі теги"));
     m_hideForeignTagsCheck->setToolTip(tr("Показувати лише теги файлів, знайдених останнім пошуком"));
+    m_tagFilterEdit->setPlaceholderText(tr("Фільтр тегів…"));
+    m_tagFilterEdit->setToolTip(tr("Показувати у списку лише теги, що містять цей текст (регістр не враховується)"));
     m_tagList->setToolTip(tr("Подвійний клік — додати до «Містить».\n"
                              "Правий клік — вибрати, куди додати."));
     for (QCheckBox *check : std::as_const(m_thumbChecks))
@@ -677,7 +683,7 @@ void MainWindow::reloadTags()
     if (!gallery)
         return;
 
-    // Service tag: always on top, always present (also with "hide foreign tags"), not stored in the DB.
+    // Service tag: always on top, always present (also with "hide foreign tags" or the tag filter), not stored in the DB.
     auto *noTags = new QListWidgetItem(noTagsDisplayName(), m_tagList);
     QFont font = noTags->font();
     font.setItalic(true);
@@ -690,6 +696,17 @@ void MainWindow::reloadTags()
         m_tagList->addItems(Db::tagsOfSearch(gallery->id, m_query));
     else
         m_tagList->addItems(Db::allTags(gallery->id));
+    applyTagFilter();
+}
+
+void MainWindow::applyTagFilter()
+{
+    const QString text = m_tagFilterEdit->text();
+    for (int i = 0; i < m_tagList->count(); ++i) {
+        QListWidgetItem *item = m_tagList->item(i);
+        const bool isServiceEntry = item->data(Qt::UserRole).toBool(); // never filtered out
+        item->setHidden(!isServiceEntry && !item->text().contains(text, Qt::CaseInsensitive));
+    }
 }
 
 QString MainWindow::absolutePath(const QString &relativePath) const

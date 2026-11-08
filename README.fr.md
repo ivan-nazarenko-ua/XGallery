@@ -88,6 +88,10 @@ efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichie
     la place), puis comme en Classique.
 - **« Masquer les autres tags »** (la case au-dessus de la liste des tags) — la liste ne garde
   que les tags des fichiers trouvés par la dernière recherche. `<sans tags>` est toujours affiché.
+- **« Filtre des tags… »** (le champ sous cette case) — dès la saisie, la liste ne garde que les
+  entrées contenant le texte, sans tenir compte de la casse (`<sans tags>` reste toujours affiché). Le filtre
+  s'applique toujours, y compris avec « Masquer les autres tags », et le texte reste jusqu'à ce que
+  vous l'effaciez vous-même (la croix du champ ou le clavier) ou que vous fermiez le programme.
 
 Les résultats s'affichent par pages de 16 vignettes ; les boutons sous la grille permettent de
 les parcourir. L'info-bulle d'une vignette montre le chemin, la note, la taille et les tags.

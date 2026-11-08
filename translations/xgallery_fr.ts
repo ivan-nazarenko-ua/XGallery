@@ -470,6 +470,14 @@ Le champ « Ne contient pas » est alors ignoré.</translation>
         <translation>Afficher uniquement les tags des fichiers trouvés par la dernière recherche</translation>
     </message>
     <message>
+        <source>Фільтр тегів…</source>
+        <translation>Filtre des tags…</translation>
+    </message>
+    <message>
+        <source>Показувати у списку лише теги, що містять цей текст (регістр не враховується)</source>
+        <translation>Afficher dans la liste uniquement les tags contenant ce texte (sans tenir compte de la casse)</translation>
+    </message>
+    <message>
         <source>Подвійний клік — додати до «Містить».
 Правий клік — вибрати, куди додати.</source>
         <translation>Double-clic : ajouter à « Contient ».
