@@ -4,6 +4,8 @@
 #include <QPromise>
 #include <QString>
 
+#include <optional>
+
 struct ScanStats
 {
     int added = 0;
@@ -28,12 +30,18 @@ QString fileSha256(const QString &path);
 // (incl. everything in the program's folder; pass an absolute path for that check).
 bool isIgnoredFile(const QString &path);
 
+// The name can be given to a file on Windows: no forbidden characters, no device name
+// (CON, NUL.jpg, ...), no dot or space at the end (Windows would silently drop them).
+bool isValidFileName(const QString &name);
+
 // --- Import -------------------------------------------------------------------------------
 
 struct ImportItem
 {
     QString source;    // absolute path of the file to copy
     QString targetDir; // folder inside the gallery, relative to its root, '/'-separated
+    QString targetName = {};     // file name in the gallery; empty = the source's name
+    bool keepDuplicate = false;  // the user asked for a copy: same content is not skipped
 };
 
 struct ImportStats
@@ -50,6 +58,14 @@ struct ImportStats
 // file gets " (1)", " (2)", ... like Windows does. Worker-thread safe (own DB connection).
 void importFiles(QPromise<ImportStats> &promise, qint64 galleryId, const QString &rootFolder,
                  const QList<ImportItem> &items);
+
+// The existing folder's path relative to the gallery root, '/'-separated, empty for the root
+// itself; nullopt if the folder is outside the gallery. Links are resolved first.
+std::optional<QString> folderInGallery(const QString &rootFolder, const QString &folder);
+
+// Copies a file out of the gallery. A file already at destination is replaced, but only after
+// the copy has succeeded. Worker-thread safe.
+bool exportCopy(const QString &source, const QString &destination);
 
 struct JunkScan
 {

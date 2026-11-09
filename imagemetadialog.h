@@ -29,8 +29,16 @@ public:
     // Viewer setting of the gallery, for images opened from this dialog.
     void setAllowUpscale(bool allow);
 
+    // On: the "file name" field shows and edits the name without its extension.
+    void setKeepExtension(bool keep);
+
+    // While a file export runs the dialog is locked and can't be closed.
+    void setExporting(bool exporting);
+
+    QString filePath() const { return m_filePaths.value(0); } // the first one in bulk mode
+    QString fileName() const; // single-file mode: the full name the "file name" field asks for
     QStringList tags() const;
-    QStringList addedTags() const;   // compared with the tags the dialog started with
+    QStringList addedTags() const;  // compared with the tags the dialog started with
     QStringList removedTags() const;
     int rating() const;
 
@@ -39,6 +47,8 @@ signals:
     void tagActivated(const QString &tag);
     // A viewer opened from here rewrote the file (saved rotation).
     void fileChanged(const QString &path);
+    // The user chose where to save a copy of the file; the caller does the copying.
+    void exportRequested(const QString &destination);
 
 public slots:
     void done(int result) override;
@@ -56,12 +66,15 @@ private:
     void refresh();
     void updatePreview();
     void openFile(int index); // click on the preview / on a row of the bulk list
+    void chooseExportDestination();
 
     QStringList m_galleryTags;
     QStringList m_tags;
     QStringList m_initialTags;
     QStringList m_filePaths;
     bool m_allowUpscale = false;
+    bool m_exporting = false;
+    bool m_keepExtension = false;
     QLabel *m_preview = nullptr;
 
     QListWidget *m_tagList;
@@ -70,6 +83,7 @@ private:
     QPushButton *m_addExistingButton;
     QLineEdit *m_newTagEdit;
     QSpinBox *m_ratingSpin;
+    QLineEdit *m_nameEdit;
 };
 
 #endif // IMAGEMETADIALOG_H

@@ -274,6 +274,22 @@ The image files on disk will stay unchanged.</translation>
         <source>Вставити теги</source>
         <translation>Paste tags</translation>
     </message>
+    <message>
+        <source>Експорт…</source>
+        <translation>Export…</translation>
+    </message>
+    <message>
+        <source>Експорт файлу</source>
+        <translation>Export file</translation>
+    </message>
+    <message>
+        <source>Файли %1 (*.%2)</source>
+        <translation>%1 files (*.%2)</translation>
+    </message>
+    <message>
+        <source>Ім&apos;я файлу:</source>
+        <translation>File name:</translation>
+    </message>
 </context>
 <context>
     <name>ImageRotation</name>
@@ -864,6 +880,84 @@ Largest first: by file size (largest first), then classic.</translation>
     <message>
         <source>Видаляю сміття…</source>
         <translation>Deleting junk…</translation>
+    </message>
+    <message>
+        <source>Експорт файлу</source>
+        <translation>Export file</translation>
+    </message>
+    <message>
+        <source>Експортую файл…</source>
+        <translation>Exporting the file…</translation>
+    </message>
+    <message>
+        <source>Файл збережено:
+%1</source>
+        <translation>File saved:
+%1</translation>
+    </message>
+    <message>
+        <source>Не вдалося скопіювати файл:
+%1</source>
+        <translation>Could not copy the file:
+%1</translation>
+    </message>
+    <message>
+        <source>Це місце всередині поточної галереї. Справді створити дублікат файлу?
+
+%1</source>
+        <translation>This location is inside the current gallery. Do you really want to create a duplicate of the file?
+
+%1</translation>
+    </message>
+    <message>
+        <source>Файл із такою назвою вже є. Його не буде замінено: копія отримає номер у назві.</source>
+        <translation>A file with this name already exists. It will not be replaced: the copy will get a number in its name.</translation>
+    </message>
+    <message>
+        <source>Створити дублікат</source>
+        <translation>Create duplicate</translation>
+    </message>
+    <message>
+        <source>Скасувати</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Дублікат створено й додано в галерею.</source>
+        <translation>The duplicate was created and added to the gallery.</translation>
+    </message>
+    <message>
+        <source>Назва порожня або недопустима. Не можна використовувати символи \ / : * ? &quot; &lt; &gt; |, назви пристроїв Windows (CON, NUL тощо), а також крапку чи пробіл у кінці.</source>
+        <translation>The name is empty or not allowed. You cannot use the characters \ / : * ? &quot; &lt; &gt; |, Windows device names (CON, NUL, etc.), or a dot or space at the end.</translation>
+    </message>
+    <message>
+        <source>Файли з такою назвою галерея не зберігає (.db, .ini та службові файли).</source>
+        <translation>The gallery does not keep files with such a name (.db, .ini and service files).</translation>
+    </message>
+    <message>
+        <source>Файл із такою назвою вже існує.</source>
+        <translation>A file with this name already exists.</translation>
+    </message>
+    <message>
+        <source>Перейменувати файл</source>
+        <translation>Rename file</translation>
+    </message>
+    <message>
+        <source>Не вдалося перейменувати файл, лишилася стара назва:
+%1
+
+%2</source>
+        <translation>Could not rename the file, it keeps its old name:
+%1
+
+%2</translation>
+    </message>
+    <message>
+        <source>&amp;Налаштування</source>
+        <translation>&amp;Settings</translation>
+    </message>
+    <message>
+        <source>Зберігати розширення при перейменуванні</source>
+        <translation>Keep the extension when renaming</translation>
     </message>
 </context>
 <context>

@@ -154,6 +154,20 @@ with it.
 A single file can be deleted in the metadata window (right-click a thumbnail): the
 **"Delete file…"** button moves it to the Recycle Bin.
 
+The **"Export…"** button in the same window copies the file out of the gallery to a place you
+choose. If that place is inside the current gallery, the program first asks whether you really
+want a duplicate; the copy then joins the gallery under the usual import rules: tags from its
+folders and, if the name is taken, `photo (1).jpg`. The rating and manually added tags are not
+carried over to the copy.
+
+The **"File name:"** field in the same window renames the file on disk when you press "Save"; its
+rating and tags stay. If the rename fails (the name is taken or has forbidden characters), the
+file keeps its old name and the program shows an error.
+
+While **"Keep the extension when renaming"** is on in the **Settings** menu (the default), the
+field shows only the name without its extension, and the extension can't be changed. Turn it off
+and the field shows the full name, so the extension can be changed too.
+
 ## Portable mode (for a USB stick)
 
 The program looks for the database `xgallery.sqlite` next to its exe first, and if it isn't

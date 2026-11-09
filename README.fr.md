@@ -171,6 +171,21 @@ programme vous demande quoi en faire.
 Un fichier isolé peut être supprimé dans la fenêtre des métadonnées (clic droit sur une
 vignette) : le bouton **« Supprimer le fichier… »** le met à la Corbeille.
 
+Dans la même fenêtre, le bouton **« Exporter… »** copie le fichier hors de la galerie, à
+l'emplacement de votre choix. Si cet emplacement se trouve dans la galerie actuelle, le programme
+demande d'abord si vous voulez vraiment un doublon ; la copie rejoint alors la galerie selon les
+règles habituelles d'ajout : tags tirés des dossiers et, si le nom est déjà pris,
+`photo (1).jpg`. La note et les tags ajoutés à la main ne sont pas repris sur la copie.
+
+Le champ **« Nom du fichier : »** de la même fenêtre renomme le fichier sur le disque lorsque vous
+cliquez sur « Enregistrer » ; sa note et ses tags sont conservés. Si le renommage échoue (nom déjà
+pris ou caractères interdits), le fichier garde son ancien nom et le programme affiche une erreur.
+
+Tant que **« Conserver l'extension lors du renommage »** est activé dans le menu **Paramètres**
+(c'est le cas par défaut), le champ n'affiche que le nom sans l'extension, et celle-ci ne peut pas
+être modifiée. Si vous le désactivez, le champ affiche le nom complet et l'extension devient
+modifiable.
+
 ## Mode portable (pour une clé USB)
 
 Le programme cherche la base `xgallery.sqlite` d'abord à côté de son exe, et si elle n'y est

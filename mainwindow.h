@@ -87,6 +87,8 @@ private:
     // A file was rewritten by the program (saved rotation): refresh its DB record and the grid.
     void fileRewritten(qint64 galleryId, const QString &root, const QString &file);
     void wireMetaDialog(ImageMetaDialog &dialog);
+    bool renameImageFile(qint64 galleryId, const ImageRecord &record, const QString &newName);
+    void exportFile(ImageMetaDialog &dialog, qint64 galleryId, const QString &root, const QString &destination);
     void addTagToEdit(QLineEdit *edit, const QString &tag);
     QString absolutePath(const QString &relativePath) const;
     // Search field text <-> normalized tags. "<без тегів>" (in the UI language) is not a tag:
@@ -115,6 +117,8 @@ private:
     QAction *m_duplicatesAction = nullptr;
     QAction *m_junkAction = nullptr;
     QAction *m_quitAction = nullptr;
+    QMenu *m_settingsMenu = nullptr;
+    QAction *m_keepExtensionAction = nullptr;
     QLabel *m_galleryLabel = nullptr;
     QPushButton *m_createGalleryButton = nullptr;
     QLabel *m_includeLabel = nullptr;

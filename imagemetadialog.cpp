@@ -10,6 +10,7 @@
 #include <QDesktopServices>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QGuiApplication>
@@ -22,12 +23,14 @@
 #include <QPushButton>
 #include <QShortcut>
 #include <QSpinBox>
+#include <QStandardPaths>
 #include <QUrl>
 #include <QVBoxLayout>
 
 namespace {
 
 constexpr int PreviewSize = 220;
+const char ExportFolderKey[] = "last_export_folder";
 
 bool lessCaseInsensitive(const QString &a, const QString &b)
 {
@@ -48,6 +51,7 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
     , m_addExistingButton(new QPushButton(tr("Додати"), this))
     , m_newTagEdit(new QLineEdit(this))
     , m_ratingSpin(new QSpinBox(this))
+    , m_nameEdit(new QLineEdit(QFileInfo(filePaths.value(0)).fileName(), this))
 {
     const bool bulk = filePaths.size() > 1;
     const QString filePath = filePaths.value(0);
@@ -135,10 +139,13 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
     auto *form = new QFormLayout;
     form->addRow(tr("Наявний тег:"), existingRow);
     form->addRow(tr("Новий тег:"), newRow);
-    if (!bulk)
+    if (!bulk) {
+        form->addRow(tr("Ім'я файлу:"), m_nameEdit);
         form->addRow(tr("Оцінка:"), m_ratingSpin);
-    else
+    } else {
+        m_nameEdit->hide();
         m_ratingSpin->hide();
+    }
 
     auto *tagsColumn = new QVBoxLayout;
     tagsColumn->addWidget(new QLabel(bulk ? tr("Спільні теги обраних файлів:") : tr("Теги зображення:"), this));
@@ -174,6 +181,9 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
         if (box.clickedButton() == yes)
             done(DeleteRequested); // the caller does the actual deletion
     });
+    QPushButton *exportButton = buttons->addButton(tr("Експорт…"), QDialogButtonBox::ActionRole);
+    exportButton->setVisible(!bulk);
+    connect(exportButton, &QPushButton::clicked, this, &ImageMetaDialog::chooseExportDestination);
 
     auto *layout = new QVBoxLayout(this);
     layout->addLayout(top, 1);
@@ -190,6 +200,34 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
 void ImageMetaDialog::setAllowUpscale(bool allow)
 {
     m_allowUpscale = allow;
+}
+
+void ImageMetaDialog::setKeepExtension(bool keep)
+{
+    m_keepExtension = keep;
+    const QFileInfo original(m_filePaths.value(0));
+    m_nameEdit->setText(keep ? original.completeBaseName() : original.fileName());
+}
+
+void ImageMetaDialog::setExporting(bool exporting)
+{
+    m_exporting = exporting;
+    setEnabled(!exporting);
+}
+
+void ImageMetaDialog::chooseExportDestination()
+{
+    const QFileInfo source(m_filePaths.value(0));
+    const QString folder = Db::setting(ExportFolderKey,
+                                       QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+    const QString suffix = source.suffix();
+    const QString destination = QFileDialog::getSaveFileName(
+        this, tr("Експорт файлу"), QDir(folder).filePath(source.fileName()),
+        tr("Файли %1 (*.%2)").arg(suffix.toUpper(), suffix.toLower())); // also adds a forgotten extension
+    if (destination.isEmpty())
+        return;
+    Db::setSetting(ExportFolderKey, QFileInfo(destination).absolutePath());
+    emit exportRequested(destination);
 }
 
 void ImageMetaDialog::updatePreview()
@@ -249,6 +287,8 @@ void ImageMetaDialog::openFile(int index)
 
 void ImageMetaDialog::done(int result)
 {
+    if (m_exporting)
+        return;
     // Open viewers may hold an unsaved rotation: let them ask first; "Cancel" keeps the dialog open.
     for (ImageViewer *viewer : findChildren<ImageViewer *>(Qt::FindDirectChildrenOnly))
         if (!viewer->close())
@@ -277,6 +317,19 @@ QStringList ImageMetaDialog::removedTags() const
         if (!m_tags.contains(tag))
             removed << tag;
     return removed;
+}
+
+QString ImageMetaDialog::fileName() const
+{
+    const QString text = m_nameEdit->text();
+    if (!m_keepExtension)
+        return text;
+    const QFileInfo original(m_filePaths.value(0));
+    if (text == original.completeBaseName())
+        return original.fileName();
+    // A cleared field stays empty, otherwise it would turn into the valid name ".jpg".
+    const QString base = text.trimmed();
+    return base.isEmpty() ? QString() : base + '.' + original.suffix();
 }
 
 int ImageMetaDialog::rating() const

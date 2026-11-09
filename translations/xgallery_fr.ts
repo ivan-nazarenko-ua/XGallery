@@ -274,6 +274,22 @@ Les fichiers sur le disque resteront inchangés.</translation>
         <source>Вставити теги</source>
         <translation>Coller les tags</translation>
     </message>
+    <message>
+        <source>Експорт…</source>
+        <translation>Exporter…</translation>
+    </message>
+    <message>
+        <source>Експорт файлу</source>
+        <translation>Exporter le fichier</translation>
+    </message>
+    <message>
+        <source>Файли %1 (*.%2)</source>
+        <translation>Fichiers %1 (*.%2)</translation>
+    </message>
+    <message>
+        <source>Ім&apos;я файлу:</source>
+        <translation>Nom du fichier :</translation>
+    </message>
 </context>
 <context>
     <name>ImageRotation</name>
@@ -864,6 +880,84 @@ Plus gros d&apos;abord : par taille de fichier (les plus gros d&apos;abord), pui
     <message>
         <source>Видаляю сміття…</source>
         <translation>Suppression des fichiers inutiles…</translation>
+    </message>
+    <message>
+        <source>Експорт файлу</source>
+        <translation>Exporter le fichier</translation>
+    </message>
+    <message>
+        <source>Експортую файл…</source>
+        <translation>Exportation du fichier…</translation>
+    </message>
+    <message>
+        <source>Файл збережено:
+%1</source>
+        <translation>Fichier enregistré :
+%1</translation>
+    </message>
+    <message>
+        <source>Не вдалося скопіювати файл:
+%1</source>
+        <translation>Impossible de copier le fichier :
+%1</translation>
+    </message>
+    <message>
+        <source>Це місце всередині поточної галереї. Справді створити дублікат файлу?
+
+%1</source>
+        <translation>Cet emplacement se trouve dans la galerie actuelle. Voulez-vous vraiment créer un doublon du fichier ?
+
+%1</translation>
+    </message>
+    <message>
+        <source>Файл із такою назвою вже є. Його не буде замінено: копія отримає номер у назві.</source>
+        <translation>Un fichier portant ce nom existe déjà. Il ne sera pas remplacé : la copie recevra un numéro dans son nom.</translation>
+    </message>
+    <message>
+        <source>Створити дублікат</source>
+        <translation>Créer un doublon</translation>
+    </message>
+    <message>
+        <source>Скасувати</source>
+        <translation>Annuler</translation>
+    </message>
+    <message>
+        <source>Дублікат створено й додано в галерею.</source>
+        <translation>Le doublon a été créé et ajouté à la galerie.</translation>
+    </message>
+    <message>
+        <source>Назва порожня або недопустима. Не можна використовувати символи \ / : * ? &quot; &lt; &gt; |, назви пристроїв Windows (CON, NUL тощо), а також крапку чи пробіл у кінці.</source>
+        <translation>Le nom est vide ou non autorisé. Vous ne pouvez pas utiliser les caractères \ / : * ? &quot; &lt; &gt; |, les noms de périphériques Windows (CON, NUL, etc.), ni un point ou une espace à la fin.</translation>
+    </message>
+    <message>
+        <source>Файли з такою назвою галерея не зберігає (.db, .ini та службові файли).</source>
+        <translation>La galerie ne conserve pas les fichiers portant un tel nom (.db, .ini et fichiers de service).</translation>
+    </message>
+    <message>
+        <source>Файл із такою назвою вже існує.</source>
+        <translation>Un fichier portant ce nom existe déjà.</translation>
+    </message>
+    <message>
+        <source>Перейменувати файл</source>
+        <translation>Renommer le fichier</translation>
+    </message>
+    <message>
+        <source>Не вдалося перейменувати файл, лишилася стара назва:
+%1
+
+%2</source>
+        <translation>Impossible de renommer le fichier, il garde son ancien nom :
+%1
+
+%2</translation>
+    </message>
+    <message>
+        <source>&amp;Налаштування</source>
+        <translation>&amp;Paramètres</translation>
+    </message>
+    <message>
+        <source>Зберігати розширення при перейменуванні</source>
+        <translation>Conserver l&apos;extension lors du renommage</translation>
     </message>
 </context>
 <context>

@@ -595,6 +595,17 @@ bool updateImageFile(qint64 galleryId, const QString &relativePath, qint64 size,
     return exec(q);
 }
 
+bool renameImage(qint64 galleryId, qint64 imageId, const QString &relativePath, const QString &name)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("UPDATE images SET path = ?, name = ? WHERE gallery_id = ? AND id = ?");
+    q.addBindValue(relativePath);
+    q.addBindValue(name);
+    q.addBindValue(galleryId);
+    q.addBindValue(imageId);
+    return exec(q);
+}
+
 QList<DuplicateGroup> findDuplicates(qint64 galleryId)
 {
     QList<DuplicateGroup> groups;

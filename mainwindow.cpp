@@ -48,6 +48,7 @@ namespace {
 
 const char *CurrentGalleryKey = "current_gallery";
 const char *SortOrderKey = "sort_order";
+const char *KeepExtensionKey = "keep_extension_on_rename"; // "0" = off; not set = on
 
 } // namespace
 
@@ -74,6 +75,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     Db::makeRootsPortable();
+    m_keepExtensionAction->setChecked(Db::setting(KeepExtensionKey) != "0");
     {
         const QSignalBlocker blocker(m_sortCombo);
         const int saved = m_sortCombo->findData(Db::setting(SortOrderKey).toInt());
@@ -105,6 +107,14 @@ void MainWindow::buildUi()
     m_junkAction = m_fileMenu->addAction(QString(), this, &MainWindow::deleteJunk);
     m_fileMenu->addSeparator();
     m_quitAction = m_fileMenu->addAction(QString(), QKeySequence::Quit, this, &QWidget::close);
+
+    m_settingsMenu = menuBar()->addMenu(QString());
+    m_keepExtensionAction = m_settingsMenu->addAction(QString());
+    m_keepExtensionAction->setCheckable(true);
+    m_keepExtensionAction->setChecked(true);
+    connect(m_keepExtensionAction, &QAction::triggered, this, [](bool checked) {
+        Db::setSetting(KeepExtensionKey, checked ? "1" : "0");
+    });
 
     // "Language" stays in English in every language; each item is in its own language.
     QMenu *languageMenu = menuBar()->addMenu(QStringLiteral("&Language"));
@@ -290,6 +300,8 @@ void MainWindow::buildUi()
 void MainWindow::retranslateUi()
 {
     m_fileMenu->setTitle(tr("&Файл"));
+    m_settingsMenu->setTitle(tr("&Налаштування"));
+    m_keepExtensionAction->setText(tr("Зберігати розширення при перейменуванні"));
     m_createGalleryAction->setText(tr("&Створити галерею…"));
     m_editGalleryAction->setText(tr("&Редагувати галерею…"));
     m_rescanAction->setText(tr("Рес&кан"));
@@ -925,6 +937,7 @@ void MainWindow::wireMetaDialog(ImageMetaDialog &dialog)
 {
     const Gallery *gallery = currentGallery();
     dialog.setAllowUpscale(gallery->allowUpscale);
+    dialog.setKeepExtension(m_keepExtensionAction->isChecked());
     connect(&dialog, &ImageMetaDialog::tagActivated, this, [this](const QString &tag) {
         addTagToEdit(m_includeEdit, tag); // the search itself waits for "Шукати"
     });
@@ -933,6 +946,104 @@ void MainWindow::wireMetaDialog(ImageMetaDialog &dialog)
     connect(&dialog, &ImageMetaDialog::fileChanged, this, [this, galleryId, root](const QString &file) {
         fileRewritten(galleryId, root, file);
     });
+    connect(&dialog, &ImageMetaDialog::exportRequested, this,
+            [this, &dialog, galleryId, root](const QString &destination) {
+                exportFile(dialog, galleryId, root, destination);
+            });
+}
+
+// Copies the dialog's file to where the user chose. Inside the gallery, the copy is a new
+// gallery file (after a question); a place the gallery ignores is just a place on disk.
+void MainWindow::exportFile(ImageMetaDialog &dialog, qint64 galleryId, const QString &root,
+                            const QString &destination)
+{
+    const QString title = tr("Експорт файлу");
+    const QString source = dialog.filePath();
+    const QFileInfo target(destination);
+    const std::optional<QString> galleryFolder =
+        Scanner::isIgnoredFile(destination) ? std::nullopt : Scanner::folderInGallery(root, target.absolutePath());
+
+    if (!galleryFolder) {
+        dialog.setExporting(true);
+        auto *watcher = new QFutureWatcher<bool>(this);
+        runBusy(watcher, tr("Експортую файл…"));
+        connect(watcher, &QFutureWatcherBase::finished, &dialog, [this, watcher, &dialog, title, destination] {
+            dialog.setExporting(false);
+            const QString shown = QDir::toNativeSeparators(destination);
+            if (watcher->result())
+                QMessageBox::information(&dialog, title, tr("Файл збережено:\n%1").arg(shown));
+            else
+                QMessageBox::warning(&dialog, title, tr("Не вдалося скопіювати файл:\n%1").arg(shown));
+        });
+        watcher->setFuture(QtConcurrent::run([source, destination] {
+            return Scanner::exportCopy(source, destination);
+        }));
+        return;
+    }
+
+    QString question = tr("Це місце всередині поточної галереї. Справді створити дублікат файлу?\n\n%1")
+                           .arg(QDir::toNativeSeparators(destination));
+    if (target.exists())
+        question += "\n\n" + tr("Файл із такою назвою вже є. Його не буде замінено: копія отримає номер у назві.");
+    QMessageBox box(QMessageBox::Question, title, question, QMessageBox::NoButton, &dialog);
+    QPushButton *yes = box.addButton(tr("Створити дублікат"), QMessageBox::AcceptRole);
+    QPushButton *no = box.addButton(tr("Скасувати"), QMessageBox::RejectRole);
+    box.setDefaultButton(no);
+    box.exec();
+    if (box.clickedButton() != yes)
+        return;
+
+    const Scanner::ImportItem item{source, *galleryFolder, target.fileName(), true};
+    dialog.setExporting(true);
+    auto *watcher = new QFutureWatcher<Scanner::ImportStats>(this);
+    runBusy(watcher, tr("Експортую файл…"));
+    connect(watcher, &QFutureWatcherBase::finished, &dialog, [this, watcher, &dialog, title] {
+        dialog.setExporting(false);
+        const Scanner::ImportStats stats = watcher->result();
+        reloadTags();
+        if (!isBusy())
+            loadPage(m_page);
+        if (stats.copied > 0 && stats.error.isEmpty())
+            QMessageBox::information(&dialog, title, tr("Дублікат створено й додано в галерею."));
+        else
+            QMessageBox::warning(&dialog, title, stats.error.isEmpty()
+                                                     ? tr("Не вдалося скопіювати файл:\n%1").arg(stats.failed.join('\n'))
+                                                     : stats.error);
+    });
+    watcher->setFuture(QtConcurrent::run([galleryId, root, item](QPromise<Scanner::ImportStats> &promise) {
+        Scanner::importFiles(promise, galleryId, root, {item});
+    }));
+}
+
+// Renames the file on disk and in its record. On any failure the old name stays and the user is told why.
+bool MainWindow::renameImageFile(qint64 galleryId, const ImageRecord &record, const QString &newName)
+{
+    const QString path = absolutePath(record.relativePath);
+    const QFileInfo current(path);
+    const QString newPath = current.dir().filePath(newName);
+
+    QString problem;
+    QFile file(path);
+    if (!Scanner::isValidFileName(newName)) {
+        problem = tr("Назва порожня або недопустима. Не можна використовувати символи \\ / : * ? \" < > |, "
+                     "назви пристроїв Windows (CON, NUL тощо), а також крапку чи пробіл у кінці.");
+    } else if (Scanner::isIgnoredFile(newPath)) {
+        problem = tr("Файли з такою назвою галерея не зберігає (.db, .ini та службові файли).");
+    } else if (QFileInfo::exists(newPath) && newName.compare(current.fileName(), Qt::CaseInsensitive) != 0) {
+        problem = tr("Файл із такою назвою вже існує."); // a change of letter case only is fine
+    } else if (!file.rename(newPath)) {
+        problem = file.errorString();
+    } else {
+        const qsizetype slash = record.relativePath.lastIndexOf('/');
+        if (Db::renameImage(galleryId, record.id, record.relativePath.left(slash + 1) + newName, newName))
+            return true;
+        problem = Db::lastError();
+        QFile::rename(newPath, path); // the record can't follow, so the file goes back
+    }
+    QMessageBox::warning(this, tr("Перейменувати файл"),
+                         tr("Не вдалося перейменувати файл, лишилася стара назва:\n%1\n\n%2")
+                             .arg(current.fileName(), problem));
+    return false;
 }
 
 void MainWindow::editImageMeta(int index)
@@ -989,7 +1100,14 @@ void MainWindow::editImageMeta(int index)
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти зміни:\n%1").arg(Db::lastError()));
         return;
     }
-    statusBar()->showMessage(tr("Збережено: %1").arg(QFileInfo(record.relativePath).fileName()), 5000);
+    QString fileName = QFileInfo(record.relativePath).fileName();
+    // The raw text first: an existing name with a leading space must count as unchanged.
+    if (dialog.fileName() != fileName) {
+        const QString newName = dialog.fileName().trimmed();
+        if (newName != fileName && renameImageFile(galleryId, record, newName))
+            fileName = newName;
+    }
+    statusBar()->showMessage(tr("Збережено: %1").arg(fileName), 5000);
     reloadTags();
     loadPage(m_page); // rating may have moved the image
 }

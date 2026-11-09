@@ -114,6 +114,9 @@ bool applyTagChanges(qint64 galleryId, const QList<qint64> &imageIds,
 bool updateImageFile(qint64 galleryId, const QString &relativePath, qint64 size, qint64 mtime,
                      const QString &sha256);
 
+// The file of this record got a new name on disk: relativePath is its new path, name the file name.
+bool renameImage(qint64 galleryId, qint64 imageId, const QString &relativePath, const QString &name);
+
 struct DuplicateGroup
 {
     QString sha256;

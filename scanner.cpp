@@ -11,6 +11,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
+#include <QRegularExpression>
 #include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -445,6 +446,13 @@ bool isIgnoredFile(const QString &path)
     return isExcluded(path) || isJunkFile(path);
 }
 
+bool isValidFileName(const QString &name)
+{
+    static const QRegularExpression forbidden(QStringLiteral(R"([\\/:*?"<>|\x00-\x1f])"));
+    return !name.isEmpty() && !name.contains(forbidden) && !name.endsWith('.') && !name.endsWith(' ')
+           && !isReservedName(name);
+}
+
 namespace {
 
 // "name.ext" -> "name (1).ext", "name (2).ext", ... until the name is free.
@@ -517,7 +525,7 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
             continue;
         }
         const QString key = contentKey(hash, source.size());
-        if (knownContent.contains(key)) {
+        if (!item.keepDuplicate && knownContent.contains(key)) {
             ++stats.duplicates;
             continue;
         }
@@ -543,15 +551,16 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
         const QDir dir(root.filePath(targetDir));
 
         // Same name already there: maybe it's this very file, just not scanned yet.
-        const QString existing = dir.filePath(source.fileName());
-        if (QFileInfo(existing).size() == source.size() && QFileInfo::exists(existing)
+        const QString fileName = item.targetName.isEmpty() ? source.fileName() : item.targetName;
+        const QString existing = dir.filePath(fileName);
+        if (!item.keepDuplicate && QFileInfo(existing).size() == source.size() && QFileInfo::exists(existing)
             && sha256Of(existing) == hash) {
             knownContent.insert(key);
             ++stats.duplicates;
             continue;
         }
 
-        const QString name = freeFileName(dir, source.fileName());
+        const QString name = freeFileName(dir, fileName);
         const QString target = dir.filePath(name);
         if (!QFile::copy(item.source, target)) {
             stats.failed << QDir::toNativeSeparators(item.source);
@@ -606,6 +615,36 @@ void importFiles(QPromise<ImportStats> &promise, qint64 galleryId, const QString
     }
     Db::close(connection);
     promise.addResult(stats);
+}
+
+std::optional<QString> folderInGallery(const QString &rootFolder, const QString &folder)
+{
+    const auto resolved = [](const QString &path) {
+        const QFileInfo fi(path);
+        const QString canonical = fi.canonicalFilePath();
+        return canonical.isEmpty() ? fi.absoluteFilePath() : canonical;
+    };
+    const QString relative = QDir(resolved(rootFolder)).relativeFilePath(resolved(folder));
+    if (relative == "." || relative.isEmpty())
+        return QString();
+    if (relative == ".." || relative.startsWith("../") || QDir::isAbsolutePath(relative))
+        return std::nullopt; // above the root, or on another drive
+    return relative;
+}
+
+bool exportCopy(const QString &source, const QString &destination)
+{
+    const QFileInfo target(destination);
+    const QDir dir = target.absoluteDir();
+    const QString temporary = dir.filePath(freeFileName(dir, target.fileName() + ".part"));
+    if (!QFile::copy(source, temporary))
+        return false;
+    if ((QFileInfo::exists(destination) && !QFile::remove(destination))
+        || !QFile::rename(temporary, destination)) {
+        QFile::remove(temporary);
+        return false;
+    }
+    return true;
 }
 
 bool isJunkFile(const QString &path)

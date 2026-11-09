@@ -77,6 +77,12 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   name+content already in the target); name clash → `name (1).ext`; records are written
   immediately (no rescan needed). The target folder is checked to stay inside the gallery; a
   Windows device name (CON, NUL, COM1…) gets `_` (`CON_`, `con_.old`), its tag stays `Con`.
+- **Export** (metadata dialog, single file): a save dialog, then `MainWindow::exportFile`. Outside the gallery (or a place
+  rescan ignores) = plain copy, replacing only after the copy succeeded. Inside the gallery = a question, then import with
+  `ImportItem::keepDuplicate` (never overwrites: name clash → `name (1).ext`; folder tags only). The dialog can't close meanwhile.
+- **Rename** (metadata dialog, single file, on Save after the meta): `MainWindow::renameImageFile`; the record keeps its id, tags and rating.
+  Any failure leaves the old name and shows why; names rescan would ignore (`.db`, `.ini`) are refused.
+  Menu "Налаштування" → keep extension (setting `keep_extension_on_rename`, program-wide, on unless "0"): the field then holds the name without the extension.
 - **Deleting user files**: always ask first. Single files and duplicates go to the Recycle Bin
   (`QFile::moveToTrash`); if that fails, nothing is deleted. "Видалити сміття" deletes
   `Thumbs.db`/`desktop.ini` and empty folders permanently (as the owner asked), still behind a
