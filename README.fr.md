@@ -44,6 +44,13 @@ efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichie
   n'est plus utilisé nulle part est supprimé automatiquement. Un double-clic sur un tag dans cette
   fenêtre l'ajoute au champ « Contient les tags » de la fenêtre principale. La recherche elle-même
   ne démarre que lorsque vous cliquez sur « Rechercher ».
+- **Copier et coller des tags.** Dans la liste des tags de cette fenêtre (aussi en modification
+  groupée), sélectionnez des tags à la souris ou au clavier et appuyez sur Ctrl+C, ou choisissez
+  « Copier les tags » dans le menu du clic droit. Ctrl+V ou « Coller les tags » ajoute une liste
+  depuis le presse-papiers : les tags sont séparés par des virgules ou des sauts de ligne, les
+  caractères `<` `>` `/` `\` sont remplacés par des espaces, l'écriture est l'écriture habituelle
+  et les tags déjà présents sont ignorés. Pratique pour donner le même ensemble de tags à
+  différents fichiers.
 - **Modification groupée.** Cochez les cases dans le coin des vignettes. La sélection est
   conservée quand vous passez d'une page à l'autre et même d'une recherche à l'autre, vous pouvez
   donc réunir autant de fichiers que vous voulez. Le nombre de fichiers sélectionnés est affiché
@@ -63,7 +70,9 @@ efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichie
   `nouvel_an` devient « Nouvel an ». Les tags saisis dans les champs de recherche sont ramenés à
   la même forme. Les caractères `,` `<` `>` `/` et `\` sont interdits dans les noms de tags.
 - **`<sans tags>`** est une entrée de service, toujours la première de la liste. Elle trouve les
-  fichiers qui n'ont aucun tag, ou les exclut de la recherche.
+  fichiers qui n'ont aucun tag, ou les exclut de la recherche. Dans la liste et les champs de
+  recherche, elle apparaît en gras sur un fond teinté, pour ne pas la confondre avec un tag
+  ordinaire nommé « Sans tags ».
 
 ## Recherche et tri
 

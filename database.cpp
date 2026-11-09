@@ -6,6 +6,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
@@ -13,6 +14,8 @@
 #include <QVariant>
 
 namespace {
+
+constexpr char16_t ForbiddenTagChars[] = {u',', u'<', u'>', u'/', u'\\'};
 
 thread_local QString g_lastError;
 
@@ -81,10 +84,19 @@ QString normalizeTag(const QString &tag)
 
 bool isValidTagName(const QString &tag)
 {
-    for (const QChar c : {QChar(','), QChar('<'), QChar('>'), QChar('/'), QChar('\\')})
-        if (tag.contains(c))
+    for (const char16_t c : ForbiddenTagChars)
+        if (tag.contains(QChar(c)))
             return false;
     return true;
+}
+
+QStringList tagsFromText(const QString &text)
+{
+    QStringList parts = text.split(QRegularExpression("[,\\r\\n]"), Qt::SkipEmptyParts);
+    for (QString &part : parts)
+        for (const char16_t c : ForbiddenTagChars)
+            part.replace(QChar(c), QChar(u' '));
+    return normalized(parts);
 }
 
 bool deleteUnusedTags(const QSqlDatabase &db, qint64 galleryId, QString *error)

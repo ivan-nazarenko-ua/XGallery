@@ -34,6 +34,9 @@ QString normalizeTag(const QString &tag);
 // Manual tags must not contain ',' (separates tags in the search fields), '<' '>' (reserved
 // for the search fields' "<без тегів>"), '/' (joins tags into the virtual path) or '\'.
 bool isValidTagName(const QString &tag);
+// Tags of a free-form list (clipboard): commas and line breaks separate them, the other forbidden
+// characters become spaces. Normalized, without empties and repeats.
+QStringList tagsFromText(const QString &text);
 // Deletes the gallery's tags no image uses any more. Called after every change of tag links.
 bool deleteUnusedTags(const QSqlDatabase &db, qint64 galleryId, QString *error);
 

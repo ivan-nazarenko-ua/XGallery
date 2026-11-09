@@ -51,6 +51,8 @@ private:
     void addExistingTag();
     void addNewTag();
     void removeSelectedTags();
+    void copySelectedTags();
+    void pasteTags();
     void refresh();
     void updatePreview();
     void openFile(int index); // click on the preview / on a row of the bulk list

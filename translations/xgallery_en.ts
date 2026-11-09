@@ -266,6 +266,14 @@ The image files on disk will stay unchanged.</translation>
         <source>Назва тегу не може містити символи «,», «&lt;», «&gt;», «/» і «\».</source>
         <translation>A tag name cannot contain &quot;,&quot;, &quot;&lt;&quot;, &quot;&gt;&quot;, &quot;/&quot; or &quot;\&quot;.</translation>
     </message>
+    <message>
+        <source>Копіювати теги</source>
+        <translation>Copy tags</translation>
+    </message>
+    <message>
+        <source>Вставити теги</source>
+        <translation>Paste tags</translation>
+    </message>
 </context>
 <context>
     <name>ImageRotation</name>

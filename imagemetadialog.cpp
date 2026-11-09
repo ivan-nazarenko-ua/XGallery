@@ -4,12 +4,15 @@
 #include "imageviewer.h"
 #include "mediafiles.h"
 
+#include <QAction>
+#include <QClipboard>
 #include <QComboBox>
 #include <QDesktopServices>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -89,6 +92,19 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
 
     // Tags
     m_tagList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    // Ctrl+C belongs to the list only (the path label has its own); Ctrl+V works in the whole
+    // dialog, text fields keep theirs. Copy stays enabled with nothing selected: a disabled action
+    // would hand Ctrl+C to QListWidget, which puts the current row into the clipboard.
+    auto *copyAction = new QAction(tr("Копіювати теги"), m_tagList);
+    copyAction->setShortcut(QKeySequence::Copy);
+    copyAction->setShortcutContext(Qt::WidgetShortcut);
+    connect(copyAction, &QAction::triggered, this, &ImageMetaDialog::copySelectedTags);
+    auto *pasteAction = new QAction(tr("Вставити теги"), m_tagList);
+    pasteAction->setShortcut(QKeySequence::Paste);
+    connect(pasteAction, &QAction::triggered, this, &ImageMetaDialog::pasteTags);
+    m_tagList->addAction(copyAction);
+    m_tagList->addAction(pasteAction);
+    m_tagList->setContextMenuPolicy(Qt::ActionsContextMenu);
     connect(m_tagList, &QListWidget::itemSelectionChanged, this, [this] {
         m_removeButton->setEnabled(!m_tagList->selectedItems().isEmpty());
     });
@@ -300,6 +316,28 @@ void ImageMetaDialog::removeSelectedTags()
     const auto selected = m_tagList->selectedItems();
     for (const QListWidgetItem *item : selected)
         m_tags.removeAll(item->text());
+    refresh();
+}
+
+void ImageMetaDialog::copySelectedTags()
+{
+    QStringList selected;
+    const auto items = m_tagList->selectedItems();
+    for (const QListWidgetItem *item : items)
+        selected << item->text();
+    if (selected.isEmpty())
+        return;
+    std::sort(selected.begin(), selected.end(), lessCaseInsensitive); // items come in click order
+    QGuiApplication::clipboard()->setText(selected.join(", "));
+}
+
+void ImageMetaDialog::pasteTags()
+{
+    const QStringList pasted = Db::tagsFromText(QGuiApplication::clipboard()->text());
+    for (const QString &tag : pasted)
+        if (!m_tags.contains(tag))
+            m_tags << tag;
+    std::sort(m_tags.begin(), m_tags.end(), lessCaseInsensitive);
     refresh();
 }
 

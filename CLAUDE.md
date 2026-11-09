@@ -66,6 +66,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - **Search**: `Db::TagQuery` (include/exclude tags, onlyUntagged/skipUntagged, exact). `<без тегів>` is
   not a tag: it exists only in `MainWindow` as text in the search fields and the tag list's service
   entry (`parseTags` turns it into the untagged flags, `tagsText` back). `Db::` knows no service tags.
+  Shown bold on a tinted background in the list and the search fields (`highlightNoTags`), so it differs from a real tag "Без тегів".
 - **Rescan**: all files incl. hidden/system, except `*.db`/`*.ini`, the program's own DB and anything
   inside the exe folder (import and junk deletion skip that folder too). Unchanged = same size+mtime
   (no re-hash). Folder tags are added only to new files, so manual tag edits survive.
@@ -94,6 +95,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (`m_selectedIds`) kept across pages/searches, cleared by "Зняти всі" or a gallery switch; "Обрати всі"
   ticks the current page only. Right click with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.
   Double click on a tag in the metadata dialog adds it to "Містить" without searching.
+- Tag clipboard (metadata dialog, single and bulk): Ctrl+C / context menu copies the selected tags as `А, Б`;
+  Ctrl+V adds a list via `Db::tagsFromText` (commas and line breaks separate; other forbidden characters → space; normalized).
 - **i18n**: source strings are Ukrainian in `tr()` / `QCoreApplication::translate`. Language code
   (uk/en/fr) is the `language` setting in the DB; not set → `LanguageDialog` at start (closing it = uk,
   not saved). Switching (menu "Language", always English; items in their own language) calls

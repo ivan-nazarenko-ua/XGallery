@@ -94,6 +94,9 @@ private:
     static QStringList parseTags(const QString &text, bool *noTags = nullptr);
     static QString tagsText(const QStringList &tags, bool noTags);
     static QString noTagsDisplayName();
+    // "<без тегів>" looks different from a real tag "Без тегів": bold on a tinted background.
+    QColor noTagsBackground() const;
+    void highlightNoTags(QLineEdit *edit);
 
     // Busy indicator + UI lock while a background job runs.
     void runBusy(QFutureWatcherBase *watcher, const QString &text);

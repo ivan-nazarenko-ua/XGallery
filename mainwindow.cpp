@@ -28,6 +28,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QImageReader>
+#include <QInputMethodEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -36,6 +37,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSplitter>
+#include <QTextCharFormat>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QTimeZone>
@@ -167,6 +169,8 @@ void MainWindow::buildUi()
     connect(m_searchButton, &QPushButton::clicked, this, &MainWindow::applySearch);
     connect(m_includeEdit, &QLineEdit::returnPressed, this, &MainWindow::applySearch);
     connect(m_excludeEdit, &QLineEdit::returnPressed, this, &MainWindow::applySearch);
+    for (QLineEdit *edit : {m_includeEdit, m_excludeEdit})
+        connect(edit, &QLineEdit::textChanged, this, [this, edit] { highlightNoTags(edit); });
     searchRow->addWidget(m_searchButton);
     m_clearSearchButton = new QPushButton;
     connect(m_clearSearchButton, &QPushButton::clicked, this, &MainWindow::clearSearch);
@@ -551,6 +555,45 @@ QString MainWindow::tagsText(const QStringList &tags, bool noTags)
     return (noTags ? QStringList{noTagsDisplayName()} + tags : tags).join(", ");
 }
 
+// A translucent selection colour: stays readable with any system theme.
+QColor MainWindow::noTagsBackground() const
+{
+    QColor color = palette().color(QPalette::Highlight);
+    color.setAlpha(70);
+    return color;
+}
+
+// QLineEdit has no API for formatting a part of its text; an input method event without preedit
+// text is the way to pass it text formats. They are given relative to the cursor and must be
+// sent again after every text change.
+void MainWindow::highlightNoTags(QLineEdit *edit)
+{
+    QTextCharFormat format;
+    format.setFontWeight(QFont::Bold);
+    format.setBackground(noTagsBackground());
+
+    const QString shownNoTags = Db::normalizeTag(noTagsDisplayName());
+    const QString text = edit->text();
+    QList<QInputMethodEvent::Attribute> attributes;
+    for (qsizetype start = 0; start < text.size();) {
+        qsizetype end = text.indexOf(u',', start);
+        if (end < 0)
+            end = text.size();
+        if (Db::normalizeTag(text.mid(start, end - start)) == shownNoTags) { // the same test as parseTags
+            qsizetype first = start, last = end;
+            while (text[first].isSpace())
+                ++first;
+            while (text[last - 1].isSpace())
+                --last;
+            attributes << QInputMethodEvent::Attribute(QInputMethodEvent::TextFormat,
+                                                       int(first) - edit->cursorPosition(), int(last - first), format);
+        }
+        start = end + 1;
+    }
+    QInputMethodEvent event(QString(), attributes);
+    QCoreApplication::sendEvent(edit, &event);
+}
+
 QStringList MainWindow::parseTags(const QString &text, bool *noTags)
 {
     const QString shownNoTags = Db::normalizeTag(noTagsDisplayName());
@@ -686,9 +729,9 @@ void MainWindow::reloadTags()
     // Service tag: always on top, always present (also with "hide foreign tags" or the tag filter), not stored in the DB.
     auto *noTags = new QListWidgetItem(noTagsDisplayName(), m_tagList);
     QFont font = noTags->font();
-    font.setItalic(true);
+    font.setBold(true);
     noTags->setFont(font);
-    noTags->setForeground(palette().color(QPalette::PlaceholderText));
+    noTags->setBackground(noTagsBackground());
     noTags->setToolTip(tr("Зображення, у яких немає жодного тегу"));
     noTags->setData(Qt::UserRole, true); // marks the service entry
 

@@ -40,6 +40,11 @@ leaves the files on disk untouched.
   Changes are written with the "Save" button. A tag that is no longer used anywhere is deleted
   automatically. Double-clicking a tag in this window adds it to the "Contains tags" field of the
   main window. The search itself only runs when you click "Search".
+- **Copying and pasting tags.** In the tag list of this window (also in bulk editing) select tags
+  with the mouse or keyboard and press Ctrl+C, or use "Copy tags" in the right-click menu. Ctrl+V or
+  "Paste tags" adds a list from the clipboard: tags are separated by commas or line breaks, the
+  characters `<` `>` `/` `\` are replaced with spaces, the spelling is the usual one, and tags the
+  file already has are skipped. Handy for giving the same set of tags to different files.
 - **Bulk editing.** Tick the checkboxes in the corner of the thumbnails. The selection is kept
   when you move between pages and even between different searches, so you can collect as many
   files as you like. The number of selected files is shown under the grid ("Selected: N").
@@ -56,7 +61,8 @@ leaves the files on disk untouched.
   fields are brought to the same form. The characters `,` `<` `>` `/` and `\` are not allowed in
   tag names.
 - **`<no tags>`** is a service entry, always first in the list. It finds the files that have no
-  tags at all, or excludes them from the search.
+  tags at all, or excludes them from the search. In the list and in the search fields it is shown
+  in bold on a tinted background, so it is not confused with an ordinary tag named "No tags".
 
 ## Search and sorting
 
