@@ -1107,9 +1107,34 @@ void MainWindow::editImageMeta(int index)
         if (newName != fileName && renameImageFile(galleryId, record, newName))
             fileName = newName;
     }
+    deleteTagsFromGallery(galleryId, dialog.deletedTags());
     statusBar()->showMessage(tr("Збережено: %1").arg(fileName), 5000);
     reloadTags();
     loadPage(m_page); // rating may have moved the image
+}
+
+void MainWindow::deleteTagsFromGallery(qint64 galleryId, const QStringList &tags)
+{
+    if (tags.isEmpty())
+        return;
+    if (!Db::deleteTags(galleryId, tags)) {
+        QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося видалити теги:\n%1").arg(Db::lastError()));
+        return;
+    }
+
+    // The search must not keep asking for tags that are gone.
+    for (QLineEdit *edit : {m_includeEdit, m_excludeEdit}) {
+        bool noTags = false;
+        QStringList current = parseTags(edit->text(), &noTags);
+        const qsizetype before = current.size();
+        for (const QString &tag : tags)
+            current.removeAll(tag);
+        if (current.size() != before)
+            edit->setText(tagsText(current, noTags));
+    }
+    for (QStringList *query : {&m_query.include, &m_query.exclude})
+        for (const QString &tag : tags)
+            query->removeAll(tag);
 }
 
 void MainWindow::clearSelection()
@@ -1180,13 +1205,15 @@ void MainWindow::editTagsOfSelection()
         return;
     const QStringList added = dialog.addedTags();
     const QStringList removed = dialog.removedTags();
-    if (added.isEmpty() && removed.isEmpty())
+    const QStringList deleted = dialog.deletedTags();
+    if (added.isEmpty() && removed.isEmpty() && deleted.isEmpty())
         return;
 
     if (!Db::applyTagChanges(galleryId, ids, added, removed)) {
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти зміни:\n%1").arg(Db::lastError()));
         return;
     }
+    deleteTagsFromGallery(galleryId, deleted);
     statusBar()->showMessage(tr("Теги оновлено у файлів: %1").arg(ids.size()), 5000);
     reloadTags();
     loadPage(m_page);

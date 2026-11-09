@@ -29,6 +29,8 @@ set(PROJECT_SOURCES
         gallerydialog.cpp
         imagemetadialog.h
         imagemetadialog.cpp
+        tagpickerdialog.h
+        tagpickerdialog.cpp
         migrations.h
         migrations.cpp
         mediafiles.h

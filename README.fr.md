@@ -39,11 +39,18 @@ efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichie
   fichier `Vacances/2024/mer.jpg` reçoit les tags « Vacances » et « 2024 ». Une virgule dans un
   nom de dossier est remplacée par une espace.
 - **Les vôtres.** Un clic droit sur une vignette ouvre la fenêtre des métadonnées. Vous pouvez y
-  ajouter un tag existant, en créer un nouveau, retirer un tag et changer la **note** (0–100, 50
-  par défaut). Les modifications sont enregistrées avec le bouton « Enregistrer ». Un tag qui
-  n'est plus utilisé nulle part est supprimé automatiquement. Un double-clic sur un tag dans cette
-  fenêtre l'ajoute au champ « Contient les tags » de la fenêtre principale. La recherche elle-même
-  ne démarre que lorsque vous cliquez sur « Rechercher ».
+  retirer un tag du fichier et changer la **note** (0–100, 50 par défaut). Les modifications sont
+  enregistrées avec le bouton « Enregistrer ». Un tag qui n'est plus utilisé nulle part est
+  supprimé automatiquement. Un double-clic sur un tag dans cette fenêtre l'ajoute au champ
+  « Contient les tags » de la fenêtre principale. La recherche elle-même ne démarre que lorsque
+  vous cliquez sur « Rechercher ».
+- **Ajouter des tags.** Le bouton « Ajouter des tags » de la fenêtre des métadonnées ouvre une
+  fenêtre avec un champ « Nouveaux tags : » (plusieurs tags séparés par des virgules) et un tableau
+  des tags de la galerie que le fichier n'a pas encore. Cochez ceux qu'il vous faut puis cliquez sur
+  « Enregistrer ». Pendant qu'elle est ouverte, vous pouvez toujours ouvrir la photo depuis la
+  fenêtre des métadonnées ; elle se ferme avec cette dernière. Un clic droit sur un tag du tableau, après confirmation, le supprime de **tous
+  les fichiers de la galerie** ; cela n'a lieu qu'à l'enregistrement de la fenêtre des métadonnées,
+  donc « Annuler » dans l'une ou l'autre fenêtre conserve le tag.
 - **Copier et coller des tags.** Dans la liste des tags de cette fenêtre (aussi en modification
   groupée), sélectionnez des tags à la souris ou au clavier et appuyez sur Ctrl+C, ou choisissez
   « Copier les tags » dans le menu du clic droit. Ctrl+V ou « Coller les tags » ajoute une liste

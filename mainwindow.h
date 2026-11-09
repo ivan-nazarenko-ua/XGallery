@@ -62,6 +62,7 @@ private slots:
     void addFolderToGallery();
     void showTagMenu(const QPoint &pos);
     void renameTag(const QString &oldName);
+    void deleteTagsFromGallery(qint64 galleryId, const QStringList &tags);
 
 private:
     static constexpr int GridColumns = 4;

@@ -110,6 +110,9 @@ bool renameTag(qint64 galleryId, const QString &oldName, const QString &newName)
 bool applyTagChanges(qint64 galleryId, const QList<qint64> &imageIds,
                      const QStringList &added, const QStringList &removed);
 
+// Removes the tags from the whole gallery: every image loses them. One transaction.
+bool deleteTags(qint64 galleryId, const QStringList &names);
+
 // The file at relativePath was rewritten by the program (e.g. rotated): refresh its record.
 bool updateImageFile(qint64 galleryId, const QString &relativePath, qint64 size, qint64 mtime,
                      const QString &sha256);

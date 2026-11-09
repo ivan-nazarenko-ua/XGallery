@@ -2,14 +2,15 @@
 #define IMAGEMETADIALOG_H
 
 #include <QDialog>
+#include <QPointer>
 #include <QStringList>
 
-class QComboBox;
 class QLabel;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
 class QSpinBox;
+class TagPickerDialog;
 
 // Edits an image's tags and rating, or (several files) the tags they have in common.
 // Nothing is written to the DB here: the caller reads the result after exec() == Accepted.
@@ -40,6 +41,7 @@ public:
     QStringList tags() const;
     QStringList addedTags() const;  // compared with the tags the dialog started with
     QStringList removedTags() const;
+    QStringList deletedTags() const { return m_deletedTags; } // to delete from the whole gallery
     int rating() const;
 
 signals:
@@ -57,9 +59,7 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-    void addTag(const QString &tag);
-    void addExistingTag();
-    void addNewTag();
+    void chooseTags();
     void removeSelectedTags();
     void copySelectedTags();
     void pasteTags();
@@ -71,17 +71,16 @@ private:
     QStringList m_galleryTags;
     QStringList m_tags;
     QStringList m_initialTags;
+    QStringList m_deletedTags;
     QStringList m_filePaths;
     bool m_allowUpscale = false;
     bool m_exporting = false;
     bool m_keepExtension = false;
     QLabel *m_preview = nullptr;
+    QPointer<TagPickerDialog> m_picker; // not modal: the preview and the viewer stay usable
 
     QListWidget *m_tagList;
     QPushButton *m_removeButton;
-    QComboBox *m_existingCombo;
-    QPushButton *m_addExistingButton;
-    QLineEdit *m_newTagEdit;
     QSpinBox *m_ratingSpin;
     QLineEdit *m_nameEdit;
 };

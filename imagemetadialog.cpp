@@ -3,10 +3,10 @@
 #include "database.h"
 #include "imageviewer.h"
 #include "mediafiles.h"
+#include "tagpickerdialog.h"
 
 #include <QAction>
 #include <QClipboard>
-#include <QComboBox>
 #include <QDesktopServices>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -47,9 +47,6 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
     , m_initialTags(imageTags)
     , m_tagList(new QListWidget(this))
     , m_removeButton(new QPushButton(tr("Видалити тег"), this))
-    , m_existingCombo(new QComboBox(this))
-    , m_addExistingButton(new QPushButton(tr("Додати"), this))
-    , m_newTagEdit(new QLineEdit(this))
     , m_ratingSpin(new QSpinBox(this))
     , m_nameEdit(new QLineEdit(QFileInfo(filePaths.value(0)).fileName(), this))
 {
@@ -120,25 +117,17 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
     auto *deleteShortcut = new QShortcut(QKeySequence::Delete, m_tagList);
     connect(deleteShortcut, &QShortcut::activated, this, &ImageMetaDialog::removeSelectedTags);
 
-    auto *existingRow = new QHBoxLayout;
-    existingRow->addWidget(m_existingCombo, 1);
-    existingRow->addWidget(m_addExistingButton);
-    connect(m_addExistingButton, &QPushButton::clicked, this, &ImageMetaDialog::addExistingTag);
-
-    auto *newRow = new QHBoxLayout;
-    m_newTagEdit->setPlaceholderText(tr("назва нового тегу"));
-    newRow->addWidget(m_newTagEdit, 1);
-    auto *addNewButton = new QPushButton(tr("Додати"), this);
-    newRow->addWidget(addNewButton);
-    connect(addNewButton, &QPushButton::clicked, this, &ImageMetaDialog::addNewTag);
-    connect(m_newTagEdit, &QLineEdit::returnPressed, this, &ImageMetaDialog::addNewTag);
+    auto *addTagsButton = new QPushButton(tr("Додати теги"), this);
+    connect(addTagsButton, &QPushButton::clicked, this, &ImageMetaDialog::chooseTags);
+    auto *tagButtons = new QHBoxLayout;
+    tagButtons->addWidget(m_removeButton);
+    tagButtons->addWidget(addTagsButton);
+    tagButtons->addStretch(1);
 
     m_ratingSpin->setRange(0, 100);
     m_ratingSpin->setValue(rating);
 
     auto *form = new QFormLayout;
-    form->addRow(tr("Наявний тег:"), existingRow);
-    form->addRow(tr("Новий тег:"), newRow);
     if (!bulk) {
         form->addRow(tr("Ім'я файлу:"), m_nameEdit);
         form->addRow(tr("Оцінка:"), m_ratingSpin);
@@ -150,7 +139,7 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
     auto *tagsColumn = new QVBoxLayout;
     tagsColumn->addWidget(new QLabel(bulk ? tr("Спільні теги обраних файлів:") : tr("Теги зображення:"), this));
     tagsColumn->addWidget(m_tagList, 1);
-    tagsColumn->addWidget(m_removeButton, 0, Qt::AlignLeft);
+    tagsColumn->addLayout(tagButtons);
     tagsColumn->addLayout(form);
 
     auto *previewColumn = new QVBoxLayout;
@@ -189,7 +178,7 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
     layout->addLayout(top, 1);
     layout->addWidget(buttons);
 
-    // Enter in the "new tag" field must add the tag, not press some button of the dialog.
+    // Enter in the file name field must not press some button of the dialog.
     for (QPushButton *button : findChildren<QPushButton *>())
         button->setAutoDefault(false);
 
@@ -293,6 +282,8 @@ void ImageMetaDialog::done(int result)
     for (ImageViewer *viewer : findChildren<ImageViewer *>(Qt::FindDirectChildrenOnly))
         if (!viewer->close())
             return;
+    if (m_picker)
+        m_picker->reject(); // what it wasn't told to save is dropped, as with its cancel button
     QDialog::done(result);
 }
 
@@ -337,31 +328,32 @@ int ImageMetaDialog::rating() const
     return m_ratingSpin->value();
 }
 
-void ImageMetaDialog::addTag(const QString &tag)
+void ImageMetaDialog::chooseTags()
 {
-    if (tag.isEmpty() || m_tags.contains(tag))
-        return;
-    m_tags << tag;
-    std::sort(m_tags.begin(), m_tags.end(), lessCaseInsensitive);
-    refresh();
-}
-
-void ImageMetaDialog::addExistingTag()
-{
-    addTag(m_existingCombo->currentText());
-}
-
-void ImageMetaDialog::addNewTag()
-{
-    const QString tag = Db::normalizeTag(m_newTagEdit->text());
-    if (tag.isEmpty())
-        return;
-    if (!Db::isValidTagName(tag)) {
-        QMessageBox::warning(this, windowTitle(), tr("Назва тегу не може містити символи «,», «<», «>», «/» і «\\»."));
+    if (m_picker) {
+        m_picker->raise();
+        m_picker->activateWindow();
         return;
     }
-    addTag(tag);
-    m_newTagEdit->clear();
+
+    QStringList available;
+    for (const QString &tag : std::as_const(m_galleryTags))
+        if (!m_tags.contains(tag) && !m_deletedTags.contains(tag))
+            available << tag;
+
+    // A child of the dialog, so it works while the dialog is modal.
+    m_picker = new TagPickerDialog(available, m_tags, this);
+    m_picker->setAttribute(Qt::WA_DeleteOnClose);
+    connect(m_picker, &QDialog::accepted, this, [this] {
+        m_deletedTags << m_picker->deletedTags();
+        const QStringList chosen = m_picker->chosenTags();
+        for (const QString &tag : chosen)
+            if (!m_tags.contains(tag))
+                m_tags << tag;
+        std::sort(m_tags.begin(), m_tags.end(), lessCaseInsensitive);
+        refresh();
+    });
+    m_picker->show();
 }
 
 void ImageMetaDialog::removeSelectedTags()
@@ -400,14 +392,10 @@ void ImageMetaDialog::refresh()
     m_tagList->addItems(m_tags);
     m_removeButton->setEnabled(false);
 
-    const QString previous = m_existingCombo->currentText();
-    m_existingCombo->clear();
-    for (const QString &tag : std::as_const(m_galleryTags))
-        if (!m_tags.contains(tag))
-            m_existingCombo->addItem(tag);
-    const int index = m_existingCombo->findText(previous);
-    if (index >= 0)
-        m_existingCombo->setCurrentIndex(index);
-    m_existingCombo->setEnabled(m_existingCombo->count() > 0);
-    m_addExistingButton->setEnabled(m_existingCombo->count() > 0);
+    // A tag marked for deletion and then given to the file again (typed, pasted) stays in the gallery.
+    for (const QString &tag : std::as_const(m_tags))
+        m_deletedTags.removeAll(tag);
+
+    if (m_picker)
+        m_picker->setAssignedTags(m_tags); // the file's tags can change while the picker is open
 }

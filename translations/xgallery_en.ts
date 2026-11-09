@@ -173,10 +173,6 @@ The image files on disk will stay unchanged.</translation>
         <translation>Remove tag</translation>
     </message>
     <message>
-        <source>Додати</source>
-        <translation>Add</translation>
-    </message>
-    <message>
         <source>Групове редагування тегів — файлів: %1</source>
         <translation>Bulk tag editing — files: %1</translation>
     </message>
@@ -199,18 +195,6 @@ The image files on disk will stay unchanged.</translation>
     <message>
         <source>Подвійний клік — додати тег у поле «Містить» головного вікна</source>
         <translation>Double click: add the tag to the &quot;Contains&quot; field of the main window</translation>
-    </message>
-    <message>
-        <source>назва нового тегу</source>
-        <translation>new tag name</translation>
-    </message>
-    <message>
-        <source>Наявний тег:</source>
-        <translation>Existing tag:</translation>
-    </message>
-    <message>
-        <source>Новий тег:</source>
-        <translation>New tag:</translation>
     </message>
     <message>
         <source>Оцінка:</source>
@@ -263,10 +247,6 @@ The image files on disk will stay unchanged.</translation>
 %1</translation>
     </message>
     <message>
-        <source>Назва тегу не може містити символи «,», «&lt;», «&gt;», «/» і «\».</source>
-        <translation>A tag name cannot contain &quot;,&quot;, &quot;&lt;&quot;, &quot;&gt;&quot;, &quot;/&quot; or &quot;\&quot;.</translation>
-    </message>
-    <message>
         <source>Копіювати теги</source>
         <translation>Copy tags</translation>
     </message>
@@ -289,6 +269,10 @@ The image files on disk will stay unchanged.</translation>
     <message>
         <source>Ім&apos;я файлу:</source>
         <translation>File name:</translation>
+    </message>
+    <message>
+        <source>Додати теги</source>
+        <translation>Add tags</translation>
     </message>
 </context>
 <context>
@@ -959,6 +943,12 @@ Largest first: by file size (largest first), then classic.</translation>
         <source>Зберігати розширення при перейменуванні</source>
         <translation>Keep the extension when renaming</translation>
     </message>
+    <message>
+        <source>Не вдалося видалити теги:
+%1</source>
+        <translation>Could not delete the tags:
+%1</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>
@@ -1003,6 +993,61 @@ Largest first: by file size (largest first), then classic.</translation>
 %1</source>
         <translation>The files were copied but could not be written to the database (please rescan):
 %1</translation>
+    </message>
+</context>
+<context>
+    <name>TagPickerDialog</name>
+    <message>
+        <source>Додати теги</source>
+        <translation>Add tags</translation>
+    </message>
+    <message>
+        <source>Нові теги:</source>
+        <translation>New tags:</translation>
+    </message>
+    <message>
+        <source>теги через кому</source>
+        <translation>comma-separated tags</translation>
+    </message>
+    <message>
+        <source>Додати</source>
+        <translation>Add</translation>
+    </message>
+    <message>
+        <source>Зберегти</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Відмінити</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Назва тегу не може містити символи «,», «&lt;», «&gt;», «/» і «\».</source>
+        <translation>A tag name cannot contain &quot;,&quot;, &quot;&lt;&quot;, &quot;&gt;&quot;, &quot;/&quot; or &quot;\&quot;.</translation>
+    </message>
+    <message>
+        <source>Ви впевнені, що хочете видалити тег «%1» з усіх файлів галереї?
+
+Видалення відбудеться після збереження у вікні метаданих.</source>
+        <translation>Are you sure you want to delete the tag &quot;%1&quot; from all files of the gallery?
+
+It will be deleted when the metadata window is saved.</translation>
+    </message>
+    <message>
+        <source>Прибрати новий тег «%1» зі списку?</source>
+        <translation>Remove the new tag &quot;%1&quot; from the list?</translation>
+    </message>
+    <message>
+        <source>Видалити тег</source>
+        <translation>Delete tag</translation>
+    </message>
+    <message>
+        <source>Видалити</source>
+        <translation>Delete</translation>
+    </message>
+    <message>
+        <source>Скасувати</source>
+        <translation>Cancel</translation>
     </message>
 </context>
 </TS>

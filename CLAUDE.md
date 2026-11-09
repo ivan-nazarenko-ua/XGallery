@@ -42,7 +42,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `mediafiles.*` | File kind by extension (image / video / other) and thumbnails (videos via `IShellItemImageFactory`, others as an extension card) |
 | `imageviewer.*` | Viewer window: fit/upscale, arrows (circular), double-click full screen, right-click rotation |
 | `imagerotation.*` | Saving rotations to disk (lossless for JPEG via EXIF orientation) |
-| `gallerydialog.*`, `imagemetadialog.*`, `duplicatesdialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no rating/delete) |
+| `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no rating/delete). `TagPickerDialog` is its "Додати теги" window |
 | `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
 | `i18n.*`, `languagedialog.*`, `translations/*.ts`, `flags/` | UI language (uk source, en/fr translations), first-start flag dialog, flag SVGs + rendered PNGs (48x32 and @2x) |
 | `xgallery.ico`, `xgallery.rc`, `resources.qrc` | Program icon, rendered from `logo.svg` (each size 16–256 px rendered directly, centred on a transparent square, PNG entries). Rebuild the .ico when the SVG changes |
@@ -101,6 +101,9 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (`m_selectedIds`) kept across pages/searches, cleared by "Зняти всі" or a gallery switch; "Обрати всі"
   ticks the current page only. Right click with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.
   Double click on a tag in the metadata dialog adds it to "Містить" without searching.
+- Tag picker (`TagPickerDialog`, from the metadata dialog): new tags (comma list) + 6 columns of checkboxes for gallery tags not on the file.
+  Not modal (`show()`, a child of the metadata dialog, closes with it), so the preview and viewer stay usable. Writes nothing itself. Right click + confirmation marks a tag for deletion from the whole gallery; `MainWindow::deleteTagsFromGallery` (`Db::deleteTags`)
+  runs it after the metadata dialog's Save, and giving the tag to the file again takes the deletion back.
 - Tag clipboard (metadata dialog, single and bulk): Ctrl+C / context menu copies the selected tags as `А, Б`;
   Ctrl+V adds a list via `Db::tagsFromText` (commas and line breaks separate; other forbidden characters → space; normalized).
 - **i18n**: source strings are Ukrainian in `tr()` / `QCoreApplication::translate`. Language code

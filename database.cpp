@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QRegularExpression>
+#include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
@@ -570,6 +571,49 @@ bool applyTagChanges(qint64 galleryId, const QList<qint64> &imageIds,
             }
         }
         if (!VirtualPath::update(db, imageIds, &g_lastError))
+            return false;
+        return deleteUnusedTags(db, galleryId, &g_lastError);
+    }();
+
+    if (ok && db.commit())
+        return true;
+    if (ok)
+        g_lastError = db.lastError().text();
+    db.rollback();
+    return false;
+}
+
+bool deleteTags(qint64 galleryId, const QStringList &names)
+{
+    if (names.isEmpty())
+        return true;
+    QSqlDatabase db = mainDb();
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return false;
+    }
+
+    const bool ok = [&] {
+        QSet<qint64> ids; // an image with several of the tags needs one new virtual path
+        QSqlQuery select(db), unlink(db);
+        select.prepare("SELECT it.image_id FROM image_tags it JOIN tags t ON t.id = it.tag_id "
+                       "WHERE t.gallery_id = ? AND t.name = ?");
+        unlink.prepare("DELETE FROM image_tags WHERE tag_id IN "
+                       "(SELECT id FROM tags WHERE gallery_id = ? AND name = ?)");
+        for (const QString &name : names) {
+            select.addBindValue(galleryId);
+            select.addBindValue(name);
+            if (!exec(select))
+                return false;
+            while (select.next())
+                ids.insert(select.value(0).toLongLong());
+            select.finish();
+            unlink.addBindValue(galleryId);
+            unlink.addBindValue(name);
+            if (!exec(unlink))
+                return false;
+        }
+        if (!VirtualPath::update(db, ids.values(), &g_lastError))
             return false;
         return deleteUnusedTags(db, galleryId, &g_lastError);
     }();

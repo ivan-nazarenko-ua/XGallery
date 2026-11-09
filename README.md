@@ -35,11 +35,17 @@ leaves the files on disk untouched.
 - **Automatic.** Every folder between the root folder and the file becomes a tag. The file
   `Vacation/2024/sea.jpg` gets the tags "Vacation" and "2024". A comma in a folder name is
   replaced with a space.
-- **Your own.** Right-clicking a thumbnail opens the metadata window. There you can add an
-  existing tag, create a new one, remove a tag and change the **rating** (0–100, 50 by default).
-  Changes are written with the "Save" button. A tag that is no longer used anywhere is deleted
-  automatically. Double-clicking a tag in this window adds it to the "Contains tags" field of the
-  main window. The search itself only runs when you click "Search".
+- **Your own.** Right-clicking a thumbnail opens the metadata window. There you can remove a tag
+  from the file and change the **rating** (0–100, 50 by default). Changes are written with the
+  "Save" button. A tag that is no longer used anywhere is deleted automatically. Double-clicking a
+  tag in this window adds it to the "Contains tags" field of the main window. The search itself
+  only runs when you click "Search".
+- **Adding tags.** The "Add tags" button in the metadata window opens a window with a "New tags:"
+  field (several tags separated by commas) and a table of the gallery's tags the file doesn't have
+  yet. Tick the ones you need and click "Save". While it is open you can still open the photo from
+  the metadata window; closing the metadata window closes it too. Right-clicking a tag in the table, after a
+  confirmation, deletes it from **all files of the gallery**; this happens only when the metadata
+  window is saved, so "Cancel" in either window keeps the tag.
 - **Copying and pasting tags.** In the tag list of this window (also in bulk editing) select tags
   with the mouse or keyboard and press Ctrl+C, or use "Copy tags" in the right-click menu. Ctrl+V or
   "Paste tags" adds a list from the clipboard: tags are separated by commas or line breaks, the
