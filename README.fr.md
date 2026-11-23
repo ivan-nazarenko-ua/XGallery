@@ -3,9 +3,9 @@
 [English](README.md) | [Українська](README.uk.md) | **Français**
 
 Un programme Windows pour organiser une archive de photos et de vidéos. Il mémorise les fichiers
-d'un dossier choisi, transforme les noms de dossiers en tags, permet d'ajouter vos propres tags et
-notes, de rechercher par tags, de regarder les photos, de trouver les doublons et de garder vos
-dossiers en ordre.
+d'un dossier choisi, transforme les noms de dossiers en tags, permet d'ajouter vos propres tags,
+regroupe les fichiers ayant les mêmes tags en collections notées, recherche par tags, affiche les
+photos, trouve les doublons et garde vos dossiers en ordre.
 
 Toutes les informations sont conservées dans une base de données. Le programme ne modifie les
 fichiers eux-mêmes que lorsque vous le demandez : rotation, suppression, ajout, nettoyage des
@@ -38,9 +38,9 @@ efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichie
 - **Automatiques.** Chaque dossier entre le dossier racine et le fichier devient un tag. Le
   fichier `Vacances/2024/mer.jpg` reçoit les tags « Vacances » et « 2024 ». Une virgule dans un
   nom de dossier est remplacée par une espace.
-- **Les vôtres.** Un clic droit sur une vignette ouvre la fenêtre des métadonnées. Vous pouvez y
-  retirer un tag du fichier et changer la **note** (0–100, 50 par défaut). Les modifications sont
-  enregistrées avec le bouton « Enregistrer ». Un tag qui n'est plus utilisé nulle part est
+- **Les vôtres.** Dans une collection (voir plus bas), un clic droit sur la vignette d'un fichier
+  ouvre la fenêtre des métadonnées. Vous pouvez y retirer un tag du fichier ou en ajouter. Les
+  modifications sont enregistrées avec le bouton « Enregistrer ». Un tag qui n'est plus utilisé nulle part est
   supprimé automatiquement. Un double-clic sur un tag dans cette fenêtre l'ajoute au champ
   « Contient les tags » de la fenêtre principale. La recherche elle-même ne démarre que lorsque
   vous cliquez sur « Rechercher ».
@@ -58,10 +58,11 @@ efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichie
   caractères `<` `>` `/` `\` sont remplacés par des espaces, l'écriture est l'écriture habituelle
   et les tags déjà présents sont ignorés. Pratique pour donner le même ensemble de tags à
   différents fichiers.
-- **Modification groupée.** Cochez les cases dans le coin des vignettes. La sélection est
-  conservée quand vous passez d'une page à l'autre et même d'une recherche à l'autre, vous pouvez
-  donc réunir autant de fichiers que vous voulez. Le nombre de fichiers sélectionnés est affiché
-  sous la grille (« Sélectionnés : N »). Un clic droit sur n'importe quelle vignette ouvre une
+- **Modification groupée.** Dans une collection, cochez les cases dans le coin des vignettes. La
+  sélection est conservée quand vous passez d'une page, d'une collection et même d'une recherche à
+  l'autre, vous pouvez donc réunir autant de fichiers que vous voulez. Le nombre de fichiers
+  sélectionnés est affiché sous la grille (« Sélectionnés : N »). Un clic droit sur n'importe
+  quelle vignette de fichier ouvre une
   fenêtre avec les tags communs à tous les fichiers sélectionnés. Les tags ajoutés et retirés
   s'appliquent à tous les fichiers sélectionnés à la fois ; un fichier qui a déjà un tag ajouté ne
   le reçoit qu'une fois. **« Tout cocher »** coche tous les fichiers de la page courante,
@@ -81,6 +82,43 @@ efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichie
   recherche, elle apparaît en gras sur un fond teinté, pour ne pas la confondre avec un tag
   ordinaire nommé « Sans tags ».
 
+## Collections
+
+Les fichiers ayant exactement le même ensemble de tags forment une **collection**. Ses tags par
+ordre alphabétique, reliés par « / », les chiffres après les lettres, forment le chemin de la
+collection, par exemple « Marie/Mer/2024 ». Ainsi, les photos ayant le même ensemble de tags
+restent groupées, quel que soit le dossier où elles se trouvent.
+
+- La fenêtre principale affiche les **collections** des fichiers trouvés : une couverture et un nom
+  pour chacune. Elles viennent dans l'ordre de leur premier fichier dans les résultats de recherche
+  (voir « Tri »), 16 par page.
+- **Nom** — par défaut, les deux derniers tags du chemin séparés par une espace (« Mer 2024 »).
+  Vous pouvez le changer ; les noms peuvent se répéter. Les fichiers sans tags forment une
+  collection sans nom, affichée comme `<sans tags>`.
+- **Note** — de 1 à 100, 50 pour une nouvelle collection. La note appartient à la collection, pas
+  aux fichiers. Lors de la mise à jour depuis une version où les fichiers avaient une note, chaque
+  collection a reçu la note moyenne de ses fichiers, arrondie au supérieur.
+- **Couverture** — par défaut, la première photo de la collection par nom de fichier. Pour en
+  choisir une autre, ouvrez la fenêtre des métadonnées de la photo dans la collection et cliquez
+  sur **« Définir comme couverture »** (effectif après « Enregistrer » ; le bouton est grisé si la
+  photo est déjà la couverture, et absent en modification groupée). Si la couverture quitte la
+  collection, la première photo redevient la couverture. Une collection qui ne contient que des
+  vidéos ou d'autres fichiers montre son premier fichier.
+- Un **clic droit** sur une collection ouvre la fenêtre « Propriétés de la collection » : le nom
+  (le bouton « Par défaut » rétablit le nom par défaut) et la note.
+- Un **clic gauche** ouvre la collection : la grille affiche ses fichiers, 16 par page. La
+  recherche, le tri et la liste des tags sont alors verrouillés ; **« ◀ Fermer la collection »**
+  (ou Échap) revient à la liste des collections, à la même page. Dans une collection, un clic sur
+  un fichier l'ouvre, un clic droit ouvre sa fenêtre des métadonnées, et la modification groupée
+  fonctionne comme d'habitude.
+- **Quand les tags changent.** Si une collection perd tous ses fichiers (vous avez changé les tags
+  de tous, renommé ou supprimé un tag, déplacé son dossier puis lancé une analyse), son nom, sa
+  note et sa couverture passent à la nouvelle collection où sont allés les fichiers. S'il reste au
+  moins un fichier, la nouvelle collection reçoit les propriétés par défaut. Si les fichiers
+  rejoignent une collection qui existe déjà, celle-ci garde ses propres propriétés. Une collection
+  ouverte suit ses fichiers de la même façon ; si elle disparaît, le programme revient à la liste
+  des collections.
+
 ## Recherche et tri
 
 - **« Contient les tags »** — un fichier doit avoir tous les tags indiqués (séparés par des
@@ -92,12 +130,14 @@ efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichie
 - Un double-clic sur un tag dans la liste de gauche l'ajoute à « Contient les tags ». Un clic
   droit permet de choisir où ajouter le tag, et aussi de le **renommer**. Si un tag portant le
   nouveau nom existe déjà, rien n'est renommé.
-- **Tri :**
-  - « Classique » — d'abord par **chemin virtuel**, puis par note décroissante, puis par nom de
-    fichier. Le chemin virtuel, ce sont tous les tags du fichier par ordre alphabétique, reliés
-    par « / », les chiffres après les lettres, par exemple « Marie/Mer/2024 ». Ainsi, les photos
-    ayant le même ensemble de tags restent groupées, quel que soit le dossier où elles se
-    trouvent ;
+- **Le tri** ordonne les fichiers trouvés ; chaque collection se place là où se trouve son premier
+  fichier, et dans une collection ouverte ses fichiers suivent le même ordre :
+  - « Classique » — par **note** de la collection (les plus hautes d'abord), puis par **nom** de la
+    collection tel que vous le voyez (par ordre alphabétique, sans tenir compte de la casse), puis
+    par son chemin (voir plus haut). Par exemple, en
+    cherchant « Marie », « Marie/Village/2024 » notée 90 vient avant « Marie/Mer/2024 » notée 10.
+    Les fichiers d'une même collection partagent sa note et son nom, ils y sont donc classés par nom
+    de fichier ;
   - « Plus récents d'abord » — les fichiers ajoutés le plus récemment à la galerie viennent en
     premier (pratique après l'ajout d'un nouveau lot de photos), puis comme en Classique ;
   - « Plus gros d'abord » — les fichiers les plus volumineux d'abord (pratique pour libérer de
@@ -109,8 +149,9 @@ efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichie
   s'applique toujours, y compris avec « Masquer les autres tags », et le texte reste jusqu'à ce que
   vous l'effaciez vous-même (la croix du champ ou le clavier) ou que vous fermiez le programme.
 
-Les résultats s'affichent par pages de 16 vignettes ; les boutons sous la grille permettent de
-les parcourir. L'info-bulle d'une vignette montre le chemin, la note, la taille et les tags.
+Les résultats s'affichent par pages de 16 collections (dans une collection, 16 fichiers) ; les
+boutons sous la grille permettent de les parcourir. L'info-bulle d'une collection montre son nom,
+ses tags, sa note et son nombre de fichiers ; celle d'un fichier, son chemin, sa taille et ses tags.
 
 ## Langue de l'interface
 
@@ -122,11 +163,11 @@ dans la même base que les galeries.
 
 ## Visionneuse
 
-Un clic sur la vignette d'une photo l'ouvre dans la visionneuse.
+Dans une collection, un clic sur la vignette d'une photo l'ouvre dans la visionneuse.
 
 | Action | Effet |
 |---|---|
-| ← → (↑ ↓) | photo précédente / suivante des résultats de recherche, en boucle |
+| ← → (↑ ↓) | photo précédente / suivante de la collection ouverte, en boucle |
 | Double-clic | plein écran / retour à la taille précédente |
 | Clic droit | rotation de 90° dans le sens inverse des aiguilles d'une montre |
 | Échap | quitter le plein écran ; un second Échap ferme la fenêtre |
@@ -152,7 +193,7 @@ programme vous demande quoi en faire.
 
 - **Analyser (F5)** — synchronise la base avec le disque : ajoute les nouveaux fichiers, retire
   ceux qui ont disparu, met à jour ceux qui ont changé. Si vous avez déplacé ou renommé un
-  fichier, le programme le reconnaît à son contenu : sa note et vos propres tags sont conservés.
+  fichier, le programme le reconnaît à son contenu : vos propres tags sont conservés.
 - **Ajouter des fichiers à la galerie…** — choisissez des fichiers (plusieurs à la fois si vous
   voulez), puis le dossier de premier niveau de la galerie où les copier. Vous pouvez saisir un
   nouveau nom, le dossier sera créé. Le nom du dossier devient un tag.
@@ -175,17 +216,17 @@ programme vous demande quoi en faire.
   vides de la galerie. La suppression est **définitive, sans passer par la Corbeille** : une liste
   et une confirmation s'affichent donc d'abord. Le dossier du programme n'est pas touché.
 
-Un fichier isolé peut être supprimé dans la fenêtre des métadonnées (clic droit sur une
-vignette) : le bouton **« Supprimer le fichier… »** le met à la Corbeille.
+Un fichier isolé peut être supprimé dans la fenêtre des métadonnées (clic droit sur la
+vignette d'un fichier) : le bouton **« Supprimer le fichier… »** le met à la Corbeille.
 
 Dans la même fenêtre, le bouton **« Exporter… »** copie le fichier hors de la galerie, à
 l'emplacement de votre choix. Si cet emplacement se trouve dans la galerie actuelle, le programme
 demande d'abord si vous voulez vraiment un doublon ; la copie rejoint alors la galerie selon les
 règles habituelles d'ajout : tags tirés des dossiers et, si le nom est déjà pris,
-`photo (1).jpg`. La note et les tags ajoutés à la main ne sont pas repris sur la copie.
+`photo (1).jpg`. Les tags ajoutés à la main ne sont pas repris sur la copie.
 
 Le champ **« Nom du fichier : »** de la même fenêtre renomme le fichier sur le disque lorsque vous
-cliquez sur « Enregistrer » ; sa note et ses tags sont conservés. Si le renommage échoue (nom déjà
+cliquez sur « Enregistrer » ; ses tags sont conservés. Si le renommage échoue (nom déjà
 pris ou caractères interdits), le fichier garde son ancien nom et le programme affiche une erreur.
 
 Tant que **« Conserver l'extension lors du renommage »** est activé dans le menu **Paramètres**
@@ -212,7 +253,7 @@ lancement.
 
 ## Sauvegarde
 
-Tous les tags, notes et galeries sont enregistrés dans un seul fichier, `xgallery.sqlite`. Pour
+Tous les tags, collections et galeries sont enregistrés dans un seul fichier, `xgallery.sqlite`. Pour
 faire une sauvegarde, copiez-le pendant que le programme est fermé. Une nouvelle version du
 programme peut mettre la base à jour à son premier lancement ; une version plus ancienne ignore
 ces changements et ne fonctionnera pas correctement avec une telle base. Faites donc une copie
@@ -225,3 +266,5 @@ Ce projet est distribué sous la [licence MIT](LICENSE).
 ## Mentions relatives aux tiers et distribution
 
 - [Qt](https://www.qt.io/) — framework d'application ([LGPL v3](licenses/lgpl-3.0.txt))
+- [xxHash](https://github.com/Cyan4973/xxHash) 0.8.3 — hachage des tags d'une collection
+  ([BSD 2-Clause](third_party/xxhash/LICENSE))

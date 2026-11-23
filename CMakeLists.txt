@@ -46,6 +46,10 @@ set(PROJECT_SOURCES
         languagedialog.cpp
         virtualpath.h
         virtualpath.cpp
+        collections.h
+        collections.cpp
+        collectiondialog.h
+        collectiondialog.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

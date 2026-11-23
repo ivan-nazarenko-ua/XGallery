@@ -1,7 +1,7 @@
 #include "database.h"
 
+#include "collections.h"
 #include "migrations.h"
-#include "virtualpath.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -346,6 +346,10 @@ static QString searchFilter(qint64 galleryId, const TagQuery &query, QVariantLis
     // (Empty include list = images without tags.)
     if (exactTags)
         where << QString("(SELECT COUNT(*) FROM image_tags it WHERE it.image_id = i.id) = %1").arg(inc.size());
+    if (query.collectionId != 0) {
+        where << "i.vpath_hash = (SELECT c.vpath_hash FROM collections c WHERE c.id = ? AND c.gallery_id = ?)";
+        *binds << query.collectionId << galleryId;
+    }
     if (!exc.isEmpty()) {
         where << QString("i.id NOT IN (SELECT it.image_id FROM image_tags it "
                          "JOIN tags t ON t.id = it.tag_id WHERE t.gallery_id = ? AND t.name IN (%1))")
@@ -355,6 +359,28 @@ static QString searchFilter(qint64 galleryId, const TagQuery &query, QVariantLis
             *binds << t;
     }
     return " WHERE " + where.join(" AND ");
+}
+
+// The files' collection rows, for sorting on their rating and name ("ic").
+static const char *CollectionJoin =
+    " LEFT JOIN collections ic ON ic.gallery_id = i.gallery_id AND ic.vpath_hash = i.vpath_hash";
+
+// ORDER BY terms (on "images i" + CollectionJoin) of a sort order. Classic: the collection's rating
+// (higher first), the name it is shown with, its virtual path; file name and id always last.
+static QString orderTerms(SortOrder order)
+{
+    QString firstKey;
+    switch (order) {
+    case SortOrder::Classic:
+        break;
+    case SortOrder::NewestFirst:
+        firstKey = "i.added_at DESC, ";
+        break;
+    case SortOrder::LargestFirst:
+        firstKey = "i.size DESC, ";
+        break;
+    }
+    return firstKey + "ic.rating DESC, ic.name_key, i.vpath_key, i.name COLLATE NOCASE, i.id";
 }
 
 QStringList tagsOfSearch(qint64 galleryId, const TagQuery &query)
@@ -394,21 +420,8 @@ QList<ImageRecord> searchImages(qint64 galleryId, const TagQuery &query,
 
     QList<ImageRecord> result;
     QSqlQuery q(db);
-    QString firstKey;
-    switch (order) {
-    case SortOrder::Classic:
-        break;
-    case SortOrder::NewestFirst:
-        firstKey = "i.added_at DESC, ";
-        break;
-    case SortOrder::LargestFirst:
-        firstKey = "i.size DESC, ";
-        break;
-    }
-    q.prepare("SELECT i.id, i.path, i.rating, i.size FROM images i" + whereSql
-              // Classic order: virtual path (tags in alphabetical order), rating, file name.
-              + " ORDER BY " + firstKey
-              + "i.vpath_key, i.rating DESC, i.name COLLATE NOCASE, i.id LIMIT ? OFFSET ?");
+    q.prepare("SELECT i.id, i.path, i.size FROM images i" + QString(CollectionJoin) + whereSql + " ORDER BY " + orderTerms(order)
+              + " LIMIT ? OFFSET ?");
     for (const QVariant &v : binds)
         q.addBindValue(v);
     q.addBindValue(limit);
@@ -416,11 +429,114 @@ QList<ImageRecord> searchImages(qint64 galleryId, const TagQuery &query,
     if (!exec(q))
         return result;
     while (q.next())
-        result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toInt(), q.value(3).toLongLong()});
+        result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toLongLong()});
     return result;
 }
 
-bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringList &tags)
+// Id, name, rating, virtual path and the cover's path (or the first file's) of collection "c".
+static const char *CollectionColumns =
+    "c.id, c.name, c.rating, "
+    "(SELECT i.vpath FROM images i WHERE i.gallery_id = c.gallery_id AND i.vpath_hash = c.vpath_hash LIMIT 1), "
+    "COALESCE((SELECT i.path FROM images i WHERE i.id = c.cover_image_id), "
+    " (SELECT i.path FROM images i WHERE i.gallery_id = c.gallery_id AND i.vpath_hash = c.vpath_hash "
+    "  ORDER BY i.name COLLATE NOCASE, i.id LIMIT 1))";
+
+static CollectionRecord collectionFrom(const QSqlQuery &q, int fileCount)
+{
+    return {q.value(0).toLongLong(), q.value(1).toString(), q.value(3).toString(), q.value(2).toInt(),
+            q.value(4).toString(), fileCount};
+}
+
+QList<CollectionRecord> searchCollections(qint64 galleryId, const TagQuery &query, int offset, int limit,
+                                          int *totalCollections, int *totalFiles, SortOrder order)
+{
+    QVariantList binds;
+    const QString whereSql = searchFilter(galleryId, query, &binds);
+    QSqlDatabase db = mainDb();
+
+    if (totalCollections || totalFiles) {
+        QSqlQuery cq(db);
+        cq.prepare("SELECT COUNT(DISTINCT i.vpath_hash), COUNT(*) FROM images i" + whereSql);
+        for (const QVariant &v : binds)
+            cq.addBindValue(v);
+        const bool ok = exec(cq) && cq.next();
+        if (totalCollections)
+            *totalCollections = ok ? cq.value(0).toInt() : 0;
+        if (totalFiles)
+            *totalFiles = ok ? cq.value(1).toInt() : 0;
+    }
+
+    // Each found file gets its place in the search order; a collection comes where its first file does.
+    QList<CollectionRecord> result;
+    QSqlQuery q(db);
+    q.prepare(QString("SELECT %1, f.files FROM ("
+                      " SELECT r.vpath_hash, MIN(r.rn) AS first, COUNT(*) AS files FROM ("
+                      "  SELECT i.vpath_hash, ROW_NUMBER() OVER (ORDER BY %2) AS rn FROM images i%3%4) r"
+                      " GROUP BY r.vpath_hash) f "
+                      "JOIN collections c ON c.gallery_id = ? AND c.vpath_hash = f.vpath_hash "
+                      "ORDER BY f.first LIMIT ? OFFSET ?")
+                  .arg(CollectionColumns, orderTerms(order), CollectionJoin, whereSql));
+    for (const QVariant &v : binds)
+        q.addBindValue(v);
+    q.addBindValue(galleryId);
+    q.addBindValue(limit);
+    q.addBindValue(offset);
+    if (!exec(q))
+        return result;
+    while (q.next())
+        result.append(collectionFrom(q, q.value(5).toInt()));
+    return result;
+}
+
+CollectionRecord collection(qint64 galleryId, qint64 collectionId)
+{
+    QSqlQuery q(mainDb());
+    q.prepare(QString("SELECT %1, (SELECT COUNT(*) FROM images i WHERE i.gallery_id = c.gallery_id "
+                      "AND i.vpath_hash = c.vpath_hash) FROM collections c WHERE c.id = ? AND c.gallery_id = ?")
+                  .arg(CollectionColumns));
+    q.addBindValue(collectionId);
+    q.addBindValue(galleryId);
+    if (!exec(q) || !q.next())
+        return {};
+    return collectionFrom(q, q.value(5).toInt());
+}
+
+bool isCollectionCover(qint64 galleryId, qint64 imageId)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("SELECT 1 FROM collections c JOIN images i ON i.gallery_id = c.gallery_id AND i.vpath_hash = c.vpath_hash "
+              "WHERE i.id = ? AND i.gallery_id = ? AND c.cover_image_id = i.id");
+    q.addBindValue(imageId);
+    q.addBindValue(galleryId);
+    return exec(q) && q.next();
+}
+
+bool setCollectionCover(qint64 galleryId, qint64 imageId)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("UPDATE collections SET cover_image_id = ? WHERE gallery_id = ? AND vpath_hash = "
+              "(SELECT vpath_hash FROM images WHERE id = ? AND gallery_id = ?)");
+    q.addBindValue(imageId);
+    q.addBindValue(galleryId);
+    q.addBindValue(imageId);
+    q.addBindValue(galleryId);
+    return exec(q);
+}
+
+bool updateCollection(qint64 galleryId, qint64 collectionId, const QString &name, int rating)
+{
+    const QString virtualPath = collection(galleryId, collectionId).virtualPath;
+    QSqlQuery q(mainDb());
+    q.prepare("UPDATE collections SET name = ?, name_key = ?, rating = ? WHERE id = ? AND gallery_id = ?");
+    q.addBindValue(name.isNull() ? QStringLiteral("") : name);
+    q.addBindValue(Collections::nameKey(name, virtualPath));
+    q.addBindValue(qBound(Collections::MinRating, rating, Collections::MaxRating));
+    q.addBindValue(collectionId);
+    q.addBindValue(galleryId);
+    return exec(q);
+}
+
+bool saveImageMeta(qint64 galleryId, qint64 imageId, const QStringList &tags)
 {
     QSqlDatabase db = mainDb();
     if (!db.transaction()) {
@@ -430,12 +546,16 @@ bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringLi
 
     auto ok = [&] {
         QSqlQuery q(db);
-        q.prepare("UPDATE images SET rating = ? WHERE id = ? AND gallery_id = ?");
-        q.addBindValue(rating);
+        q.prepare("SELECT 1 FROM images WHERE id = ? AND gallery_id = ?");
         q.addBindValue(imageId);
         q.addBindValue(galleryId);
         if (!exec(q))
             return false;
+        if (!q.next()) {
+            g_lastError = QStringLiteral("No such file record");
+            return false;
+        }
+        q.finish();
 
         q.prepare("DELETE FROM image_tags WHERE image_id = ?");
         q.addBindValue(imageId);
@@ -463,7 +583,7 @@ bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringLi
                 return false;
         }
 
-        if (!VirtualPath::update(db, {imageId}, &g_lastError))
+        if (!Collections::update(db, galleryId, {imageId}, &g_lastError))
             return false;
 
         // Tags nobody uses any more disappear from the gallery.
@@ -487,12 +607,12 @@ QList<ImageRecord> imagesByIds(qint64 galleryId, const QList<qint64> &imageIds)
     for (qint64 id : imageIds)
         ids << QString::number(id); // numbers only, safe to inline
     QSqlQuery q(mainDb());
-    q.prepare("SELECT id, path, rating, size FROM images WHERE gallery_id = ? AND id IN (" + ids.join(',')
+    q.prepare("SELECT id, path, size FROM images WHERE gallery_id = ? AND id IN (" + ids.join(',')
               + ") ORDER BY path COLLATE NOCASE");
     q.addBindValue(galleryId);
     if (exec(q))
         while (q.next())
-            result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toInt(), q.value(3).toLongLong()});
+            result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toLongLong()});
     return result;
 }
 
@@ -521,7 +641,8 @@ bool renameTag(qint64 galleryId, const QString &oldName, const QString &newName)
             return false;
         while (q.next())
             ids << q.value(0).toLongLong();
-        return VirtualPath::update(db, ids, &g_lastError);
+        q.finish();
+        return Collections::update(db, galleryId, ids, &g_lastError);
     }();
     if (ok && db.commit())
         return true;
@@ -570,7 +691,7 @@ bool applyTagChanges(qint64 galleryId, const QList<qint64> &imageIds,
                     return false;
             }
         }
-        if (!VirtualPath::update(db, imageIds, &g_lastError))
+        if (!Collections::update(db, galleryId, imageIds, &g_lastError))
             return false;
         return deleteUnusedTags(db, galleryId, &g_lastError);
     }();
@@ -613,7 +734,7 @@ bool deleteTags(qint64 galleryId, const QStringList &names)
             if (!exec(unlink))
                 return false;
         }
-        if (!VirtualPath::update(db, ids.values(), &g_lastError))
+        if (!Collections::update(db, galleryId, ids.values(), &g_lastError))
             return false;
         return deleteUnusedTags(db, galleryId, &g_lastError);
     }();
@@ -654,7 +775,7 @@ QList<DuplicateGroup> findDuplicates(qint64 galleryId)
 {
     QList<DuplicateGroup> groups;
     QSqlQuery q(mainDb());
-    q.prepare("SELECT sha256, size, id, path, rating FROM images "
+    q.prepare("SELECT sha256, size, id, path FROM images "
               "WHERE gallery_id = ? AND sha256 IN ("
               " SELECT sha256 FROM images WHERE gallery_id = ? GROUP BY sha256 HAVING COUNT(*) > 1) "
               "ORDER BY sha256");
@@ -666,7 +787,7 @@ QList<DuplicateGroup> findDuplicates(qint64 galleryId)
         const QString hash = q.value(0).toString();
         if (groups.isEmpty() || groups.last().sha256 != hash)
             groups.append({hash, q.value(1).toLongLong(), {}});
-        groups.last().files.append({q.value(2).toLongLong(), q.value(3).toString(), q.value(4).toInt()});
+        groups.last().files.append({q.value(2).toLongLong(), q.value(3).toString(), groups.last().size});
     }
     return groups;
 }
@@ -689,7 +810,8 @@ bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds)
                 break;
         }
         if (ok)
-            ok = deleteUnusedTags(db, galleryId, &g_lastError);
+            ok = deleteUnusedTags(db, galleryId, &g_lastError)
+                 && Collections::sync(db, galleryId, {}, &g_lastError); // emptied collections go away
     }
     if (ok && db.commit())
         return true;

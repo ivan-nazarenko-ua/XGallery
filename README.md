@@ -3,8 +3,8 @@
 **English** | [Українська](README.uk.md) | [Français](README.fr.md)
 
 A Windows program for organizing a photo and video archive. It remembers the files in a chosen
-folder, turns folder names into tags, lets you add your own tags and ratings, search by tags,
-view photos, find duplicates and keep your folders tidy.
+folder, turns folder names into tags, lets you add your own tags, groups files with the same tags
+into rated collections, searches by tags, shows photos, finds duplicates and keeps your folders tidy.
 
 All information is kept in a database. The program changes the files themselves only when you
 ask it to: rotating, deleting, adding, cleaning up junk.
@@ -35,9 +35,9 @@ leaves the files on disk untouched.
 - **Automatic.** Every folder between the root folder and the file becomes a tag. The file
   `Vacation/2024/sea.jpg` gets the tags "Vacation" and "2024". A comma in a folder name is
   replaced with a space.
-- **Your own.** Right-clicking a thumbnail opens the metadata window. There you can remove a tag
-  from the file and change the **rating** (0–100, 50 by default). Changes are written with the
-  "Save" button. A tag that is no longer used anywhere is deleted automatically. Double-clicking a
+- **Your own.** Inside a collection (see below), right-clicking a file's thumbnail opens the
+  metadata window. There you can remove a tag from the file or add new ones. Changes are written
+  with the "Save" button. A tag that is no longer used anywhere is deleted automatically. Double-clicking a
   tag in this window adds it to the "Contains tags" field of the main window. The search itself
   only runs when you click "Search".
 - **Adding tags.** The "Add tags" button in the metadata window opens a window with a "New tags:"
@@ -51,10 +51,10 @@ leaves the files on disk untouched.
   "Paste tags" adds a list from the clipboard: tags are separated by commas or line breaks, the
   characters `<` `>` `/` `\` are replaced with spaces, the spelling is the usual one, and tags the
   file already has are skipped. Handy for giving the same set of tags to different files.
-- **Bulk editing.** Tick the checkboxes in the corner of the thumbnails. The selection is kept
-  when you move between pages and even between different searches, so you can collect as many
-  files as you like. The number of selected files is shown under the grid ("Selected: N").
-  Right-clicking any thumbnail opens a window with the tags common to all selected files. Added
+- **Bulk editing.** Inside a collection, tick the checkboxes in the corner of the thumbnails. The
+  selection is kept when you move between pages, collections and even different searches, so you
+  can collect as many files as you like. The number of selected files is shown under the grid
+  ("Selected: N"). Right-clicking any file's thumbnail opens a window with the tags common to all selected files. Added
   and removed tags apply to all selected files at once; a file that already has an added tag gets
   it only once. **"Check all"** ticks every file on the current page, **"Uncheck all"** clears the
   ticks on all pages. Switching the gallery clears the selection.
@@ -70,6 +70,38 @@ leaves the files on disk untouched.
   tags at all, or excludes them from the search. In the list and in the search fields it is shown
   in bold on a tinted background, so it is not confused with an ordinary tag named "No tags".
 
+## Collections
+
+Files with exactly the same set of tags form a **collection**. Its tags in alphabetical order,
+joined with "/", digits after letters, make the collection's path, for example "Kate/Sea/2024". So
+photos with the same set of tags stay together, no matter which folder they are in.
+
+- The main window shows the **collections** of the found files: a cover and a name each. They come
+  in the order of their first file in the search results (see "Sorting"), 16 per page.
+- **Name** — by default the last two tags of the path, separated by a space ("Sea 2024"). You can
+  change it; names may repeat. Files without tags form a collection without a name; it is shown as
+  `<no tags>`.
+- **Rating** — 1–100, 50 for a new collection. The rating belongs to the collection, not to single
+  files. On the update from a version with file ratings, each collection got the average rating of
+  its files, rounded up.
+- **Cover** — by default the first photo of the collection by file name. To choose another, open
+  the photo's metadata window inside the collection and click **"Set as cover"** (it takes effect
+  on "Save"; the button is grey if the photo already is the cover, and absent in bulk editing). If
+  the cover leaves the collection, the first photo becomes the cover again. A collection of videos
+  or other files only shows its first file.
+- **Right click** on a collection opens the "Collection properties" window: name (the "Default"
+  button brings back the default name) and rating.
+- **Left click** opens the collection: the grid shows its files, 16 per page. Search, sorting and
+  the tag list are locked meanwhile; **"◀ Close collection"** (or Esc) goes back to the list of
+  collections, to the page you came from. Inside a collection a click on a file opens it, a right
+  click opens its metadata window, and bulk editing works as usual.
+- **When tags change.** If a collection loses all its files (you changed the tags of all of them,
+  renamed or deleted a tag, moved its folder and ran a rescan), its name, rating and cover go to
+  the new collection the files went to. If at least one file stays, the new collection gets default
+  properties. If the files join a collection that already exists, it keeps its own properties. An
+  open collection follows its files the same way; if it disappears, the program goes back to the
+  list of collections.
+
 ## Search and sorting
 
 - **"Contains tags"** — a file must have all the listed tags (comma-separated).
@@ -80,11 +112,12 @@ leaves the files on disk untouched.
 - Double-clicking a tag in the list on the left adds it to "Contains tags". Right-clicking lets
   you choose where to add the tag, and also **rename** it. If a tag with the new name already
   exists, nothing is renamed.
-- **Sorting:**
-  - "Classic" — first by **virtual path**, then higher ratings, then by file name. The virtual
-    path is all the file's tags in alphabetical order joined with "/", digits after letters, for
-    example "Kate/Sea/2024". So photos with the same set of tags stay together, no matter which
-    folder they are in;
+- **Sorting** puts the found files in order; each collection stands where its first file is, and
+  inside an open collection its files follow the same order:
+  - "Classic" — by the collection's **rating** (higher first), then by the collection's **name**
+    as you see it (alphabetically, case doesn't matter), then by its path (see above). For example, when searching for "Kate", "Kate/Village/2024"
+    with rating 90 comes before "Kate/Sea/2024" with rating 10. Files of one collection share its
+    rating and name, so inside it they go by file name;
   - "Newest first" — the files added to the gallery most recently come first (handy after
     adding a new batch of photos), then as in Classic;
   - "Largest first" — the biggest files first (handy for freeing up space), then as in Classic.
@@ -95,8 +128,9 @@ leaves the files on disk untouched.
   together with "Hide other tags", and the text stays until you clear it yourself (the cross in
   the field or the keyboard) or close the program.
 
-Results are shown in pages of 16 thumbnails; use the buttons under the grid to page through.
-The tooltip of a thumbnail shows the path, rating, size and tags.
+Results are shown in pages of 16 collections (inside a collection, 16 files); use the buttons
+under the grid to page through. The tooltip of a collection shows its name, tags, rating and number
+of files; the tooltip of a file shows its path, size and tags.
 
 ## Interface language
 
@@ -108,11 +142,11 @@ galleries.
 
 ## Viewer
 
-Clicking a photo thumbnail opens it in the viewer.
+Clicking a photo thumbnail inside a collection opens it in the viewer.
 
 | Action | What it does |
 |---|---|
-| ← → (↑ ↓) | previous / next photo of the search results, in a loop |
+| ← → (↑ ↓) | previous / next photo of the open collection, in a loop |
 | Double click | full screen / back to the previous size |
 | Right click | rotate 90° counter-clockwise |
 | Esc | leave full screen; the next Esc closes the window |
@@ -136,7 +170,7 @@ with it.
 
 - **Rescan (F5)** — synchronizes the database with the disk: adds new files, removes missing
   ones, updates changed ones. If you moved or renamed a file, the program recognizes it by its
-  content, so its rating and your own tags are kept.
+  content, so your own tags are kept.
 - **Add files to gallery…** — choose files (several at once if you like), then the first-level
   gallery folder to copy them into. You can type a new name and the folder is created. The
   folder name becomes a tag.
@@ -157,17 +191,17 @@ with it.
   The deletion is **permanent, without the Recycle Bin**, so a list and a confirmation come
   first. The program's own folder is left alone.
 
-A single file can be deleted in the metadata window (right-click a thumbnail): the
+A single file can be deleted in the metadata window (right-click a file's thumbnail): the
 **"Delete file…"** button moves it to the Recycle Bin.
 
 The **"Export…"** button in the same window copies the file out of the gallery to a place you
 choose. If that place is inside the current gallery, the program first asks whether you really
 want a duplicate; the copy then joins the gallery under the usual import rules: tags from its
-folders and, if the name is taken, `photo (1).jpg`. The rating and manually added tags are not
-carried over to the copy.
+folders and, if the name is taken, `photo (1).jpg`. Manually added tags are not carried over to
+the copy.
 
 The **"File name:"** field in the same window renames the file on disk when you press "Save"; its
-rating and tags stay. If the rename fails (the name is taken or has forbidden characters), the
+tags stay. If the rename fails (the name is taken or has forbidden characters), the
 file keeps its old name and the program shows an error.
 
 While **"Keep the extension when renaming"** is on in the **Settings** menu (the default), the
@@ -191,7 +225,7 @@ The path of the database in use is shown in the status bar for a few seconds aft
 
 ## Backup
 
-All tags, ratings and galleries are stored in the single file `xgallery.sqlite`. To make a
+All tags, collections and galleries are stored in the single file `xgallery.sqlite`. To make a
 backup, copy it while the program is closed. A new version of the program may update the
 database on its first start, and an older version doesn't know about those changes and will not
 work with such a database correctly. So make a copy before updating the program.
@@ -203,3 +237,5 @@ This project is licensed under the [MIT License](LICENSE).
 ## Third-party notices and distribution
 
 - [Qt](https://www.qt.io/) — application framework ([LGPL v3](licenses/lgpl-3.0.txt))
+- [xxHash](https://github.com/Cyan4973/xxHash) 0.8.3 — hash of a collection's tags
+  ([BSD 2-Clause](third_party/xxhash/LICENSE))

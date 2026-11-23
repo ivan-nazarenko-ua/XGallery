@@ -9,10 +9,10 @@ class QLabel;
 class QLineEdit;
 class QListWidget;
 class QPushButton;
-class QSpinBox;
 class TagPickerDialog;
 
-// Edits an image's tags and rating, or (several files) the tags they have in common.
+// Edits an image's tags and file name, or (several files) the tags they have in common.
+// (The rating belongs to the file's collection: CollectionDialog.)
 // Nothing is written to the DB here: the caller reads the result after exec() == Accepted.
 class ImageMetaDialog : public QDialog
 {
@@ -22,9 +22,9 @@ public:
     // exec() returns this when the user confirmed deleting the file (to the Recycle Bin).
     static constexpr int DeleteRequested = 2;
 
-    // One path: single-file mode (preview, rating, delete button).
-    // Several paths: bulk mode; imageTags are the tags common to all of them, rating is hidden.
-    ImageMetaDialog(const QStringList &filePaths, const QStringList &imageTags, int rating,
+    // One path: single-file mode (preview, file name, delete and export buttons).
+    // Several paths: bulk mode; imageTags are the tags common to all of them.
+    ImageMetaDialog(const QStringList &filePaths, const QStringList &imageTags,
                     const QStringList &galleryTags, QWidget *parent = nullptr);
 
     // Viewer setting of the gallery, for images opened from this dialog.
@@ -36,13 +36,17 @@ public:
     // While a file export runs the dialog is locked and can't be closed.
     void setExporting(bool exporting);
 
+    // Single image: the file already is its collection's cover (the button is then disabled).
+    void setIsCover(bool isCover);
+    // "Встановити обкладинкою" was pressed: the caller makes the file the cover after saving.
+    bool coverRequested() const { return m_coverRequested; }
+
     QString filePath() const { return m_filePaths.value(0); } // the first one in bulk mode
     QString fileName() const; // single-file mode: the full name the "file name" field asks for
     QStringList tags() const;
     QStringList addedTags() const;  // compared with the tags the dialog started with
     QStringList removedTags() const;
     QStringList deletedTags() const { return m_deletedTags; } // to delete from the whole gallery
-    int rating() const;
 
 signals:
     // Double click on a tag: put it into the main window's search ("Містить").
@@ -76,12 +80,13 @@ private:
     bool m_allowUpscale = false;
     bool m_exporting = false;
     bool m_keepExtension = false;
+    bool m_coverRequested = false;
+    QPushButton *m_coverButton = nullptr; // single image only
     QLabel *m_preview = nullptr;
     QPointer<TagPickerDialog> m_picker; // not modal: the preview and the viewer stay usable
 
     QListWidget *m_tagList;
     QPushButton *m_removeButton;
-    QSpinBox *m_ratingSpin;
     QLineEdit *m_nameEdit;
 };
 

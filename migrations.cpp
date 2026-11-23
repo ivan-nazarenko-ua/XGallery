@@ -1,5 +1,7 @@
 #include "migrations.h"
 
+#include "collections.h"
+#include "mediafiles.h"
 #include "virtualpath.h"
 
 #include <QFileInfo>
@@ -415,6 +417,115 @@ bool toV8UnderscoreIsSpace(Sql &s)
     return VirtualPath::update(s.db(), ids, &error) || s.fail(error);
 }
 
+// ---- v8 -> v9: collections -------------------------------------------------------------------
+// A collection = the files with the same virtual path. images.vpath_hash = xxh128 of the path
+// (Collections::hashOf); the collections table keeps name, rating and cover. The rating moves
+// from the files to their collection: the average of the files' ratings rounded up, kept in
+// 1...100. Name = the last two tags of the path joined by a space; cover = the first image of the
+// collection by file name. images.rating is dropped.
+// (Name and cover rules are spelled out here so this step never changes.)
+bool toV9Collections(Sql &s)
+{
+    if (!s.exec("CREATE TABLE collections ("
+                " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                " gallery_id INTEGER NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,"
+                " vpath_hash BLOB NOT NULL,"   // images.vpath_hash of its files
+                " name TEXT NOT NULL DEFAULT '',"
+                " rating INTEGER NOT NULL DEFAULT 50,"
+                " cover_image_id INTEGER REFERENCES images(id) ON DELETE SET NULL,"
+                " UNIQUE (gallery_id, vpath_hash))")
+        || !s.exec("ALTER TABLE images ADD COLUMN vpath_hash BLOB"))
+        return false;
+
+    QSqlQuery &q = s.query();
+    QList<QPair<qint64, QString>> paths;
+    if (!s.exec("SELECT id, vpath FROM images"))
+        return false;
+    while (q.next())
+        paths.append({q.value(0).toLongLong(), q.value(1).toString()});
+    q.finish();
+    q.prepare("UPDATE images SET vpath_hash = ? WHERE id = ?");
+    for (const auto &[id, path] : std::as_const(paths)) {
+        q.addBindValue(Collections::hashOf(path));
+        q.addBindValue(id);
+        if (!s.exec())
+            return false;
+    }
+    if (!s.exec("CREATE INDEX idx_images_collection ON images(gallery_id, vpath_hash)"))
+        return false;
+
+    struct Group { qint64 galleryId; QByteArray hash; QString path; qint64 ratingSum; qint64 count; };
+    QList<Group> groups;
+    if (!s.exec("SELECT gallery_id, vpath_hash, MIN(vpath), SUM(rating), COUNT(*) FROM images "
+                "GROUP BY gallery_id, vpath_hash"))
+        return false;
+    while (q.next())
+        groups.append({q.value(0).toLongLong(), q.value(1).toByteArray(), q.value(2).toString(),
+                       q.value(3).toLongLong(), q.value(4).toLongLong()});
+    q.finish();
+
+    QSqlQuery files(s.db());
+    files.prepare("SELECT id, path FROM images WHERE gallery_id = ? AND vpath_hash = ? ORDER BY name COLLATE NOCASE, id");
+    q.prepare("INSERT INTO collections(gallery_id, vpath_hash, name, rating, cover_image_id) VALUES(?, ?, ?, ?, ?)");
+    for (const Group &g : std::as_const(groups)) {
+        const qint64 average = (qMax(qint64(0), g.ratingSum) + g.count - 1) / g.count; // rounded up
+        const int rating = int(qBound(qint64(1), average, qint64(100)));
+        const QStringList tags = g.path.split(u'/', Qt::SkipEmptyParts);
+        const QString name = tags.mid(qMax(qsizetype(0), tags.size() - 2)).join(u' ');
+
+        files.addBindValue(g.galleryId);
+        files.addBindValue(g.hash);
+        if (!files.exec())
+            return s.fail(files.lastError().text());
+        QVariant cover(QMetaType::fromType<qint64>());
+        while (files.next())
+            if (MediaFiles::kindOf(files.value(1).toString()) == MediaFiles::Kind::Image) {
+                cover = files.value(0).toLongLong();
+                break;
+            }
+        files.finish();
+
+        q.addBindValue(g.galleryId);
+        q.addBindValue(g.hash);
+        q.addBindValue(name.isNull() ? QStringLiteral("") : name);
+        q.addBindValue(rating);
+        q.addBindValue(cover);
+        if (!s.exec())
+            return false;
+    }
+
+    return s.exec("DROP INDEX IF EXISTS idx_images_order")
+        && s.exec("ALTER TABLE images DROP COLUMN rating");
+}
+
+// ---- v9 -> v10: collections sorted by the name the user sees -------------------------------
+// collections.name_key = VirtualPath::sortKey of the name, or of the virtual path for an empty name
+// (shown that way), so names sort by the alphabet and regardless of case (NOCASE knows Latin only).
+bool toV10CollectionNameKey(Sql &s)
+{
+    if (!s.exec("ALTER TABLE collections ADD COLUMN name_key TEXT NOT NULL DEFAULT ''"))
+        return false;
+    QSqlQuery &q = s.query();
+    QList<QPair<qint64, QString>> keys;
+    if (!s.exec("SELECT c.id, c.name, (SELECT i.vpath FROM images i WHERE i.gallery_id = c.gallery_id "
+                "AND i.vpath_hash = c.vpath_hash LIMIT 1) FROM collections c"))
+        return false;
+    while (q.next()) {
+        const QString name = q.value(1).toString();
+        const QString key = VirtualPath::sortKey(name.isEmpty() ? q.value(2).toString() : name);
+        keys.append({q.value(0).toLongLong(), key.isNull() ? QStringLiteral("") : key});
+    }
+    q.finish();
+    q.prepare("UPDATE collections SET name_key = ? WHERE id = ?");
+    for (const auto &[id, key] : std::as_const(keys)) {
+        q.addBindValue(key);
+        q.addBindValue(id);
+        if (!s.exec())
+            return false;
+    }
+    return true;
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -491,6 +602,8 @@ static const QList<Migrations::Step> &steps()
         {toV6VirtualPath, false},
         {toV7DigitsLast, false},
         {toV8UnderscoreIsSpace, false},
+        {toV9Collections, false},
+        {toV10CollectionNameKey, false},
     };
     return list;
 }

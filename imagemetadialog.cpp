@@ -22,7 +22,6 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QShortcut>
-#include <QSpinBox>
 #include <QStandardPaths>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -39,7 +38,7 @@ bool lessCaseInsensitive(const QString &a, const QString &b)
 
 } // namespace
 
-ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList &imageTags, int rating,
+ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList &imageTags,
                                  const QStringList &galleryTags, QWidget *parent)
     : QDialog(parent)
     , m_galleryTags(galleryTags)
@@ -47,7 +46,6 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
     , m_initialTags(imageTags)
     , m_tagList(new QListWidget(this))
     , m_removeButton(new QPushButton(tr("Видалити тег"), this))
-    , m_ratingSpin(new QSpinBox(this))
     , m_nameEdit(new QLineEdit(QFileInfo(filePaths.value(0)).fileName(), this))
 {
     const bool bulk = filePaths.size() > 1;
@@ -124,17 +122,11 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
     tagButtons->addWidget(addTagsButton);
     tagButtons->addStretch(1);
 
-    m_ratingSpin->setRange(0, 100);
-    m_ratingSpin->setValue(rating);
-
     auto *form = new QFormLayout;
-    if (!bulk) {
+    if (!bulk)
         form->addRow(tr("Ім'я файлу:"), m_nameEdit);
-        form->addRow(tr("Оцінка:"), m_ratingSpin);
-    } else {
+    else
         m_nameEdit->hide();
-        m_ratingSpin->hide();
-    }
 
     auto *tagsColumn = new QVBoxLayout;
     tagsColumn->addWidget(new QLabel(bulk ? tr("Спільні теги обраних файлів:") : tr("Теги зображення:"), this));
@@ -144,6 +136,15 @@ ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList
 
     auto *previewColumn = new QVBoxLayout;
     previewColumn->addWidget(preview);
+    if (!bulk && MediaFiles::kindOf(filePath) == MediaFiles::Kind::Image) {
+        m_coverButton = new QPushButton(tr("Встановити обкладинкою"), this);
+        m_coverButton->setToolTip(tr("Зробити це зображення обкладинкою його колекції (після «Зберегти»)"));
+        connect(m_coverButton, &QPushButton::clicked, this, [this] {
+            m_coverRequested = true;
+            m_coverButton->setEnabled(false);
+        });
+        previewColumn->addWidget(m_coverButton);
+    }
     previewColumn->addWidget(pathLabel);
     previewColumn->addStretch();
 
@@ -196,6 +197,15 @@ void ImageMetaDialog::setKeepExtension(bool keep)
     m_keepExtension = keep;
     const QFileInfo original(m_filePaths.value(0));
     m_nameEdit->setText(keep ? original.completeBaseName() : original.fileName());
+}
+
+void ImageMetaDialog::setIsCover(bool isCover)
+{
+    if (!m_coverButton)
+        return;
+    m_coverButton->setEnabled(!isCover && !m_coverRequested);
+    if (isCover)
+        m_coverButton->setToolTip(tr("Це зображення вже є обкладинкою своєї колекції"));
 }
 
 void ImageMetaDialog::setExporting(bool exporting)
@@ -321,11 +331,6 @@ QString ImageMetaDialog::fileName() const
     // A cleared field stays empty, otherwise it would turn into the valid name ".jpg".
     const QString base = text.trimmed();
     return base.isEmpty() ? QString() : base + '.' + original.suffix();
-}
-
-int ImageMetaDialog::rating() const
-{
-    return m_ratingSpin->value();
 }
 
 void ImageMetaDialog::chooseTags()

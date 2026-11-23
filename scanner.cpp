@@ -1,7 +1,7 @@
 #include "scanner.h"
 
+#include "collections.h"
 #include "database.h"
-#include "virtualpath.h"
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -319,7 +319,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
 
     // 4. Moved/renamed files: a record whose file disappeared plus a new file with the same
     //    content (sha256 + size). Only unambiguous 1:1 pairs count; copies stay new files.
-    //    The record keeps its id, rating and manual tags; folder tags follow the new path.
+    //    The record keeps its id and manual tags; folder tags follow the new path.
     QHash<QString, QStringList> missingByContent; // content key -> old relative paths
     for (auto k = known.constBegin(); k != known.constEnd(); ++k)
         if (!seen.contains(k.key()))
@@ -334,7 +334,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
     dropFolderTag.prepare("DELETE FROM image_tags WHERE image_id = ? AND tag_id IN "
                           "(SELECT id FROM tags WHERE gallery_id = ? AND name = ?)");
     QSet<QString> movedFrom;
-    QList<qint64> retagged; // new and moved files: their tags (so their virtual path) changed
+    QList<qint64> retagged; // new and moved files: their tags (so their collection) changed
 
     for (const NewFile &file : std::as_const(newFiles)) {
         const QString key = contentKey(file.sha256, file.size);
@@ -387,9 +387,10 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
         retagged << newId;
         ++stats.added;
     }
+    QList<Collections::Move> moves;
     {
         QString error;
-        if (!VirtualPath::update(db, retagged, &error))
+        if (!Collections::retag(db, retagged, &moves, &error))
             return rollback(error);
     }
 
@@ -407,7 +408,8 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
 
     {
         QString error;
-        if (!Db::deleteUnusedTags(db, galleryId, &error))
+        // Collections after the removals: a moved folder hands its collection on.
+        if (!Db::deleteUnusedTags(db, galleryId, &error) || !Collections::sync(db, galleryId, moves, &error))
             return rollback(error);
     }
 
@@ -504,6 +506,7 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
     insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256, added_at) "
                    "VALUES(?, ?, ?, ?, ?, ?, ?)");
     TagWriter tagWriter(db, galleryId);
+    QList<Collections::Move> moves;
 
     promise.setProgressRange(0, int(items.size()));
     for (int i = 0; i < items.size(); ++i) {
@@ -581,7 +584,7 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
         const bool inserted = insert.exec();
         const qint64 newId = inserted ? insert.lastInsertId().toLongLong() : 0;
         if (!inserted || !tagWriter.addTags(newId, tagsFromRelativePath(relative), &error)
-            || !VirtualPath::update(db, {newId}, &error)) {
+            || !Collections::retag(db, {newId}, &moves, &error)) {
             stats.error = error.isEmpty() ? insert.lastError().text() : error;
             db.rollback();
             stats.error = QCoreApplication::translate("Scanner", "Файли скопійовано, але записати їх у базу не вдалося "
@@ -591,6 +594,13 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
         ++stats.copied;
     }
 
+    QString error;
+    if (!Collections::sync(db, galleryId, moves, &error)) {
+        db.rollback();
+        stats.error = QCoreApplication::translate("Scanner", "Файли скопійовано, але записати їх у базу не вдалося "
+                                                            "(зроби рескан):\n%1").arg(error);
+        return stats;
+    }
     if (!db.commit()) {
         stats.error = db.lastError().text();
         db.rollback();

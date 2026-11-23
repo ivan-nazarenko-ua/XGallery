@@ -51,8 +51,9 @@ private slots:
     void clearSearch();
     void showPreviousPage();
     void showNextPage();
-    void openThumbnail(int index);
-    void editImageMeta(int index);
+    void openThumbnail(int index);  // collection list: opens the collection; inside one: the file
+    void editImageMeta(int index);  // collection list: collection properties; inside one: the file's
+    void closeCollection();
     void editTagsOfSelection(); // all selected files, on any page
     void clearSelection();
     void updateSelectionUi();
@@ -84,7 +85,18 @@ private:
     void runImport(std::function<QList<Scanner::ImportItem>()> collect);
     void reloadTags();
     void applyTagFilter();
+    // The page of the collection list, or of the open collection's files.
     void loadPage(int page);
+    // Collection mode: the grid shows the files of one collection; search, sorting and the tag
+    // list are locked until "Закрити колекцію".
+    bool inCollection() const { return m_openCollectionId != 0; }
+    void openCollection(int index);
+    void editCollection(int index);
+    void updateCollectionModeUi();
+    // What the grid of the open collection shows: all its files, whatever the search.
+    Db::TagQuery collectionQuery() const;
+    // The stored name; without one, the tags (or "<без тегів>").
+    static QString collectionDisplayName(const CollectionRecord &collection);
     // A file was rewritten by the program (saved rotation): refresh its DB record and the grid.
     void fileRewritten(qint64 galleryId, const QString &root, const QString &file);
     void wireMetaDialog(ImageMetaDialog &dialog);
@@ -130,6 +142,9 @@ private:
     QGroupBox *m_tagsBox = nullptr;
     QCheckBox *m_hideForeignTagsCheck = nullptr; // tag list shows only tags of the last search result
     QLineEdit *m_tagFilterEdit = nullptr; // tag list shows only entries containing this text; kept until the app closes
+    QWidget *m_collectionBar = nullptr; // shown in collection mode
+    QLabel *m_collectionLabel = nullptr;
+    QPushButton *m_closeCollectionButton = nullptr;
 
     QList<Gallery> m_galleries;
     QComboBox *m_galleryCombo = nullptr;
@@ -152,9 +167,14 @@ private:
     QLabel *m_pageLabel = nullptr;
 
     Db::TagQuery m_query; // the last applied search
-    QList<ImageRecord> m_pageRecords;
+    QList<ImageRecord> m_pageRecords;          // collection mode: the files on the page
+    QList<CollectionRecord> m_pageCollections; // otherwise: the collections on the page
+    qint64 m_openCollectionId = 0;             // 0 = the collection list is shown
+    CollectionRecord m_openCollection;
+    int m_collectionsPage = 0; // page of the collection list to return to
     int m_page = 0;
-    int m_totalCount = 0;
+    int m_totalCount = 0; // collections, or files of the open collection
+    int m_totalFiles = 0; // files found by the search
 
     BusyDialog *m_busyDialog = nullptr;
     QTimer m_busyShowTimer;

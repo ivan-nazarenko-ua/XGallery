@@ -9,6 +9,49 @@
     </message>
 </context>
 <context>
+    <name>CollectionDialog</name>
+    <message>
+        <source>Властивості колекції</source>
+        <translation>Propriétés de la collection</translation>
+    </message>
+    <message>
+        <source>За замовчуванням</source>
+        <translation>Par défaut</translation>
+    </message>
+    <message>
+        <source>Два останні теги колекції через пробіл: «%1»</source>
+        <translation>Les deux derniers tags de la collection, séparés par une espace : « %1 »</translation>
+    </message>
+    <message>
+        <source>(файли без тегів)</source>
+        <translation>(fichiers sans tags)</translation>
+    </message>
+    <message>
+        <source>Теги:</source>
+        <translation>Tags :</translation>
+    </message>
+    <message>
+        <source>Файлів:</source>
+        <translation>Fichiers :</translation>
+    </message>
+    <message>
+        <source>Ім&apos;я:</source>
+        <translation>Nom :</translation>
+    </message>
+    <message>
+        <source>Оцінка:</source>
+        <translation>Note :</translation>
+    </message>
+    <message>
+        <source>Зберегти</source>
+        <translation>Enregistrer</translation>
+    </message>
+    <message>
+        <source>Скасувати</source>
+        <translation>Annuler</translation>
+    </message>
+</context>
+<context>
     <name>DuplicatesDialog</name>
     <message>
         <source>Видалити</source>
@@ -197,10 +240,6 @@ Les fichiers sur le disque resteront inchangés.</translation>
         <translation>Double-clic : ajouter le tag au champ « Contient » de la fenêtre principale</translation>
     </message>
     <message>
-        <source>Оцінка:</source>
-        <translation>Note :</translation>
-    </message>
-    <message>
         <source>Спільні теги обраних файлів:</source>
         <translation>Tags communs aux fichiers sélectionnés :</translation>
     </message>
@@ -273,6 +312,18 @@ Les fichiers sur le disque resteront inchangés.</translation>
     <message>
         <source>Додати теги</source>
         <translation>Ajouter des tags</translation>
+    </message>
+    <message>
+        <source>Встановити обкладинкою</source>
+        <translation>Définir comme couverture</translation>
+    </message>
+    <message>
+        <source>Зробити це зображення обкладинкою його колекції (після «Зберегти»)</source>
+        <translation>Faire de cette image la couverture de sa collection (après « Enregistrer »)</translation>
+    </message>
+    <message>
+        <source>Це зображення вже є обкладинкою своєї колекції</source>
+        <translation>Cette image est déjà la couverture de sa collection</translation>
     </message>
 </context>
 <context>
@@ -848,16 +899,6 @@ Vous pouvez saisir un nouveau nom — le dossier sera créé :</translation>
         <translation>La liste complète est dans les détails (bouton ci-dessous).</translation>
     </message>
     <message>
-        <source>Класичне: за віртуальним шляхом (усі теги файлу за абеткою через «/»),
-потім за оцінкою (більші спочатку), потім за іменем файлу.
-Спочатку новіші: за датою додавання в галерею, потім як класичне.
-Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.</source>
-        <translation>Classique : par chemin virtuel (tous les tags du fichier par ordre alphabétique, séparés par « / »),
-puis par note (la plus haute d&apos;abord), puis par nom de fichier.
-Plus récents d&apos;abord : par date d&apos;ajout à la galerie, puis classique.
-Plus gros d&apos;abord : par taille de fichier (les plus gros d&apos;abord), puis classique.</translation>
-    </message>
-    <message>
         <source>Назва тегу не може містити символи «,», «&lt;», «&gt;», «/» і «\».</source>
         <translation>Un nom de tag ne peut pas contenir « , », « &lt; », « &gt; », « / » ni « \ ».</translation>
     </message>
@@ -949,6 +990,66 @@ Plus gros d&apos;abord : par taille de fichier (les plus gros d&apos;abord), pui
         <translation>Impossible de supprimer les tags :
 %1</translation>
     </message>
+    <message>
+        <source>◀ Закрити колекцію</source>
+        <translation>◀ Fermer la collection</translation>
+    </message>
+    <message>
+        <source>Повернутися до списку колекцій (Esc)</source>
+        <translation>Revenir à la liste des collections (Échap)</translation>
+    </message>
+    <message>
+        <source>Не вдалося зберегти колекцію:
+%1</source>
+        <translation>Impossible d&apos;enregistrer la collection :
+%1</translation>
+    </message>
+    <message>
+        <source>Збережено колекцію: %1</source>
+        <translation>Collection enregistrée : %1</translation>
+    </message>
+    <message>
+        <source>Колекції більше немає: її файли перейшли в інші колекції або видалені.</source>
+        <translation>La collection n&apos;existe plus : ses fichiers sont passés dans d&apos;autres collections ou ont été supprimés.</translation>
+    </message>
+    <message>
+        <source>Колекція «%1» · оцінка %2 · файлів: %3</source>
+        <translation>Collection « %1 » · note %2 · fichiers : %3</translation>
+    </message>
+    <message>
+        <source>Сторінка %1 з %2 (колекцій: %3, файлів: %4)</source>
+        <translation>Page %1 sur %2 (collections : %3, fichiers : %4)</translation>
+    </message>
+    <message>
+        <source>Колекція «%1»</source>
+        <translation>Collection « %1 »</translation>
+    </message>
+    <message>
+        <source>Файлів: </source>
+        <translation>Fichiers : </translation>
+    </message>
+    <message>
+        <source>Клік — відкрити колекцію, правий клік — властивості колекції</source>
+        <translation>Clic : ouvrir la collection, clic droit : propriétés de la collection</translation>
+    </message>
+    <message>
+        <source>Не вдалося встановити обкладинку:
+%1</source>
+        <translation>Impossible de définir la couverture :
+%1</translation>
+    </message>
+    <message>
+        <source>Порядок знайдених файлів. Колекція стоїть там, де її перший файл.
+Класичне: за оцінкою колекції (більші спочатку), потім за ім&apos;ям колекції, потім за її
+тегами (за абеткою через «/»); останніми завжди ім&apos;я файлу.
+Спочатку новіші: за датою додавання в галерею, потім як класичне.
+Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.</source>
+        <translation>Ordre des fichiers trouvés. Une collection se place là où se trouve son premier fichier.
+Classique : par note de la collection (les plus hautes d&apos;abord), puis par nom de la collection, puis par ses
+tags (par ordre alphabétique, joints par « / ») ; le nom du fichier vient toujours en dernier.
+Plus récents d&apos;abord : par date d&apos;ajout à la galerie, puis comme classique.
+Plus grands d&apos;abord : par taille de fichier (les plus grands d&apos;abord), puis comme classique.</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>
@@ -1031,7 +1132,7 @@ Plus gros d&apos;abord : par taille de fichier (les plus gros d&apos;abord), pui
 Видалення відбудеться після збереження у вікні метаданих.</source>
         <translation>Voulez-vous vraiment supprimer le tag « %1 » de tous les fichiers de la galerie ?
 
-La suppression aura lieu à l'enregistrement de la fenêtre des métadonnées.</translation>
+La suppression aura lieu à l&apos;enregistrement de la fenêtre des métadonnées.</translation>
     </message>
     <message>
         <source>Прибрати новий тег «%1» зі списку?</source>

@@ -18,8 +18,18 @@ struct ImageRecord
 {
     qint64 id = 0;
     QString relativePath;
-    int rating = 50;
     qint64 size = 0; // bytes
+};
+
+// A collection as the main window shows it (see collections.h).
+struct CollectionRecord
+{
+    qint64 id = 0;
+    QString name;        // as stored; may be empty (files without tags, or cleared by the user)
+    QString virtualPath; // its files' tags joined by '/'
+    int rating = 50;
+    QString coverPath;   // relative path of the cover; the first file if the collection has no image
+    int fileCount = 0;
 };
 
 namespace Db {
@@ -72,7 +82,7 @@ QStringList allTags(qint64 galleryId);
 QStringList tagsForImage(qint64 imageId);
 
 enum class SortOrder {
-    Classic,     // folder path inside the gallery, then best rating, then file name
+    Classic,     // collection: its rating, shown name, virtual path; then file name, id
     NewestFirst, // most recently added to the DB first, then as Classic
     LargestFirst // biggest files first, then as Classic
 };
@@ -85,6 +95,7 @@ struct TagQuery
     bool onlyUntagged = false; // only images without any tag
     bool skipUntagged = false; // no images without tags
     bool exact = false;        // tag set is exactly `include`; exclude and skipUntagged are ignored
+    qint64 collectionId = 0;   // non-zero: only the files of this collection
 };
 
 // Images of the gallery matching the query. limit < 0 means "no limit".
@@ -92,12 +103,29 @@ QList<ImageRecord> searchImages(qint64 galleryId, const TagQuery &query,
                                 int offset, int limit, int *totalCount,
                                 SortOrder order = SortOrder::Classic);
 
+// The collections of the images a search finds, in the order their first file comes in the
+// search result; paged by collection. *totalFiles = all files found.
+QList<CollectionRecord> searchCollections(qint64 galleryId, const TagQuery &query, int offset, int limit,
+                                          int *totalCollections, int *totalFiles,
+                                          SortOrder order = SortOrder::Classic);
+
+// The gallery's collection with this id; id 0 if there is none (any more).
+CollectionRecord collection(qint64 galleryId, qint64 collectionId);
+
+// The image is the cover of its collection.
+bool isCollectionCover(qint64 galleryId, qint64 imageId);
+// Makes the image the cover of the collection it is in now.
+bool setCollectionCover(qint64 galleryId, qint64 imageId);
+
+// Saves the user-editable properties of a collection.
+bool updateCollection(qint64 galleryId, qint64 collectionId, const QString &name, int rating);
+
 // Tags occurring in the images a search finds.
 QStringList tagsOfSearch(qint64 galleryId, const TagQuery &query);
 
-// Replaces the image's rating and tag set in one transaction. New tag names are created;
-// tags of the gallery that end up unused are deleted.
-bool saveImageMeta(qint64 galleryId, qint64 imageId, int rating, const QStringList &tags);
+// Replaces the image's tag set in one transaction. New tag names are created; tags of the
+// gallery that end up unused are deleted; collections follow (Collections::update).
+bool saveImageMeta(qint64 galleryId, qint64 imageId, const QStringList &tags);
 
 // The gallery's records with these ids (ids that no longer exist are skipped), sorted by path.
 QList<ImageRecord> imagesByIds(qint64 galleryId, const QList<qint64> &imageIds);

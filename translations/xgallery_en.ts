@@ -9,6 +9,49 @@
     </message>
 </context>
 <context>
+    <name>CollectionDialog</name>
+    <message>
+        <source>Властивості колекції</source>
+        <translation>Collection properties</translation>
+    </message>
+    <message>
+        <source>За замовчуванням</source>
+        <translation>Default</translation>
+    </message>
+    <message>
+        <source>Два останні теги колекції через пробіл: «%1»</source>
+        <translation>The last two tags of the collection, separated by a space: &quot;%1&quot;</translation>
+    </message>
+    <message>
+        <source>(файли без тегів)</source>
+        <translation>(files without tags)</translation>
+    </message>
+    <message>
+        <source>Теги:</source>
+        <translation>Tags:</translation>
+    </message>
+    <message>
+        <source>Файлів:</source>
+        <translation>Files:</translation>
+    </message>
+    <message>
+        <source>Ім&apos;я:</source>
+        <translation>Name:</translation>
+    </message>
+    <message>
+        <source>Оцінка:</source>
+        <translation>Rating:</translation>
+    </message>
+    <message>
+        <source>Зберегти</source>
+        <translation>Save</translation>
+    </message>
+    <message>
+        <source>Скасувати</source>
+        <translation>Cancel</translation>
+    </message>
+</context>
+<context>
     <name>DuplicatesDialog</name>
     <message>
         <source>Видалити</source>
@@ -197,10 +240,6 @@ The image files on disk will stay unchanged.</translation>
         <translation>Double click: add the tag to the &quot;Contains&quot; field of the main window</translation>
     </message>
     <message>
-        <source>Оцінка:</source>
-        <translation>Rating:</translation>
-    </message>
-    <message>
         <source>Спільні теги обраних файлів:</source>
         <translation>Tags common to the selected files:</translation>
     </message>
@@ -273,6 +312,18 @@ The image files on disk will stay unchanged.</translation>
     <message>
         <source>Додати теги</source>
         <translation>Add tags</translation>
+    </message>
+    <message>
+        <source>Встановити обкладинкою</source>
+        <translation>Set as cover</translation>
+    </message>
+    <message>
+        <source>Зробити це зображення обкладинкою його колекції (після «Зберегти»)</source>
+        <translation>Make this image the cover of its collection (after &quot;Save&quot;)</translation>
+    </message>
+    <message>
+        <source>Це зображення вже є обкладинкою своєї колекції</source>
+        <translation>This image is already the cover of its collection</translation>
     </message>
 </context>
 <context>
@@ -848,16 +899,6 @@ You can type a new name — the folder will be created:</translation>
         <translation>The full list is in the details (button below).</translation>
     </message>
     <message>
-        <source>Класичне: за віртуальним шляхом (усі теги файлу за абеткою через «/»),
-потім за оцінкою (більші спочатку), потім за іменем файлу.
-Спочатку новіші: за датою додавання в галерею, потім як класичне.
-Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.</source>
-        <translation>Classic: by virtual path (all tags of the file in alphabetical order, joined with &quot;/&quot;),
-then by rating (higher first), then by file name.
-Newest first: by the date added to the gallery, then classic.
-Largest first: by file size (largest first), then classic.</translation>
-    </message>
-    <message>
         <source>Назва тегу не може містити символи «,», «&lt;», «&gt;», «/» і «\».</source>
         <translation>A tag name cannot contain &quot;,&quot;, &quot;&lt;&quot;, &quot;&gt;&quot;, &quot;/&quot; or &quot;\&quot;.</translation>
     </message>
@@ -948,6 +989,66 @@ Largest first: by file size (largest first), then classic.</translation>
 %1</source>
         <translation>Could not delete the tags:
 %1</translation>
+    </message>
+    <message>
+        <source>◀ Закрити колекцію</source>
+        <translation>◀ Close collection</translation>
+    </message>
+    <message>
+        <source>Повернутися до списку колекцій (Esc)</source>
+        <translation>Back to the list of collections (Esc)</translation>
+    </message>
+    <message>
+        <source>Не вдалося зберегти колекцію:
+%1</source>
+        <translation>Could not save the collection:
+%1</translation>
+    </message>
+    <message>
+        <source>Збережено колекцію: %1</source>
+        <translation>Collection saved: %1</translation>
+    </message>
+    <message>
+        <source>Колекції більше немає: її файли перейшли в інші колекції або видалені.</source>
+        <translation>The collection no longer exists: its files moved to other collections or were deleted.</translation>
+    </message>
+    <message>
+        <source>Колекція «%1» · оцінка %2 · файлів: %3</source>
+        <translation>Collection &quot;%1&quot; · rating %2 · files: %3</translation>
+    </message>
+    <message>
+        <source>Сторінка %1 з %2 (колекцій: %3, файлів: %4)</source>
+        <translation>Page %1 of %2 (collections: %3, files: %4)</translation>
+    </message>
+    <message>
+        <source>Колекція «%1»</source>
+        <translation>Collection &quot;%1&quot;</translation>
+    </message>
+    <message>
+        <source>Файлів: </source>
+        <translation>Files: </translation>
+    </message>
+    <message>
+        <source>Клік — відкрити колекцію, правий клік — властивості колекції</source>
+        <translation>Click: open the collection, right click: collection properties</translation>
+    </message>
+    <message>
+        <source>Не вдалося встановити обкладинку:
+%1</source>
+        <translation>Could not set the cover:
+%1</translation>
+    </message>
+    <message>
+        <source>Порядок знайдених файлів. Колекція стоїть там, де її перший файл.
+Класичне: за оцінкою колекції (більші спочатку), потім за ім&apos;ям колекції, потім за її
+тегами (за абеткою через «/»); останніми завжди ім&apos;я файлу.
+Спочатку новіші: за датою додавання в галерею, потім як класичне.
+Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.</source>
+        <translation>Order of the found files. A collection comes where its first file is.
+Classic: by the collection&apos;s rating (higher first), then by the collection&apos;s name, then by its
+tags (in alphabetical order, joined with &quot;/&quot;); the file name always comes last.
+Newest first: by the date added to the gallery, then as classic.
+Largest first: by file size (largest first), then as classic.</translation>
     </message>
 </context>
 <context>

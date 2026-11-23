@@ -2,6 +2,7 @@
 #include "./ui_mainwindow.h"
 
 #include "busydialog.h"
+#include "collectiondialog.h"
 #include "duplicatesdialog.h"
 #include "gallerydialog.h"
 #include "i18n.h"
@@ -198,6 +199,25 @@ void MainWindow::buildUi()
     searchRow->addWidget(m_sortCombo);
     mainLayout->addLayout(searchRow);
 
+    // Collection mode: which collection is open, and the way back.
+    m_collectionBar = new QWidget;
+    auto *collectionRow = new QHBoxLayout(m_collectionBar);
+    collectionRow->setContentsMargins(0, 0, 0, 0);
+    m_closeCollectionButton = new QPushButton;
+    m_closeCollectionButton->setShortcut(QKeySequence(Qt::Key_Escape)); // works only while shown
+    connect(m_closeCollectionButton, &QPushButton::clicked, this, &MainWindow::closeCollection);
+    collectionRow->addWidget(m_closeCollectionButton);
+    m_collectionLabel = new QLabel;
+    QFont collectionFont = m_collectionLabel->font();
+    collectionFont.setBold(true);
+    m_collectionLabel->setFont(collectionFont);
+    m_collectionLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_collectionLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_collectionLabel->setIndent(8);
+    collectionRow->addWidget(m_collectionLabel, 1);
+    m_collectionBar->hide();
+    mainLayout->addWidget(m_collectionBar);
+
     // Tags list | thumbnail grid
     auto *splitter = new QSplitter(Qt::Horizontal);
 
@@ -244,7 +264,7 @@ void MainWindow::buildUi()
         check->move(4, 4);
         check->hide();
         connect(check, &QCheckBox::toggled, this, [this, i](bool on) {
-            if (i >= m_pageRecords.size())
+            if (!inCollection() || i >= m_pageRecords.size())
                 return;
             if (on)
                 m_selectedIds.insert(m_pageRecords[i].id);
@@ -330,8 +350,9 @@ void MainWindow::retranslateUi()
     m_sortCombo->setItemText(0, tr("Класичне"));
     m_sortCombo->setItemText(1, tr("Спочатку новіші"));
     m_sortCombo->setItemText(2, tr("Спершу більші"));
-    m_sortCombo->setToolTip(tr("Класичне: за віртуальним шляхом (усі теги файлу за абеткою через «/»),\nпотім за оцінкою (більші спочатку), "
-                               "потім за іменем файлу.\n"
+    m_sortCombo->setToolTip(tr("Порядок знайдених файлів. Колекція стоїть там, де її перший файл.\n"
+                               "Класичне: за оцінкою колекції (більші спочатку), потім за ім'ям колекції, потім за її\n"
+                               "тегами (за абеткою через «/»); останніми завжди ім'я файлу.\n"
                                "Спочатку новіші: за датою додавання в галерею, потім як класичне.\n"
                                "Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне."));
 
@@ -344,6 +365,8 @@ void MainWindow::retranslateUi()
                              "Правий клік — вибрати, куди додати."));
     for (QCheckBox *check : std::as_const(m_thumbChecks))
         check->setToolTip(tr("Обрати для групового редагування тегів (правий клік на будь-якому прев'ю)"));
+    m_closeCollectionButton->setText(tr("◀ Закрити колекцію"));
+    m_closeCollectionButton->setToolTip(tr("Повернутися до списку колекцій (Esc)"));
 
     m_prevButton->setText(tr("◀ Попередня"));
     m_nextButton->setText(tr("Наступна ▶"));
@@ -426,6 +449,8 @@ void MainWindow::onGalleryChanged(int index)
         m_rootLabel->setText(tr("Галерей ще немає — натисни «Створити»."));
     }
 
+    m_openCollectionId = 0; // collections belong to their gallery
+    updateCollectionModeUi();
     m_includeEdit->clear();
     m_excludeEdit->clear();
     m_exactCheck->setChecked(false);
@@ -782,16 +807,110 @@ void MainWindow::showNextPage()
         loadPage(m_page + 1);
 }
 
+Db::TagQuery MainWindow::collectionQuery() const
+{
+    Db::TagQuery query;
+    query.collectionId = m_openCollectionId;
+    return query;
+}
+
+QString MainWindow::collectionDisplayName(const CollectionRecord &collection)
+{
+    if (!collection.name.isEmpty())
+        return collection.name;
+    return collection.virtualPath.isEmpty() ? noTagsDisplayName() : collection.virtualPath;
+}
+
+void MainWindow::updateCollectionModeUi()
+{
+    const bool open = inCollection();
+    for (QWidget *widget : std::initializer_list<QWidget *>{m_includeEdit, m_exactCheck, m_searchButton,
+                                                            m_clearSearchButton, m_sortCombo, m_tagsBox})
+        widget->setEnabled(!open);
+    m_excludeEdit->setEnabled(!open && !m_exactCheck->isChecked());
+    m_collectionBar->setVisible(open);
+}
+
+void MainWindow::openCollection(int index)
+{
+    if (isBusy() || index < 0 || index >= m_pageCollections.size())
+        return;
+    m_collectionsPage = m_page;
+    m_openCollectionId = m_pageCollections[index].id;
+    updateCollectionModeUi();
+    loadPage(0);
+}
+
+void MainWindow::closeCollection()
+{
+    if (isBusy() || !inCollection())
+        return;
+    m_openCollectionId = 0;
+    updateCollectionModeUi();
+    loadPage(m_collectionsPage);
+}
+
+void MainWindow::editCollection(int index)
+{
+    const Gallery *gallery = currentGallery();
+    if (isBusy() || !gallery || index < 0 || index >= m_pageCollections.size())
+        return;
+    const qint64 galleryId = gallery->id;
+    const CollectionRecord collection = Db::collection(galleryId, m_pageCollections[index].id);
+    if (collection.id == 0) {
+        loadPage(m_page); // gone meanwhile
+        return;
+    }
+
+    CollectionDialog dialog(collection, m_thumbButtons[index]->icon().pixmap(ThumbnailSize), this);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+    if (!Db::updateCollection(galleryId, collection.id, dialog.name(), dialog.rating())) {
+        QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти колекцію:\n%1").arg(Db::lastError()));
+        return;
+    }
+    CollectionRecord saved = collection;
+    saved.name = dialog.name();
+    statusBar()->showMessage(tr("Збережено колекцію: %1").arg(collectionDisplayName(saved)), 5000);
+    loadPage(m_page);
+}
+
 void MainWindow::loadPage(int page)
 {
     if (isBusy())
         return;
 
-    m_page = page;
     const Gallery *gallery = currentGallery();
-    m_pageRecords = Db::searchImages(gallery ? gallery->id : 0, m_query, page * PageSize, PageSize, &m_totalCount,
-                                     sortOrder());
-    if (m_pageRecords.isEmpty() && page > 0 && m_totalCount > 0) {
+    const qint64 galleryId = gallery ? gallery->id : 0;
+    if (inCollection()) {
+        // Tag edits may have moved the collection to other tags (it follows them) or emptied it.
+        m_openCollection = Db::collection(galleryId, m_openCollectionId);
+        if (m_openCollection.id == 0) {
+            statusBar()->showMessage(tr("Колекції більше немає: її файли перейшли в інші колекції або видалені."),
+                                     8000);
+            m_openCollectionId = 0;
+            updateCollectionModeUi();
+            page = m_collectionsPage;
+        }
+    }
+
+    m_page = page;
+    QStringList paths; // what the thumbnails show
+    if (inCollection()) {
+        m_pageCollections.clear();
+        m_pageRecords = Db::searchImages(galleryId, collectionQuery(), page * PageSize, PageSize, &m_totalCount,
+                                         sortOrder());
+        m_totalFiles = m_totalCount;
+        for (const ImageRecord &rec : std::as_const(m_pageRecords))
+            paths << absolutePath(rec.relativePath);
+    } else {
+        m_pageRecords.clear();
+        m_pageCollections = Db::searchCollections(galleryId, m_query, page * PageSize, PageSize, &m_totalCount,
+                                                  &m_totalFiles, sortOrder());
+        for (const CollectionRecord &collection : std::as_const(m_pageCollections))
+            paths << absolutePath(collection.coverPath);
+    }
+    if (paths.isEmpty() && page > 0 && m_totalCount > 0) {
         // The page shrank (e.g. after editing tags): show the last one that exists.
         loadPage((m_totalCount - 1) / PageSize);
         return;
@@ -804,34 +923,31 @@ void MainWindow::loadPage(int page)
     for (int i = 0; i < m_thumbButtons.size(); ++i) {
         QToolButton *button = m_thumbButtons[i];
         button->setIcon(QIcon());
-        button->setEnabled(i < m_pageRecords.size());
+        button->setEnabled(i < paths.size());
+        // Selection checkboxes: files only (not "other" files), not collections.
         QCheckBox *check = m_thumbChecks[i];
+        const bool file = i < m_pageRecords.size();
         {
             const QSignalBlocker blocker(check); // just showing the stored selection
-            check->setChecked(i < m_pageRecords.size() && m_selectedIds.contains(m_pageRecords[i].id));
+            check->setChecked(file && m_selectedIds.contains(m_pageRecords[i].id));
         }
-        check->setVisible(i < m_pageRecords.size()
-                          && MediaFiles::kindOf(m_pageRecords[i].relativePath) != MediaFiles::Kind::Other);
+        check->setVisible(file && MediaFiles::kindOf(m_pageRecords[i].relativePath) != MediaFiles::Kind::Other);
     }
     refreshPageTexts();
     updateSelectionUi();
 
-    if (m_pageRecords.isEmpty())
+    if (paths.isEmpty())
         return;
-
-    QStringList paths;
-    for (const ImageRecord &rec : std::as_const(m_pageRecords))
-        paths << absolutePath(rec.relativePath);
 
     auto *watcher = new QFutureWatcher<QImage>(this);
     runBusy(watcher, tr("Завантажую прев'юшки…"));
     connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher] {
         const QList<QImage> images = watcher->future().results();
         for (int i = 0; i < images.size() && i < m_thumbButtons.size(); ++i) {
-            if (images[i].isNull())
-                m_thumbButtons[i]->setText(tr("(не читається)"));
-            else
+            if (!images[i].isNull())
                 m_thumbButtons[i]->setIcon(QIcon(QPixmap::fromImage(images[i])));
+            else if (inCollection()) // a collection keeps its name under an empty cover
+                m_thumbButtons[i]->setText(tr("(не читається)"));
         }
     });
     watcher->setFuture(QtConcurrent::mapped(std::move(paths),[](const QString &path) {
@@ -843,10 +959,29 @@ void MainWindow::loadPage(int page)
 void MainWindow::refreshPageTexts()
 {
     const int pageCount = qMax(1, (m_totalCount + PageSize - 1) / PageSize);
-    m_pageLabel->setText(tr("Сторінка %1 з %2 (%3 зобр.)").arg(m_page + 1).arg(pageCount).arg(m_totalCount));
+    if (inCollection()) {
+        m_pageLabel->setText(tr("Сторінка %1 з %2 (%3 зобр.)").arg(m_page + 1).arg(pageCount).arg(m_totalCount));
+        m_collectionLabel->setText(tr("Колекція «%1» · оцінка %2 · файлів: %3")
+                                       .arg(collectionDisplayName(m_openCollection))
+                                       .arg(m_openCollection.rating)
+                                       .arg(m_openCollection.fileCount));
+        m_collectionLabel->setToolTip(m_openCollection.virtualPath);
+    } else {
+        m_pageLabel->setText(tr("Сторінка %1 з %2 (колекцій: %3, файлів: %4)")
+                                 .arg(m_page + 1).arg(pageCount).arg(m_totalCount).arg(m_totalFiles));
+    }
     for (int i = 0; i < m_thumbButtons.size(); ++i) {
         QToolButton *button = m_thumbButtons[i];
-        if (i < m_pageRecords.size()) {
+        if (i < m_pageCollections.size()) {
+            const CollectionRecord &collection = m_pageCollections[i];
+            const QString name = collectionDisplayName(collection);
+            button->setText(button->fontMetrics().elidedText(name, Qt::ElideMiddle, ThumbnailSize));
+            button->setToolTip(tr("Колекція «%1»").arg(name) + "\n"
+                               + tr("Теги: ") + collection.virtualPath + "\n"
+                               + tr("Оцінка: ") + QString::number(collection.rating) + "\n"
+                               + tr("Файлів: ") + QString::number(collection.fileCount) + "\n\n"
+                               + tr("Клік — відкрити колекцію, правий клік — властивості колекції"));
+        } else if (i < m_pageRecords.size()) {
             const ImageRecord &rec = m_pageRecords[i];
             const QString name = QFileInfo(rec.relativePath).fileName();
             button->setText(button->fontMetrics().elidedText(name, Qt::ElideMiddle, ThumbnailSize));
@@ -862,7 +997,6 @@ void MainWindow::refreshPageTexts()
                 break;
             }
             button->setToolTip(QDir::toNativeSeparators(rec.relativePath) + "\n"
-                               + tr("Оцінка: ") + QString::number(rec.rating) + "\n"
                                + tr("Розмір: ") + QLocale().formattedDataSize(rec.size) + "\n"
                                + tr("Теги: ") + Db::tagsForImage(rec.id).join(", ")
                                + (hint.isEmpty() ? QString() : "\n\n" + hint));
@@ -875,6 +1009,10 @@ void MainWindow::refreshPageTexts()
 
 void MainWindow::openThumbnail(int index)
 {
+    if (!inCollection()) {
+        openCollection(index);
+        return;
+    }
     const Gallery *gallery = currentGallery();
     if (!gallery || index < 0 || index >= m_pageRecords.size())
         return;
@@ -896,9 +1034,9 @@ void MainWindow::openThumbnail(int index)
         return;
     }
 
-    // The arrows in the viewer walk through the images of the whole search result
-    // (not just this page); videos and other files are skipped.
-    const QList<ImageRecord> all = Db::searchImages(gallery->id, m_query, 0, -1, nullptr, sortOrder());
+    // The arrows in the viewer walk through the images of the whole collection (not just this
+    // page); videos and other files are skipped.
+    const QList<ImageRecord> all = Db::searchImages(gallery->id, collectionQuery(), 0, -1, nullptr, sortOrder());
     QStringList paths;
     paths.reserve(all.size());
     int current = 0;
@@ -1048,6 +1186,10 @@ bool MainWindow::renameImageFile(qint64 galleryId, const ImageRecord &record, co
 
 void MainWindow::editImageMeta(int index)
 {
+    if (!inCollection()) {
+        editCollection(index);
+        return;
+    }
     const Gallery *gallery = currentGallery();
     if (isBusy() || !gallery || index < 0 || index >= m_pageRecords.size())
         return;
@@ -1071,8 +1213,9 @@ void MainWindow::editImageMeta(int index)
         return; // nothing to do for other files for now
 
     const QString path = absolutePath(record.relativePath);
-    ImageMetaDialog dialog({path}, Db::tagsForImage(record.id), record.rating, Db::allTags(galleryId), this);
+    ImageMetaDialog dialog({path}, Db::tagsForImage(record.id), Db::allTags(galleryId), this);
     wireMetaDialog(dialog);
+    dialog.setIsCover(Db::isCollectionCover(galleryId, record.id));
     const int result = dialog.exec();
 
     if (result == ImageMetaDialog::DeleteRequested) {
@@ -1096,10 +1239,13 @@ void MainWindow::editImageMeta(int index)
     if (result != QDialog::Accepted)
         return;
 
-    if (!Db::saveImageMeta(galleryId, record.id, dialog.rating(), dialog.tags())) {
+    if (!Db::saveImageMeta(galleryId, record.id, dialog.tags())) {
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти зміни:\n%1").arg(Db::lastError()));
         return;
     }
+    // After the tags: the file is the cover of the collection it is in now.
+    if (dialog.coverRequested() && !Db::setCollectionCover(galleryId, record.id))
+        QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося встановити обкладинку:\n%1").arg(Db::lastError()));
     QString fileName = QFileInfo(record.relativePath).fileName();
     // The raw text first: an existing name with a leading space must count as unchanged.
     if (dialog.fileName() != fileName) {
@@ -1110,7 +1256,7 @@ void MainWindow::editImageMeta(int index)
     deleteTagsFromGallery(galleryId, dialog.deletedTags());
     statusBar()->showMessage(tr("Збережено: %1").arg(fileName), 5000);
     reloadTags();
-    loadPage(m_page); // rating may have moved the image
+    loadPage(m_page); // new tags may have moved the file to another collection
 }
 
 void MainWindow::deleteTagsFromGallery(qint64 galleryId, const QStringList &tags)
@@ -1199,7 +1345,7 @@ void MainWindow::editTagsOfSelection()
         }
     }
 
-    ImageMetaDialog dialog(paths, common, 50, Db::allTags(galleryId), this);
+    ImageMetaDialog dialog(paths, common, Db::allTags(galleryId), this);
     wireMetaDialog(dialog);
     if (dialog.exec() != QDialog::Accepted)
         return;

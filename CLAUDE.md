@@ -25,7 +25,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (`ole32 shell32 uuid`, for Explorer thumbnails) are linked under `if(WIN32)`.
 - There are no unit tests in the repo. Verify logic with a throwaway console program in the
   scratchpad that compiles the needed `.cpp` files (`database`, `migrations`, `scanner`,
-  `mediafiles`, `imagerotation`) and sets `QCoreApplication::setApplicationName("XGalleryScanTest")`
+  `mediafiles`, `imagerotation`, `virtualpath`, `collections`) and sets `QCoreApplication::setApplicationName("XGalleryScanTest")`
   so it never touches the real DB. Delete `%APPDATA%\XGalleryScanTest` afterwards.
 - Do not put test files into the user's Recycle Bin, and do not read the user's personal files.
 - The shell Claude runs in sees a virtualized `%APPDATA%`, not the user's real DB.
@@ -35,23 +35,26 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | File | Role |
 |---|---|
 | `main.cpp` | App/organization name (`Nova30`/`XGallery`) → AppData location |
-| `mainwindow.*` | Everything in the main window: gallery combo, search, sort, tag list, 4×4 grid, File menu actions, busy handling |
-| `database.*` | `Db::` — connection handling, settings, galleries, search, metadata, duplicates. GUI thread uses `Db::MainConnection` |
+| `mainwindow.*` | Everything in the main window: gallery combo, search, sort, tag list, 4×4 grid (collections, or the files of the open collection), File menu actions, busy handling |
+| `database.*` | `Db::` — connection handling, settings, galleries, search (files and collections), metadata, duplicates. GUI thread uses `Db::MainConnection` |
 | `migrations.*` | Schema versions (`PRAGMA user_version`), one step per version |
 | `scanner.*` | Worker-thread jobs: rescan, import, junk search; sha256; folder → tag rules |
 | `mediafiles.*` | File kind by extension (image / video / other) and thumbnails (videos via `IShellItemImageFactory`, others as an extension card) |
 | `imageviewer.*` | Viewer window: fit/upscale, arrows (circular), double-click full screen, right-click rotation |
 | `imagerotation.*` | Saving rotations to disk (lossless for JPEG via EXIF orientation) |
-| `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no rating/delete). `TagPickerDialog` is its "Додати теги" window |
+| `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating |
 | `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
+| `collections.*` | Collections: xxh128 of the virtual path (`hashOf`), default name, `retag` (vpath/vpath_key/vpath_hash of files) and `sync` (collection rows: transfer, create, delete, covers) |
+| `third_party/xxhash/` | Vendored xxHash 0.8.3 single header (BSD-2, used header-only via `XXH_INLINE_ALL` in `collections.cpp`) |
 | `i18n.*`, `languagedialog.*`, `translations/*.ts`, `flags/` | UI language (uk source, en/fr translations), first-start flag dialog, flag SVGs + rendered PNGs (48x32 and @2x) |
 | `xgallery.ico`, `xgallery.rc`, `resources.qrc` | Program icon, rendered from `logo.svg` (each size 16–256 px rendered directly, centred on a transparent square, PNG entries). Rebuild the .ico when the SVG changes |
 
 ## Rules that must keep holding
 
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
-  never edit existing steps. Current version: 8 (galleries; rating+name; allow_upscale; no commas in tags;
-  normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space).
+  never edit existing steps. Current version: 10 (galleries; rating+name; allow_upscale; no commas in tags;
+  normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space;
+  collections — images.rating dropped; collections.name_key).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -71,7 +74,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   inside the exe folder (import and junk deletion skip that folder too). Unchanged = same size+mtime
   (no re-hash). Folder tags are added only to new files, so manual tag edits survive.
   Moves/renames: a missing record + one new file with the same sha256+size (1:1 only) keep
-  id, rating and manual tags; old-folder tags are swapped for new ones.
+  id and manual tags; old-folder tags are swapped for new ones.
   All files of one scan/import get the same `added_at` (for "newest first").
 - **Import** (add files/folder): copy, never move; skip duplicates (DB, same batch, or same
   name+content already in the target); name clash → `name (1).ext`; records are written
@@ -92,14 +95,31 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   re-encoded losslessly. Pending turns are counted mod 4; 0 = nothing to save.
 - **Virtual path** (`virtualpath.*`): images.vpath = the file's tags in alphabetical order joined by `/`,
   images.vpath_key = its alphabet-aware sort key (Latin, Cyrillic, then digits: "Маша/Море/001";
-  changing that order needs a migration step that recomputes all paths). Recompute with `VirtualPath::update` whenever a file's tag
-  set changes (meta save, bulk edit, tag rename, rescan new/moved files, import).
-- Sorting: Classic = vpath_key, rating DESC, name NOCASE; NewestFirst = added_at DESC then classic;
-  LargestFirst = size DESC then classic. The viewer walks the full search result (images only)
+  changing that order needs a migration step that recomputes all paths). `VirtualPath::update` writes only
+  vpath/vpath_key (old migration steps use it); program code calls `Collections::retag`/`update` instead.
+- **Collections** (`collections.*`, UI term "Колекція" for the virtual path): files with the same vpath. images.vpath_hash =
+  xxh128 of vpath (16-byte BLOB); table `collections` (gallery_id, vpath_hash UNIQUE per gallery, name — duplicates allowed,
+  may be empty → shown as the tags or `<без тегів>`; rating 1…100, new = 50; cover_image_id — first image by file name,
+  NULL if the collection has no image; name_key = `Collections::nameKey` — sortKey of the shown name, i.e. of vpath
+  when the name is empty; set on insert, rename and transfer). The rating lives only on collections. Whenever a file's tag set changes
+  (meta save, bulk edit, tag rename/delete, rescan new/moved files, import) call `Collections::retag` then `sync` in the
+  same transaction; after deleting records `sync` alone. `sync`: a collection left without files moves (same row id, new
+  hash) to the row-less collection most of its files went to; otherwise it's deleted; row-less hashes get default rows;
+  invalid covers are re-chosen (a cover is valid while its image stays in the collection). Renaming a file doesn't change
+  the cover. "Встановити обкладинкою" in the single-image metadata dialog (disabled if already the cover, absent in bulk
+  mode) is applied after Save via `Db::setCollectionCover` (the collection the file is in after the tag save).
+- Main window: the grid shows collections of the search result (`Db::searchCollections`: ordered by the position of
+  their first file in the file order, paged by collection). Left click opens the collection (`m_openCollectionId`,
+  row id — it survives transfers): grid = all its files (`TagQuery::collectionId`, ignores the search), search/sort/tag
+  list locked, "◀ Закрити колекцію" (Esc) returns to the saved page. Right click on a collection → `CollectionDialog`.
+  If the open collection's row is gone, `loadPage` falls back to the collection list.
+- Sorting (files joined to their collection row as `ic`): Classic = ic.rating DESC, ic.name_key, vpath_key,
+  file name NOCASE, id (file name and id always last); NewestFirst = added_at DESC then classic;
+  LargestFirst = size DESC then classic. The viewer walks the open collection (images only)
   in the same order.
-- Bulk tag edit: checkboxes on thumbnails (hidden for "other" files). The selection is a set of image ids
+- Bulk tag edit (inside a collection only): checkboxes on file thumbnails (hidden for "other" files and for collections). The selection is a set of image ids
   (`m_selectedIds`) kept across pages/searches, cleared by "Зняти всі" or a gallery switch; "Обрати всі"
-  ticks the current page only. Right click with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.
+  ticks the current page only. Right click on a file with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.
   Double click on a tag in the metadata dialog adds it to "Містить" without searching.
 - Tag picker (`TagPickerDialog`, from the metadata dialog): new tags (comma list) + 6 columns of checkboxes for gallery tags not on the file.
   Not modal (`show()`, a child of the metadata dialog, closes with it), so the preview and viewer stay usable. Writes nothing itself. Right click + confirmation marks a tag for deletion from the whole gallery; `MainWindow::deleteTagsFromGallery` (`Db::deleteTags`)
