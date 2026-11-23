@@ -61,6 +61,7 @@ private slots:
     void deleteJunk(); // Thumbs.db, desktop.ini and empty folders
     void addFilesToGallery();
     void addFolderToGallery();
+    void downloadFromInternet();
     void showTagMenu(const QPoint &pos);
     void renameTag(const QString &oldName);
     void setTagGroup(const QString &tag, qint64 groupId); // 0: no group
@@ -134,6 +135,7 @@ private:
     QAction *m_rescanAction = nullptr;
     QAction *m_addFilesAction = nullptr;
     QAction *m_addFolderAction = nullptr;
+    QAction *m_downloadAction = nullptr;
     QAction *m_duplicatesAction = nullptr;
     QAction *m_junkAction = nullptr;
     QAction *m_quitAction = nullptr;

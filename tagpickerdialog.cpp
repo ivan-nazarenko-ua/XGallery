@@ -246,6 +246,8 @@ void TagPickerDialog::confirmDelete(QCheckBox *box)
     if (index == m_entries.size())
         return;
     const Entry entry = m_entries.at(index);
+    if (entry.inDatabase && !m_galleryDeletionAllowed)
+        return;
 
     const QString text = entry.inDatabase
         ? tr("Ви впевнені, що хочете видалити тег «%1» з усіх файлів галереї?\n\n"

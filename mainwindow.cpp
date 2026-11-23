@@ -3,6 +3,7 @@
 
 #include "busydialog.h"
 #include "collectiondialog.h"
+#include "downloaddialog.h"
 #include "duplicatesdialog.h"
 #include "gallerydialog.h"
 #include "i18n.h"
@@ -209,6 +210,7 @@ void MainWindow::buildUi()
     m_fileMenu->addSeparator();
     m_addFilesAction = m_fileMenu->addAction(QString(), this, &MainWindow::addFilesToGallery);
     m_addFolderAction = m_fileMenu->addAction(QString(), this, &MainWindow::addFolderToGallery);
+    m_downloadAction = m_fileMenu->addAction(QString(), this, &MainWindow::downloadFromInternet);
     m_fileMenu->addSeparator();
     m_duplicatesAction = m_fileMenu->addAction(QString(), this, &MainWindow::findDuplicates);
     m_junkAction = m_fileMenu->addAction(QString(), this, &MainWindow::deleteJunk);
@@ -449,6 +451,7 @@ void MainWindow::retranslateUi()
     m_rescanAction->setText(tr("Рес&кан"));
     m_addFilesAction->setText(tr("Додати &файли в галерею…"));
     m_addFolderAction->setText(tr("Додати п&апку в галерею…"));
+    m_downloadAction->setText(tr("Завантажити з &інтернету…"));
     m_duplicatesAction->setText(tr("Знайти &дублікати…"));
     m_junkAction->setText(tr("Видалити &сміття…"));
     m_quitAction->setText(tr("&Вийти"));
@@ -1711,13 +1714,7 @@ QString MainWindow::chooseRootTag(const QString &title, const QString &suggestio
         return {};
     // Real folders only, whatever the setting: a link leads outside the gallery, and the import
     // refuses a target folder outside it.
-    QStringList folders;
-    const QFileInfoList entries = QDir(gallery->rootFolder)
-                                      .entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden,
-                                                     QDir::Name | QDir::IgnoreCase);
-    for (const QFileInfo &entry : entries)
-        if (Scanner::isRealFolder(entry))
-            folders << entry.fileName();
+    QStringList folders = Scanner::realSubfolders(gallery->rootFolder);
     int current = 0;
     if (!suggestion.isEmpty()) {
         current = int(folders.indexOf(suggestion));
@@ -1737,8 +1734,7 @@ QString MainWindow::chooseRootTag(const QString &title, const QString &suggestio
         if (!ok)
             return {};
         // Windows-forbidden characters only; a comma is fine (the tag gets a space instead).
-        static const QRegularExpression forbidden(QStringLiteral(R"([\\/:*?"<>|])"));
-        if (name.isEmpty() || name == "." || name == ".." || name.contains(forbidden) || name.endsWith('.')) {
+        if (!Scanner::isValidFolderName(name)) {
             QMessageBox::warning(this, title,
                                  tr("Недопустима назва папки. Не можна використовувати символи \\ / : * ? \" < > |"));
             continue;
@@ -1836,6 +1832,23 @@ void MainWindow::addFolderToGallery()
             collectInto(sourceDir.filePath(sub), sub, items);
         return items;
     });
+}
+
+void MainWindow::downloadFromInternet()
+{
+    const Gallery *gallery = currentGallery();
+    if (isBusy())
+        return;
+    if (!gallery) {
+        QMessageBox::information(this, tr("Завантажити з інтернету"), tr("Спершу створи галерею."));
+        return;
+    }
+    DownloadDialog dialog(*gallery, this);
+    connect(&dialog, &DownloadDialog::filesAdded, this, [this] {
+        reloadTags();
+        loadPage(0);
+    });
+    dialog.exec();
 }
 
 void MainWindow::runImport(std::function<QList<Scanner::ImportItem>()> collect)

@@ -207,6 +207,8 @@ with it.
   the suffix `(1)`, `(2)`… At the end you see how many files were copied and how many duplicates
   were skipped. Names that Windows reserves for devices (`CON`, `NUL`, `COM1`…) get a `_` in the
   folder name (`CON_`), while the tag stays without it ("Con").
+- **Download from the Internet…** — the download manager, see
+  [Downloading from the Internet](#downloading-from-the-internet).
 - **Find duplicates…** — groups of files with identical content. Tick the extra ones and click
   "Delete": the files go to the **Recycle Bin**. If you tick all the files of a group, the first
   one is kept.
@@ -230,6 +232,72 @@ file keeps its old name and the program shows an error.
 While **"Keep the extension when renaming"** is on in the **Settings** menu (the default), the
 field shows only the name without its extension, and the extension can't be changed. Turn it off
 and the field shows the full name, so the extension can be changed too.
+
+## Downloading from the Internet
+
+**File → Download from the Internet…** opens the download manager. It downloads a web page, or
+the files the page links to, into the current gallery. It sends only GET requests, one at a
+time.
+
+**Profiles** describe how to find the files on a page. They work like saved sessions in PuTTY:
+type a name and click **"Save"** (a profile with that name is replaced after a question); select
+a profile in the list and click **"Load"** (or double-click it) to fill in the fields; **"Delete"**
+removes the selected profile. Profiles belong to the program, not to a gallery.
+**"Export…"** saves all profiles to a JSON file, **"Import…"** adds the profiles of such a file
+(profiles with the same names are replaced).
+
+A profile holds:
+
+- **User-Agent** — sent as the `User-Agent` header; empty means Qt's default one.
+- **Mode**:
+  - **Download the page** — the page itself is saved as `page_1.html` (or `page_1.bin` if the
+    server says it isn't `text/html`). The other fields of the profile are not used and are locked.
+  - **Download files from the page** — the program looks for links on the page with these fields:
+    - **Tag** — any, `img` or `a`.
+    - **Link source** — the name of an attribute (`src`, `href`, `data-original`…) the link is
+      taken from. Empty: the text inside the tag is taken (inner tags removed).
+    - **Class** — classes separated by spaces: the tag must have all of them, in any order. Case
+      matters, as in HTML. Empty: any tag.
+    - **Attributes** — "attribute = value" pairs the tag must also have; the value must be exactly
+      this, but case doesn't matter. Spaces around names and values are removed on saving.
+
+Links from an attribute may be relative (`/img/1.jpg`, `../a.jpg`): they are completed with the
+page's address. Only links starting with `http://` or `https://` are downloaded; the same link is
+downloaded once.
+
+Below the profile:
+
+- **Page address** — the page to download.
+- **User name**, **Password**, **Bearer token** — for sites that need a login. They are
+  **never saved** and are cleared when the window closes. Basic authentication is sent if the user
+  name or the password is filled in, the `Bearer` header if the token is. If both are filled in, the
+  token goes with every request and the user name and password are given when the server asks for
+  them. They are sent **only to the site of the page address**: if the server redirects to another
+  site (or from `https` to plain `http`), they are not sent there.
+- **Tags of the downloaded files** — these tags (and only these) are given to every downloaded
+  file. "Add tags" works as in the metadata window. The list is cleared when the window closes.
+- **Root folder** — a first-level folder of the gallery (or a new name). Each download goes into a
+  new numbered folder inside it: the program finds the folders whose names start with a number
+  (`1-sea`, `004 - village - 2`, `05 - summer`), takes the largest number, adds 1 and appends
+  `-collection`: here `006-collection`. Below 1000 the number has leading zeros.
+
+**"Start download"** starts the work. Before each file there is a random pause of 0.1–3 seconds,
+so the site is not overloaded and its bot protection is not triggered. Meanwhile the window shows
+a progress bar and everything except **"Stop download"** is locked. What has been downloaded before
+a stop is still added to the gallery. A request with no data for 60 seconds fails; error responses
+(404 and the like) are not saved. In the end you see how many links were found, downloaded and
+failed, and which ones failed.
+
+A file is named after the last part of its link without the query: from
+`https://site.com/1280/7/279/82840051/82840051_018_7358.jpg?ver=1` comes `82840051_018_7358.jpg`.
+A link without an extension (`https://site.com/1280/7/279/82840051`) gives `file_007.jpg`, where
+007 is the link's number on the page and the extension follows the server's `Content-Type`
+(`.bin` if it says nothing known). A name that is already taken gets `(1)`, `(2)`… Duplicates are
+**not** skipped here: better a duplicate than a missing file; "Find duplicates…" removes them.
+
+The folders (the root folder and `006-collection`) give the downloaded files no tags. A rescan
+doesn't add them either, since the files are already known; they become tags only if the gallery
+is created anew from its folder (and, as usual, a moved file gets the tags of its new folders).
 
 ## Portable mode (for a USB stick)
 

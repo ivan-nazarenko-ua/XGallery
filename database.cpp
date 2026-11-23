@@ -8,6 +8,9 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QHash>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QRegularExpression>
 #include <QSet>
 #include <QSqlError>
@@ -965,6 +968,118 @@ bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds)
         g_lastError = db.lastError().text();
     db.rollback();
     return false;
+}
+
+// ---- Download profiles --------------------------------------------------------------------
+
+static QString attributesJson(const DownloadProfile &profile)
+{
+    QJsonArray array;
+    for (const auto &attribute : profile.attributes)
+        array.append(QJsonObject{{"name", attribute.first}, {"value", attribute.second}});
+    return QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact));
+}
+
+QList<DownloadProfile> downloadProfiles()
+{
+    QList<DownloadProfile> profiles;
+    QSqlQuery q(mainDb());
+    if (!exec(q, "SELECT name, user_agent, mode, tag, source, classes, attributes FROM download_profiles"))
+        return profiles;
+    while (q.next()) {
+        DownloadProfile profile;
+        profile.name = q.value(0).toString();
+        profile.userAgent = q.value(1).toString();
+        profile.mode = q.value(2).toInt() == 0 ? DownloadProfile::Mode::Page : DownloadProfile::Mode::Files;
+        switch (q.value(3).toInt()) {
+        case 1:
+            profile.tag = DownloadProfile::Tag::Img;
+            break;
+        case 2:
+            profile.tag = DownloadProfile::Tag::A;
+            break;
+        default:
+            profile.tag = DownloadProfile::Tag::Any;
+        }
+        profile.source = q.value(4).toString();
+        profile.classes = q.value(5).toString();
+        const QJsonArray attributes = QJsonDocument::fromJson(q.value(6).toString().toUtf8()).array();
+        for (const QJsonValue &value : attributes) {
+            const QJsonObject attribute = value.toObject();
+            profile.attributes.append({attribute.value("name").toString(), attribute.value("value").toString()});
+        }
+        profiles << profile;
+    }
+    std::sort(profiles.begin(), profiles.end(), [](const DownloadProfile &a, const DownloadProfile &b) {
+        return QString::compare(a.name, b.name, Qt::CaseInsensitive) < 0;
+    });
+    return profiles;
+}
+
+static bool storeDownloadProfile(const QSqlDatabase &db, const DownloadProfile &profile)
+{
+    // A null QString would be bound as NULL; the columns are NOT NULL.
+    const auto text = [](const QString &value) { return value.isNull() ? QStringLiteral("") : value; };
+    QSqlQuery q(db);
+    q.prepare("INSERT INTO download_profiles(name, user_agent, mode, tag, source, classes, attributes) "
+              "VALUES(?, ?, ?, ?, ?, ?, ?) "
+              "ON CONFLICT(name) DO UPDATE SET user_agent = excluded.user_agent, mode = excluded.mode, "
+              "tag = excluded.tag, source = excluded.source, classes = excluded.classes, "
+              "attributes = excluded.attributes");
+    q.addBindValue(profile.name);
+    q.addBindValue(text(profile.userAgent));
+    q.addBindValue(profile.mode == DownloadProfile::Mode::Page ? 0 : 1);
+    q.addBindValue(profile.tag == DownloadProfile::Tag::Img ? 1 : profile.tag == DownloadProfile::Tag::A ? 2 : 0);
+    q.addBindValue(text(profile.source));
+    q.addBindValue(text(profile.classes));
+    q.addBindValue(attributesJson(profile));
+    return exec(q);
+}
+
+bool saveDownloadProfile(const DownloadProfile &profile)
+{
+    return storeDownloadProfile(mainDb(), profile);
+}
+
+bool deleteDownloadProfile(const QString &name)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("DELETE FROM download_profiles WHERE name = ?");
+    q.addBindValue(name);
+    return exec(q);
+}
+
+bool saveDownloadProfiles(const QList<DownloadProfile> &profiles, int *replaced)
+{
+    QSqlDatabase db = mainDb();
+    QSet<QString> existing;
+    {
+        QSqlQuery q(db);
+        if (!exec(q, "SELECT name FROM download_profiles"))
+            return false;
+        while (q.next())
+            existing.insert(q.value(0).toString());
+    }
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return false;
+    }
+    *replaced = 0;
+    for (const DownloadProfile &profile : profiles) {
+        if (!storeDownloadProfile(db, profile)) {
+            db.rollback();
+            return false;
+        }
+        if (existing.contains(profile.name))
+            ++*replaced;
+        existing.insert(profile.name); // a name twice in the file: the second one replaces
+    }
+    if (!db.commit()) {
+        g_lastError = db.lastError().text();
+        db.rollback();
+        return false;
+    }
+    return true;
 }
 
 } // namespace Db

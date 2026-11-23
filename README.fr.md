@@ -236,6 +236,8 @@ programme vous demande quoi en faire.
   combien de doublons ont été ignorés. Les noms que Windows réserve aux périphériques (`CON`,
   `NUL`, `COM1`…) reçoivent un `_` dans le nom du dossier (`CON_`), tandis que le tag reste sans
   lui (« Con »).
+- **Télécharger depuis Internet…** — le gestionnaire de téléchargement, voir
+  [Téléchargement depuis Internet](#téléchargement-depuis-internet).
 - **Rechercher les doublons…** — des groupes de fichiers au contenu identique. Cochez ceux qui
   sont en trop et cliquez sur « Supprimer » : les fichiers vont dans la **Corbeille**. Si vous
   cochez tous les fichiers d'un groupe, le premier est conservé.
@@ -260,6 +262,82 @@ Tant que **« Conserver l'extension lors du renommage »** est activé dans le m
 (c'est le cas par défaut), le champ n'affiche que le nom sans l'extension, et celle-ci ne peut pas
 être modifiée. Si vous le désactivez, le champ affiche le nom complet et l'extension devient
 modifiable.
+
+## Téléchargement depuis Internet
+
+**Fichier → Télécharger depuis Internet…** ouvre le gestionnaire de téléchargement. Il télécharge
+une page web, ou les fichiers vers lesquels elle pointe, dans la galerie actuelle. Il n'envoie que
+des requêtes GET, une à la fois.
+
+Les **profils** décrivent comment trouver les fichiers sur une page. Ils fonctionnent comme les
+sessions enregistrées de PuTTY : saisissez un nom et cliquez sur **« Enregistrer »** (un profil de
+ce nom est remplacé après confirmation) ; sélectionnez un profil dans la liste et cliquez sur
+**« Charger »** (ou double-cliquez dessus) pour remplir les champs ; **« Supprimer »** retire le
+profil sélectionné. Les profils appartiennent au programme, pas à une galerie.
+**« Exporter… »** enregistre tous les profils dans un fichier JSON, **« Importer… »** ajoute les
+profils d'un tel fichier (les profils portant le même nom sont remplacés).
+
+Un profil contient :
+
+- **User-Agent** — envoyé dans l'en-tête `User-Agent` ; vide, c'est celui de Qt par défaut.
+- **Mode** :
+  - **Télécharger la page** — la page elle-même est enregistrée sous `page_1.html` (ou
+    `page_1.bin` si le serveur indique que ce n'est pas du `text/html`). Les autres champs du
+    profil ne servent pas et sont verrouillés.
+  - **Télécharger les fichiers de la page** — le programme cherche des liens sur la page selon
+    ces champs :
+    - **Balise** — n'importe laquelle, `img` ou `a`.
+    - **Source des liens** — le nom de l'attribut (`src`, `href`, `data-original`…) d'où le lien
+      est tiré. Vide : le texte à l'intérieur de la balise est pris (balises internes retirées).
+    - **Classe** — des classes séparées par des espaces : la balise doit les avoir toutes, dans
+      n'importe quel ordre. La casse compte, comme en HTML. Vide : n'importe quelle balise.
+    - **Attributs** — des paires « attribut = valeur » que la balise doit aussi avoir ; la valeur
+      doit être exactement celle-ci, sans tenir compte de la casse. Les espaces autour des noms et
+      des valeurs sont retirés à l'enregistrement.
+
+Les liens tirés d'un attribut peuvent être relatifs (`/img/1.jpg`, `../a.jpg`) : ils sont complétés
+par l'adresse de la page. Seuls les liens commençant par `http://` ou `https://` sont téléchargés ;
+un même lien n'est téléchargé qu'une fois.
+
+Sous le profil :
+
+- **Adresse de la page** — la page à télécharger.
+- **Nom d'utilisateur**, **Mot de passe**, **Jeton Bearer** — pour les sites qui demandent une
+  connexion. Ils ne sont **jamais enregistrés** et sont effacés à la fermeture de la fenêtre.
+  L'authentification Basic est envoyée si le nom ou le mot de passe est rempli, l'en-tête `Bearer`
+  si le jeton l'est. Si les deux sont remplis, le jeton accompagne chaque requête et le nom et le
+  mot de passe sont fournis quand le serveur les demande. Ils ne sont envoyés **qu'au site de
+  l'adresse de la page** : si le serveur redirige vers un autre site (ou de `https` vers `http`
+  simple), ils n'y sont pas envoyés.
+- **Tags des fichiers téléchargés** — ces tags (et eux seuls) sont donnés à chaque fichier
+  téléchargé. « Ajouter des tags » fonctionne comme dans la fenêtre des métadonnées. La liste est
+  effacée à la fermeture de la fenêtre.
+- **Dossier racine** — un dossier de premier niveau de la galerie (ou un nouveau nom). Chaque
+  téléchargement va dans un nouveau dossier numéroté à l'intérieur : le programme trouve les
+  dossiers dont le nom commence par un nombre (`1-mer`, `004 - village - 2`, `05 - été`), prend le
+  plus grand, ajoute 1 et ajoute `-collection` : ici `006-collection`. En dessous de 1000, le
+  nombre a des zéros en tête.
+
+**« Démarrer le téléchargement »** lance le travail. Avant chaque fichier, une pause aléatoire de
+0,1 à 3 secondes évite de surcharger le site et de déclencher sa protection contre les robots.
+Pendant ce temps, la fenêtre affiche une barre de progression et tout est verrouillé sauf
+**« Arrêter le téléchargement »**. Ce qui a été téléchargé avant l'arrêt est tout de même ajouté à
+la galerie. Une requête sans données pendant 60 secondes échoue ; les réponses d'erreur (404, etc.)
+ne sont pas enregistrées. À la fin, vous voyez combien de liens ont été trouvés, téléchargés et en
+erreur, et lesquels.
+
+Un fichier prend le nom de la dernière partie de son lien, sans les paramètres : de
+`https://site.com/1280/7/279/82840051/82840051_018_7358.jpg?ver=1` vient `82840051_018_7358.jpg`.
+Un lien sans extension (`https://site.com/1280/7/279/82840051`) donne `file_007.jpg`, où 007 est
+le numéro du lien sur la page et l'extension suit le `Content-Type` de la réponse du serveur
+(`.bin` s'il n'indique rien de connu). Un nom déjà pris reçoit `(1)`, `(2)`… Les doublons ne sont
+**pas** ignorés ici : mieux vaut un doublon qu'un fichier manquant ; « Rechercher les doublons… »
+les retire.
+
+Les dossiers (racine et `006-collection`) ne donnent aucun tag aux fichiers téléchargés. Une
+analyse ne les ajoute pas non plus, car les fichiers sont déjà connus ; ils ne deviennent des tags
+que si la galerie est recréée à partir de son dossier (et, comme toujours, un fichier déplacé
+reçoit les tags de ses nouveaux dossiers).
 
 ## Mode portable (pour une clé USB)
 

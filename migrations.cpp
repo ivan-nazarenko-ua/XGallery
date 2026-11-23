@@ -540,6 +540,22 @@ bool toV11TagGroups(Sql &s)
         && s.exec("CREATE INDEX idx_tags_group ON tags(group_id)");
 }
 
+// ---- v11 -> v12: download profiles ------------------------------------------------------------
+// Profiles of the download manager, program-wide (no gallery). mode: 0 = page, 1 = files;
+// tag: 0 = any, 1 = img, 2 = a; attributes: JSON array of {"name", "value"}.
+bool toV12DownloadProfiles(Sql &s)
+{
+    return s.exec("CREATE TABLE download_profiles ("
+                  " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                  " name TEXT NOT NULL UNIQUE,"
+                  " user_agent TEXT NOT NULL DEFAULT '',"
+                  " mode INTEGER NOT NULL DEFAULT 1,"
+                  " tag INTEGER NOT NULL DEFAULT 0,"
+                  " source TEXT NOT NULL DEFAULT '',"
+                  " classes TEXT NOT NULL DEFAULT '',"
+                  " attributes TEXT NOT NULL DEFAULT '[]')");
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -619,6 +635,7 @@ static const QList<Migrations::Step> &steps()
         {toV9Collections, false},
         {toV10CollectionNameKey, false},
         {toV11TagGroups, false},
+        {toV12DownloadProfiles, false},
     };
     return list;
 }

@@ -493,6 +493,23 @@ bool isRealFolder(const QFileInfo &info)
     return info.isDir() && !info.isSymLink() && !info.isJunction();
 }
 
+QStringList realSubfolders(const QString &folder)
+{
+    QStringList folders;
+    const QFileInfoList entries = QDir(folder).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden,
+                                                             QDir::Name | QDir::IgnoreCase);
+    for (const QFileInfo &entry : entries)
+        if (isRealFolder(entry))
+            folders << entry.fileName();
+    return folders;
+}
+
+bool isValidFolderName(const QString &name)
+{
+    static const QRegularExpression forbidden(QStringLiteral(R"([\\/:*?"<>|])"));
+    return !name.isEmpty() && name != "." && name != ".." && !name.contains(forbidden) && !name.endsWith('.');
+}
+
 bool forEachFile(const QString &folder, bool followLinks,
                  const std::function<bool(const QString &path)> &onFile)
 {
@@ -668,7 +685,13 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
         QString error;
         const bool inserted = insert.exec();
         const qint64 newId = inserted ? insert.lastInsertId().toLongLong() : 0;
-        if (!inserted || !tagWriter.addTags(newId, tagsFromRelativePath(relative), &error)
+        QStringList tags = item.folderTags ? tagsFromRelativePath(relative) : QStringList();
+        for (const QString &tag : item.tags) {
+            const QString normalized = Db::normalizeTag(tag);
+            if (!normalized.isEmpty() && !tags.contains(normalized))
+                tags << normalized;
+        }
+        if (!inserted || !tagWriter.addTags(newId, tags, &error)
             || !Collections::retag(db, {newId}, &moves, &error)) {
             stats.error = error.isEmpty() ? insert.lastError().text() : error;
             db.rollback();

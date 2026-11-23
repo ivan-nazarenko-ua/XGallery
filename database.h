@@ -6,6 +6,8 @@
 #include <QString>
 #include <QStringList>
 
+#include "downloadprofile.h"
+
 struct Gallery
 {
     qint64 id = 0;
@@ -190,6 +192,14 @@ QList<DuplicateGroup> findDuplicates(qint64 galleryId);
 // Removes the records (not the files), then tags nobody uses any more and cached thumbnails
 // no other record needs.
 bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds);
+
+// Download manager profiles (program-wide), sorted by name (case ignored).
+QList<DownloadProfile> downloadProfiles();
+// Stores the profile under its name: replaces the one with that name, or adds it.
+bool saveDownloadProfile(const DownloadProfile &profile);
+bool deleteDownloadProfile(const QString &name);
+// Saves all of them in one transaction (import); *replaced = how many names existed before.
+bool saveDownloadProfiles(const QList<DownloadProfile> &profiles, int *replaced);
 
 } // namespace Db
 

@@ -52,6 +52,392 @@
     </message>
 </context>
 <context>
+    <name>DownloadDialog</name>
+    <message>
+        <source>Завантажити сторінку</source>
+        <translation>Télécharger la page</translation>
+    </message>
+    <message>
+        <source>Завантажити файли зі сторінки</source>
+        <translation>Télécharger les fichiers de la page</translation>
+    </message>
+    <message>
+        <source>Видалити тег</source>
+        <translation>Retirer le tag</translation>
+    </message>
+    <message>
+        <source>Завантаження з інтернету — %1</source>
+        <translation>Téléchargement depuis Internet — %1</translation>
+    </message>
+    <message>
+        <source>Профілі</source>
+        <translation>Profils</translation>
+    </message>
+    <message>
+        <source>назва профілю</source>
+        <translation>nom du profil</translation>
+    </message>
+    <message>
+        <source>Відкрити</source>
+        <translation>Charger</translation>
+    </message>
+    <message>
+        <source>Заповнити поля обраним профілем (або подвійний клік по ньому)</source>
+        <translation>Remplir les champs avec le profil sélectionné (ou double-cliquez dessus)</translation>
+    </message>
+    <message>
+        <source>Зберегти</source>
+        <translation>Enregistrer</translation>
+    </message>
+    <message>
+        <source>Зберегти поля профілю під назвою з поля вище</source>
+        <translation>Enregistrer les champs du profil sous le nom saisi ci-dessus</translation>
+    </message>
+    <message>
+        <source>Видалити</source>
+        <translation>Supprimer</translation>
+    </message>
+    <message>
+        <source>Експорт…</source>
+        <translation>Exporter…</translation>
+    </message>
+    <message>
+        <source>Зберегти всі профілі в JSON-файл</source>
+        <translation>Enregistrer tous les profils dans un fichier JSON</translation>
+    </message>
+    <message>
+        <source>Імпорт…</source>
+        <translation>Importer…</translation>
+    </message>
+    <message>
+        <source>Додати профілі з JSON-файлу (профілі з тими самими назвами буде замінено)</source>
+        <translation>Ajouter des profils depuis un fichier JSON (les profils portant le même nom sont remplacés)</translation>
+    </message>
+    <message>
+        <source>Налаштування профілю</source>
+        <translation>Paramètres du profil</translation>
+    </message>
+    <message>
+        <source>порожньо — стандартний</source>
+        <translation>vide — par défaut</translation>
+    </message>
+    <message>
+        <source>будь-який</source>
+        <translation>n&apos;importe laquelle</translation>
+    </message>
+    <message>
+        <source>ім&apos;я атрибута, напр. src чи href; порожньо — вміст тегу</source>
+        <translation>nom d&apos;attribut, p. ex. src ou href ; vide — contenu de la balise</translation>
+    </message>
+    <message>
+        <source>класи через пробіл; порожньо — будь-які</source>
+        <translation>classes séparées par des espaces ; vide — n&apos;importe lesquelles</translation>
+    </message>
+    <message>
+        <source>Атрибут</source>
+        <translation>Attribut</translation>
+    </message>
+    <message>
+        <source>Значення</source>
+        <translation>Valeur</translation>
+    </message>
+    <message>
+        <source>Тег має мати кожен з цих атрибутів саме з таким значенням (регістр не важить)</source>
+        <translation>La balise doit avoir chacun de ces attributs avec exactement cette valeur (sans tenir compte de la casse)</translation>
+    </message>
+    <message>
+        <source>Додати атрибут</source>
+        <translation>Ajouter un attribut</translation>
+    </message>
+    <message>
+        <source>Видалити атрибут</source>
+        <translation>Retirer l&apos;attribut</translation>
+    </message>
+    <message>
+        <source>Тег:</source>
+        <translation>Balise :</translation>
+    </message>
+    <message>
+        <source>Джерело посилань:</source>
+        <translation>Source des liens :</translation>
+    </message>
+    <message>
+        <source>Клас:</source>
+        <translation>Classe :</translation>
+    </message>
+    <message>
+        <source>Атрибути:</source>
+        <translation>Attributs :</translation>
+    </message>
+    <message>
+        <source>User-Agent:</source>
+        <translation>User-Agent :</translation>
+    </message>
+    <message>
+        <source>Режим:</source>
+        <translation>Mode :</translation>
+    </message>
+    <message>
+        <source>Сторінка</source>
+        <translation>Page</translation>
+    </message>
+    <message>
+        <source>Адреса сторінки:</source>
+        <translation>Adresse de la page :</translation>
+    </message>
+    <message>
+        <source>Ім&apos;я користувача:</source>
+        <translation>Nom d&apos;utilisateur :</translation>
+    </message>
+    <message>
+        <source>Пароль:</source>
+        <translation>Mot de passe :</translation>
+    </message>
+    <message>
+        <source>Bearer-токен:</source>
+        <translation>Jeton Bearer :</translation>
+    </message>
+    <message>
+        <source>Ім&apos;я, пароль і токен не зберігаються й надсилаються лише на сайт зі вказаної адреси.</source>
+        <translation>Le nom d&apos;utilisateur, le mot de passe et le jeton ne sont jamais enregistrés et ne sont envoyés qu&apos;au site de l&apos;adresse indiquée.</translation>
+    </message>
+    <message>
+        <source>Теги завантажених файлів</source>
+        <translation>Tags des fichiers téléchargés</translation>
+    </message>
+    <message>
+        <source>Копіювати теги</source>
+        <translation>Copier les tags</translation>
+    </message>
+    <message>
+        <source>Вставити теги</source>
+        <translation>Coller les tags</translation>
+    </message>
+    <message>
+        <source>Додати теги</source>
+        <translation>Ajouter des tags</translation>
+    </message>
+    <message>
+        <source>Перша папка галереї. Файли ляжуть у нову папку в ній: «006-collection» тощо.
+Можна вписати нову назву — папку буде створено.</source>
+        <translation>Dossier de premier niveau de la galerie. Les fichiers vont dans un nouveau dossier à l&apos;intérieur : « 006-collection », etc.
+Vous pouvez saisir un nouveau nom — le dossier sera créé.</translation>
+    </message>
+    <message>
+        <source>Коренева папка:</source>
+        <translation>Dossier racine :</translation>
+    </message>
+    <message>
+        <source>Почати завантаження</source>
+        <translation>Démarrer le téléchargement</translation>
+    </message>
+    <message>
+        <source>Обери профіль у списку.</source>
+        <translation>Sélectionnez un profil dans la liste.</translation>
+    </message>
+    <message>
+        <source>Впиши назву профілю.</source>
+        <translation>Saisissez un nom de profil.</translation>
+    </message>
+    <message>
+        <source>Профіль «%1» уже є. Замінити його?</source>
+        <translation>Le profil « %1 » existe déjà. Le remplacer ?</translation>
+    </message>
+    <message>
+        <source>Не вдалося зберегти профіль:
+%1</source>
+        <translation>Impossible d&apos;enregistrer le profil :
+%1</translation>
+    </message>
+    <message>
+        <source>Видалити профіль «%1»?</source>
+        <translation>Supprimer le profil « %1 » ?</translation>
+    </message>
+    <message>
+        <source>Не вдалося видалити профіль:
+%1</source>
+        <translation>Impossible de supprimer le profil :
+%1</translation>
+    </message>
+    <message>
+        <source>Збережених профілів немає.</source>
+        <translation>Il n&apos;y a aucun profil enregistré.</translation>
+    </message>
+    <message>
+        <source>Експорт профілів</source>
+        <translation>Exporter les profils</translation>
+    </message>
+    <message>
+        <source>JSON-файли (*.json)</source>
+        <translation>Fichiers JSON (*.json)</translation>
+    </message>
+    <message>
+        <source>Не вдалося записати файл:
+%1</source>
+        <translation>Impossible d&apos;écrire le fichier :
+%1</translation>
+    </message>
+    <message>
+        <source>Експортовано профілів: %1.</source>
+        <translation>Profils exportés : %1.</translation>
+    </message>
+    <message>
+        <source>Імпорт профілів</source>
+        <translation>Importer des profils</translation>
+    </message>
+    <message>
+        <source>Не вдалося прочитати файл:
+%1</source>
+        <translation>Impossible de lire le fichier :
+%1</translation>
+    </message>
+    <message>
+        <source>Не вдалося зберегти профілі:
+%1</source>
+        <translation>Impossible d&apos;enregistrer les profils :
+%1</translation>
+    </message>
+    <message>
+        <source>Імпортовано профілів: %1 (з них замінено наявних: %2).</source>
+        <translation>Profils importés : %1 (dont profils existants remplacés : %2).</translation>
+    </message>
+    <message>
+        <source>Пропущено пошкоджених записів: %1.</source>
+        <translation>Entrées endommagées ignorées : %1.</translation>
+    </message>
+    <message>
+        <source>Впиши адресу сторінки (http:// або https://).</source>
+        <translation>Saisissez l&apos;adresse de la page (http:// ou https://).</translation>
+    </message>
+    <message>
+        <source>Обери кореневу папку.</source>
+        <translation>Choisissez le dossier racine.</translation>
+    </message>
+    <message>
+        <source>Недопустима назва папки. Не можна використовувати символи \ / : * ? &quot; &lt; &gt; |</source>
+        <translation>Nom de dossier invalide. Ces caractères sont interdits : \ / : * ? &quot; &lt; &gt; |</translation>
+    </message>
+    <message>
+        <source>Папка галереї не існує: %1</source>
+        <translation>Le dossier de la galerie n&apos;existe pas : %1</translation>
+    </message>
+    <message>
+        <source>Не вдалося створити тимчасову папку:
+%1</source>
+        <translation>Impossible de créer un dossier temporaire :
+%1</translation>
+    </message>
+    <message>
+        <source>Завантажую сторінку…
+%1</source>
+        <translation>Téléchargement de la page…
+%1</translation>
+    </message>
+    <message>
+        <source>Не вдалося створити тимчасовий файл:
+%1</source>
+        <translation>Impossible de créer un fichier temporaire :
+%1</translation>
+    </message>
+    <message>
+        <source>Завантаження зупинено.</source>
+        <translation>Téléchargement arrêté.</translation>
+    </message>
+    <message>
+        <source>Не вдалося завантажити сторінку:
+%1</source>
+        <translation>Impossible de télécharger la page :
+%1</translation>
+    </message>
+    <message>
+        <source>Не вдалося зберегти сторінку:
+%1</source>
+        <translation>Impossible d&apos;enregistrer la page :
+%1</translation>
+    </message>
+    <message>
+        <source>На сторінці не знайдено посилань, що підходять під профіль.</source>
+        <translation>Aucun lien correspondant au profil n&apos;a été trouvé sur la page.</translation>
+    </message>
+    <message>
+        <source>Файл %1 з %2: пауза %3 с
+%4</source>
+        <translation>Fichier %1 sur %2 : pause de %3 s
+%4</translation>
+    </message>
+    <message>
+        <source>%1 — не вдалося створити тимчасову папку</source>
+        <translation>%1 — impossible de créer un dossier temporaire</translation>
+    </message>
+    <message>
+        <source>%1 — %2</source>
+        <translation>%1 — %2</translation>
+    </message>
+    <message>
+        <source>Файл %1 з %2</source>
+        <translation>Fichier %1 sur %2</translation>
+    </message>
+    <message>
+        <source>%1: %2 КБ
+%3</source>
+        <translation>%1 : %2 Ko
+%3</translation>
+    </message>
+    <message>
+        <source>Додаю файли в галерею…</source>
+        <translation>Ajout des fichiers à la galerie…</translation>
+    </message>
+    <message>
+        <source>Додано в галерею — %1 (папка «%2»).</source>
+        <translation>Ajoutés à la galerie — %1 (dossier « %2 »).</translation>
+    </message>
+    <message>
+        <source>Пропущено службових файлів (Thumbs.db, desktop.ini тощо) — %1.</source>
+        <translation>Fichiers système ignorés (Thumbs.db, desktop.ini, etc.) — %1.</translation>
+    </message>
+    <message>
+        <source>Не вдалося скопіювати:
+%1</source>
+        <translation>Copie impossible :
+%1</translation>
+    </message>
+    <message>
+        <source>Сторінку завантажено.</source>
+        <translation>La page a été téléchargée.</translation>
+    </message>
+    <message>
+        <source>Знайдено посилань — %1, завантажено — %2, з помилкою — %3.</source>
+        <translation>Liens trouvés — %1, téléchargés — %2, en erreur — %3.</translation>
+    </message>
+    <message>
+        <source>Не завантажено:</source>
+        <translation>Non téléchargés :</translation>
+    </message>
+    <message>
+        <source>…і ще %1</source>
+        <translation>…et %1 de plus</translation>
+    </message>
+    <message>
+        <source>Зупинити завантаження</source>
+        <translation>Arrêter le téléchargement</translation>
+    </message>
+</context>
+<context>
+    <name>DownloadProfiles</name>
+    <message>
+        <source>Файл не є коректним JSON: %1</source>
+        <translation>Le fichier n&apos;est pas un JSON valide : %1</translation>
+    </message>
+    <message>
+        <source>Це не файл профілів завантаження XGallery.</source>
+        <translation>Ce n&apos;est pas un fichier de profils de téléchargement XGallery.</translation>
+    </message>
+    <message>
+        <source>Файл створено новішою версією програми, його не прочитати.</source>
+        <translation>Le fichier a été créé par une version plus récente du programme et ne peut pas être lu.</translation>
+    </message>
+</context>
+<context>
     <name>DuplicatesDialog</name>
     <message>
         <source>Видалити</source>
@@ -249,6 +635,33 @@ puis les groupes dans cet ordre. On met un tag dans un groupe par un clic droit 
     <message>
         <source>Перейменувати групу</source>
         <translation>Renommer le groupe</translation>
+    </message>
+</context>
+<context>
+    <name>HttpFetcher</name>
+    <message>
+        <source>Відповідь завелика (понад %1 МБ).</source>
+        <translation>La réponse est trop volumineuse (plus de %1 Mo).</translation>
+    </message>
+    <message>
+        <source>Не вдалося записати файл: %1</source>
+        <translation>Impossible d&apos;écrire le fichier : %1</translation>
+    </message>
+    <message>
+        <source>HTTP %1: перенаправлення без адреси.</source>
+        <translation>HTTP %1 : redirection sans adresse.</translation>
+    </message>
+    <message>
+        <source>Забагато перенаправлень.</source>
+        <translation>Trop de redirections.</translation>
+    </message>
+    <message>
+        <source>Перенаправлення на непідтримувану адресу: %1</source>
+        <translation>Redirection vers une adresse non prise en charge : %1</translation>
+    </message>
+    <message>
+        <source>Сервер не відповідав %1 с.</source>
+        <translation>Le serveur n&apos;a pas répondu pendant %1 s.</translation>
     </message>
 </context>
 <context>
@@ -1175,6 +1588,14 @@ Si la case est décochée, la prochaine analyse retire de la base les fichiers t
     <message>
         <source>Вимкнути</source>
         <translation>Désactiver</translation>
+    </message>
+    <message>
+        <source>Завантажити з &amp;інтернету…</source>
+        <translation>Télécharger depuis &amp;Internet…</translation>
+    </message>
+    <message>
+        <source>Завантажити з інтернету</source>
+        <translation>Télécharger depuis Internet</translation>
     </message>
 </context>
 <context>

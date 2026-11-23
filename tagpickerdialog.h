@@ -29,6 +29,9 @@ public:
     // The file's tags changed in the metadata dialog meanwhile: boxes the user hasn't touched follow.
     void setAssignedTags(const QStringList &tags);
 
+    // Off: right click can't mark a gallery tag for deletion (only take a new, typed one off the list).
+    void setGalleryDeletionAllowed(bool allowed) { m_galleryDeletionAllowed = allowed; }
+
     QStringList addedTags() const;   // ticked here, the file didn't have them (new tags included)
     QStringList removedTags() const; // the file had them, cleared here
     QStringList deletedTags() const; // gallery tags the user asked to delete everywhere
@@ -58,6 +61,7 @@ private:
     QStringList m_assignedTags;
     QStringList m_partialTags;
     QStringList m_deletedTags;
+    bool m_galleryDeletionAllowed = true;
     QList<Entry> m_entries; // in display order
     QLineEdit *m_newTagsEdit;
     QScrollArea *m_scrollArea;

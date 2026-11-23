@@ -26,7 +26,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (`ole32 shell32 uuid`, for Explorer thumbnails) are linked under `if(WIN32)`.
 - There are no unit tests in the repo. Verify logic with a throwaway console program in the
   scratchpad that compiles the needed `.cpp` files (`database`, `migrations`, `scanner`,
-  `mediafiles`, `imagerotation`, `virtualpath`, `collections`) and sets `QCoreApplication::setApplicationName("XGalleryScanTest")`
+  `mediafiles`, `imagerotation`, `virtualpath`, `collections`, `thumbcache`; for downloads also `downloadprofile`,
+  `htmllinks`, `downloadnames`, `httpfetcher` + Qt Network; HTTP is tested against a local Python `http.server`) and sets `QCoreApplication::setApplicationName("XGalleryScanTest")`
   so it never touches the real DB. Delete `%APPDATA%\XGalleryScanTest` afterwards.
 - Do not put test files into the user's Recycle Bin, and do not read the user's personal files.
 - The shell Claude runs in sees a virtualized `%APPDATA%`, not the user's real DB.
@@ -46,6 +47,11 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating. `GalleryDialog` also edits the tag groups |
 | `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
 | `collections.*` | Collections: xxh128 of the virtual path (`hashOf`), default name, `retag` (vpath/vpath_key/vpath_hash of files) and `sync` (collection rows: transfer, create, delete, covers) |
+| `downloaddialog.*` | "Завантажити з інтернету" window: profiles (PuTTY-like), never-saved login/password/token, tags, root folder, the run (page → links → files one by one → `Scanner::importFiles`) |
+| `downloadprofile.*` | `DownloadProfile` (mode, tag, source attribute, classes, attributes) + JSON of one profile and of the export file |
+| `htmllinks.*` | Regex tag tokenizer (no WebKit): profile → strings → links; entities; page charset (Windows code pages when Qt has no ICU) |
+| `downloadnames.*` | Next `NNN-collection` folder, file name from a link, `file_NNN.ext`, `page_N.html/bin`, extension from Content-Type |
+| `httpfetcher.*` | One GET at a time over `QNetworkAccessManager`: manual redirects, credentials only for the page's host, 60 s transfer timeout |
 | `thumbcache.*` | Grid thumbnails cached as `thumbs/<first 2 hex>/<sha256>.png` next to the DB (256 subfolders: FAT32 per-folder limit) (`ThumbCache::thumbnail` = load or make+store; stores only real previews of images and videos, never extension cards — a video Windows can't preview is tried again; "other" files skip the cache). All errors ignored |
 | `third_party/xxhash/` | Vendored xxHash 0.8.3 single header (BSD-2, used header-only via `XXH_INLINE_ALL` in `collections.cpp`) |
 | `i18n.*`, `languagedialog.*`, `translations/*.ts`, `flags/` | UI language (uk source, en/fr translations), first-start flag dialog, flag SVGs + rendered PNGs (48x32 and @2x) |
@@ -54,9 +60,9 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 ## Rules that must keep holding
 
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
-  never edit existing steps. Current version: 11 (galleries; rating+name; allow_upscale; no commas in tags;
+  never edit existing steps. Current version: 12 (galleries; rating+name; allow_upscale; no commas in tags;
   normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space;
-  collections — images.rating dropped; collections.name_key; tag groups).
+  collections — images.rating dropped; collections.name_key; tag groups; download profiles).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -160,6 +166,19 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   -target-language en|fr *.cpp *.h -ts translations/xgallery_en|fr.ts` and fill the new
   translations (the build embeds the .qm files via `qt_add_translations`). Keep 0 unfinished.
   `<без тегів>` is shown and parsed in the UI language (`noTagsDisplayName`).
+- **Download manager** (`DownloadDialog`, File menu "Завантажити з інтернету…", needs a gallery): GET only, one request at a
+  time, random 0.1–3 s pause before every file, 60 s transfer timeout, error responses not saved. Profiles: table
+  `download_profiles` (program-wide, name UNIQUE), saved like PuTTY sessions; JSON export/import replaces by name.
+  Page mode: `page_N.html` (Content-Type text/html) or `.bin`, other profile fields locked. Files mode: tag any/img/a, source
+  attribute (empty = body text without inner tags), classes (all present, case-sensitive), attributes (name case-insensitive,
+  exact value case-insensitive); attribute links are resolved against the page (`<base href>`), a body's text only if absolute;
+  only http(s), fragment dropped, each link once. Login/password/token and the tag list live only in the window; Basic if
+  user or password is set, Bearer if the token is (both: Bearer sent, Basic answers a 401); only to the page's host, never
+  after an https→http redirect; Qt's auth cache is cleared per run. Target: `<root folder>/<NNN>-collection` (NNN = max leading
+  number of the root folder's subfolders + 1, 3 digits below 1000). File name = last link segment (decoded, made valid), no
+  extension → `file_NNN.<ext from Content-Type or bin>`. Files are imported with `ImportItem::keepDuplicate`, `folderTags = false`
+  and `tags` = the window's tags (owner's decision: no folder tags, the user picks the tags in the window). While it runs only "Зупинити завантаження" works and the window can't close; stopping
+  still imports what was downloaded.
 - "Сховати чужі теги": the tag list shows `Db::tagsOfSearch` (tags of the last search's results).
 - Tag filter field (`m_tagFilterEdit`, under that checkbox): always hides list entries not containing its text
   (case-insensitive); the `<без тегів>` service entry always stays. Only the user changes the text; it is not saved between runs.

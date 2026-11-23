@@ -3,6 +3,7 @@
 
 #include <QPromise>
 #include <QString>
+#include <QStringList>
 
 #include <functional>
 #include <optional>
@@ -46,6 +47,8 @@ struct ImportItem
     QString targetDir; // folder inside the gallery, relative to its root, '/'-separated
     QString targetName = {};     // file name in the gallery; empty = the source's name
     bool keepDuplicate = false;  // the user asked for a copy: same content is not skipped
+    QStringList tags = {};       // given to the file besides (or instead of) the folder tags; normalized here
+    bool folderTags = true;      // false: the folders of targetDir give no tags
 };
 
 struct ImportStats
@@ -73,6 +76,13 @@ bool exportCopy(const QString &source, const QString &destination);
 
 // A real directory, not a symlink or an NTFS junction (those may lead outside the gallery).
 bool isRealFolder(const QFileInfo &info);
+
+// Names of the real folders right in `folder` (no links), sorted case-insensitively.
+QStringList realSubfolders(const QString &folder);
+
+// A name the user may give to a first-level folder of the gallery: not empty, not "." or "..",
+// none of \ / : * ? " < > |, no '.' at the end. (Device names are fine: import adds '_'.)
+bool isValidFolderName(const QString &name);
 
 // Calls onFile for every readable file under folder, hidden and system ones too, folder by folder.
 // Links to folders (junctions, symlinks) are entered only with followLinks, and only after every
