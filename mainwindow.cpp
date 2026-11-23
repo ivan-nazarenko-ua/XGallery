@@ -56,6 +56,7 @@ namespace {
 const char *CurrentGalleryKey = "current_gallery";
 const char *SortOrderKey = "sort_order";
 const char *KeepExtensionKey = "keep_extension_on_rename"; // "0" = off; not set = on
+const char *FollowFolderLinksKey = "follow_folder_links";    // "1" = on; not set = off
 
 // Lays text out in lines of the given width: at word boundaries, a word longer than a line is
 // broken anywhere (like CSS overflow-wrap: break-word). Returns the height of the text.
@@ -181,6 +182,7 @@ MainWindow::MainWindow(QWidget *parent)
     Db::makeRootsPortable();
     ThumbCache::init();
     m_keepExtensionAction->setChecked(Db::setting(KeepExtensionKey) != "0");
+    m_followLinksAction->setChecked(Db::setting(FollowFolderLinksKey) == "1");
     {
         const QSignalBlocker blocker(m_sortCombo);
         const int saved = m_sortCombo->findData(Db::setting(SortOrderKey).toInt());
@@ -220,6 +222,10 @@ void MainWindow::buildUi()
     connect(m_keepExtensionAction, &QAction::triggered, this, [](bool checked) {
         Db::setSetting(KeepExtensionKey, checked ? "1" : "0");
     });
+    m_followLinksAction = m_settingsMenu->addAction(QString());
+    m_followLinksAction->setCheckable(true);
+    connect(m_followLinksAction, &QAction::triggered, this, &MainWindow::setFollowFolderLinks);
+    m_settingsMenu->setToolTipsVisible(true);
 
     // "Language" stays in English in every language; each item is in its own language.
     QMenu *languageMenu = menuBar()->addMenu(QStringLiteral("&Language"));
@@ -432,6 +438,12 @@ void MainWindow::retranslateUi()
     m_fileMenu->setTitle(tr("&Файл"));
     m_settingsMenu->setTitle(tr("&Налаштування"));
     m_keepExtensionAction->setText(tr("Зберігати розширення при перейменуванні"));
+    m_followLinksAction->setText(tr("Заходити в junction-папки"));
+    m_followLinksAction->setToolTip(
+        tr("Рескан і «Додати папку» заходять також у junction-папки й символьні посилання на папки.\n"
+           "Кожна папка обходиться лише раз, тож зациклення не буде.\n"
+           "Якщо зняти галочку, наступний рескан прибере з бази файли, знайдені через такі папки (разом з їхніми тегами).\n"
+           "«Видалити сміття» в такі папки не заходить ніколи."));
     m_createGalleryAction->setText(tr("&Створити галерею…"));
     m_editGalleryAction->setText(tr("&Редагувати галерею…"));
     m_rescanAction->setText(tr("Рес&кан"));
@@ -689,8 +701,9 @@ void MainWindow::startRescan()
 
     const qint64 galleryId = gallery->id;
     const QString root = gallery->rootFolder;
-    watcher->setFuture(QtConcurrent::run([galleryId, root](QPromise<ScanStats> &promise) {
-        Scanner::rescan(promise, galleryId, root);
+    const bool followLinks = m_followLinksAction->isChecked();
+    watcher->setFuture(QtConcurrent::run([galleryId, root, followLinks](QPromise<ScanStats> &promise) {
+        Scanner::rescan(promise, galleryId, root, followLinks);
     }));
 }
 
@@ -1661,12 +1674,43 @@ void MainWindow::deleteJunk()
     watcher->setFuture(QtConcurrent::run([root] { return Scanner::findJunk(root); }));
 }
 
+void MainWindow::setFollowFolderLinks(bool follow)
+{
+    QMessageBox box(QMessageBox::Warning, tr("Заходити в junction-папки"),
+                    follow ? tr("Увімкнути перехід у junction-папки?") : tr("Вимкнути перехід у junction-папки?"),
+                    QMessageBox::NoButton, this);
+    box.setInformativeText(
+        follow ? tr("Рескан і «Додати папку» заходитимуть також у junction-папки й символьні посилання на папки.\n\n"
+                    "• Файли, на які вони ведуть, можуть лежати поза кореневою папкою галереї: на іншому диску, "
+                    "у мережі, в іншій галереї. Після наступного рескану вони з'являться в галереї.\n"
+                    "• Усе, що програма робить із такими файлами (поворот, перейменування, видалення в Кошик), "
+                    "змінює оригінали, а не посилання.\n"
+                    "• Кожна папка обходиться лише раз, тож посилання, що веде вгору, не зациклить програму.\n"
+                    "• «Видалити сміття» в такі папки не заходить ніколи.")
+               : tr("Рескан і «Додати папку» більше не заходитимуть у junction-папки й символьні посилання на папки.\n\n"
+                    "• Наступний рескан прибере з бази всі файли, знайдені через такі папки, разом з їхніми тегами. "
+                    "Колекції, що лишаться без файлів, зникнуть разом із назвами, рейтингами й обкладинками.\n"
+                    "• Самі файли на диску не зміняться.\n"
+                    "• Якщо потім знову увімкнути, ці файли повернуться як нові, без ручних тегів."));
+    QPushButton *yes = box.addButton(follow ? tr("Увімкнути") : tr("Вимкнути"), QMessageBox::AcceptRole);
+    QPushButton *no = box.addButton(tr("Скасувати"), QMessageBox::RejectRole);
+    box.setDefaultButton(no);
+    box.exec();
+    if (box.clickedButton() != yes) {
+        m_followLinksAction->setChecked(!follow); // setChecked doesn't emit triggered
+        return;
+    }
+    Db::setSetting(FollowFolderLinksKey, follow ? "1" : "0");
+    statusBar()->showMessage(tr("Зміниться під час наступного рескану."), 5000);
+}
+
 QString MainWindow::chooseRootTag(const QString &title, const QString &suggestion)
 {
     const Gallery *gallery = currentGallery();
     if (!gallery)
         return {};
-    // Real folders only: rescan doesn't walk into junctions or symlinked folders.
+    // Real folders only, whatever the setting: a link leads outside the gallery, and the import
+    // refuses a target folder outside it.
     QStringList folders;
     const QFileInfoList entries = QDir(gallery->rootFolder)
                                       .entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden,
@@ -1750,10 +1794,11 @@ void MainWindow::addFolderToGallery()
         }
 
     // Every file under `from`, going to `tag` + its subfolder path below `from`.
-    // Junctions and symlinked folders are not walked into, as in rescan.
-    auto collectInto = [](const QString &from, const QString &tag, QList<Scanner::ImportItem> &items) {
+    // Folder links as in rescan: only with the setting, never in circles.
+    const bool followLinks = m_followLinksAction->isChecked();
+    auto collectInto = [followLinks](const QString &from, const QString &tag, QList<Scanner::ImportItem> &items) {
         const QDir base(from);
-        Scanner::forEachFile(from, [&](const QString &file) {
+        Scanner::forEachFile(from, followLinks, [&](const QString &file) {
             if (!Scanner::isIgnoredFile(file)) {
                 const QString sub = base.relativeFilePath(QFileInfo(file).absolutePath());
                 items.append({file, QDir::cleanPath(tag + '/' + sub)});
@@ -1779,7 +1824,7 @@ void MainWindow::addFolderToGallery()
     QStringList subfolders;
     const QFileInfoList entries = sourceDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden);
     for (const QFileInfo &entry : entries)
-        if (Scanner::isRealFolder(entry))
+        if (followLinks || Scanner::isRealFolder(entry))
             subfolders << entry.fileName();
     if (subfolders.isEmpty()) {
         QMessageBox::information(this, tr("Додати папку"), tr("У цій папці немає файлів для додавання."));

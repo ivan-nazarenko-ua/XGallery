@@ -1116,6 +1116,66 @@ Largest first: by file size (largest first), then as classic.</translation>
         <translation>Could not change the tag&apos;s group:
 %1</translation>
     </message>
+    <message>
+        <source>Зміниться під час наступного рескану.</source>
+        <translation>Takes effect at the next rescan.</translation>
+    </message>
+    <message>
+        <source>Заходити в junction-папки</source>
+        <translation>Enter junction folders</translation>
+    </message>
+    <message>
+        <source>Рескан і «Додати папку» заходять також у junction-папки й символьні посилання на папки.
+Кожна папка обходиться лише раз, тож зациклення не буде.
+Якщо зняти галочку, наступний рескан прибере з бази файли, знайдені через такі папки (разом з їхніми тегами).
+«Видалити сміття» в такі папки не заходить ніколи.</source>
+        <translation>Rescan and &quot;Add folder&quot; also enter junction folders and symbolic links to folders.
+Each folder is walked only once, so there are no endless loops.
+When unticked, the next rescan removes the files found through such folders from the database (with their tags).
+&quot;Delete junk&quot; never enters such folders.</translation>
+    </message>
+    <message>
+        <source>Увімкнути перехід у junction-папки?</source>
+        <translation>Enter junction folders?</translation>
+    </message>
+    <message>
+        <source>Вимкнути перехід у junction-папки?</source>
+        <translation>Stop entering junction folders?</translation>
+    </message>
+    <message>
+        <source>Рескан і «Додати папку» заходитимуть також у junction-папки й символьні посилання на папки.
+
+• Файли, на які вони ведуть, можуть лежати поза кореневою папкою галереї: на іншому диску, у мережі, в іншій галереї. Після наступного рескану вони з&apos;являться в галереї.
+• Усе, що програма робить із такими файлами (поворот, перейменування, видалення в Кошик), змінює оригінали, а не посилання.
+• Кожна папка обходиться лише раз, тож посилання, що веде вгору, не зациклить програму.
+• «Видалити сміття» в такі папки не заходить ніколи.</source>
+        <translation>Rescan and &quot;Add folder&quot; will also enter junction folders and symbolic links to folders.
+
+• The files they lead to may lie outside the gallery&apos;s root folder: on another drive, on the network, in another gallery. They appear in the gallery after the next rescan.
+• Everything the program does with such files (rotation, renaming, moving to the Recycle Bin) changes the originals, not the links.
+• Each folder is walked only once, so a link pointing back up can&apos;t make the program loop.
+• &quot;Delete junk&quot; never enters such folders.</translation>
+    </message>
+    <message>
+        <source>Рескан і «Додати папку» більше не заходитимуть у junction-папки й символьні посилання на папки.
+
+• Наступний рескан прибере з бази всі файли, знайдені через такі папки, разом з їхніми тегами. Колекції, що лишаться без файлів, зникнуть разом із назвами, рейтингами й обкладинками.
+• Самі файли на диску не зміняться.
+• Якщо потім знову увімкнути, ці файли повернуться як нові, без ручних тегів.</source>
+        <translation>Rescan and &quot;Add folder&quot; will no longer enter junction folders and symbolic links to folders.
+
+• The next rescan removes all files found through such folders from the database, together with their tags. Collections left without files disappear with their names, ratings and covers.
+• The files on disk stay unchanged.
+• If you turn it on again later, these files come back as new ones, without manual tags.</translation>
+    </message>
+    <message>
+        <source>Увімкнути</source>
+        <translation>Turn on</translation>
+    </message>
+    <message>
+        <source>Вимкнути</source>
+        <translation>Turn off</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>

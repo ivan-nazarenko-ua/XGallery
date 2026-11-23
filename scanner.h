@@ -23,8 +23,9 @@ struct ScanStats
 namespace Scanner {
 
 // Synchronises the gallery's records in the database with the files under rootFolder.
+// followLinks: also walk into junctions and symlinked folders (forEachFile).
 // Meant to run in a worker thread (QtConcurrent::run); opens its own DB connection.
-void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootFolder);
+void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootFolder, bool followLinks);
 
 // Hex sha256 of the file's content, empty if it can't be read.
 QString fileSha256(const QString &path);
@@ -70,14 +71,17 @@ std::optional<QString> folderInGallery(const QString &rootFolder, const QString 
 // the copy has succeeded. Worker-thread safe.
 bool exportCopy(const QString &source, const QString &destination);
 
-// A folder the program walks into: a real directory, not a symlink or an NTFS junction. Those may
-// lead outside the gallery or back up into it (an endless walk), so no walk ever enters them.
+// A real directory, not a symlink or an NTFS junction (those may lead outside the gallery).
 bool isRealFolder(const QFileInfo &info);
 
-// Calls onFile for every readable file under folder, hidden and system ones too, going folder by
-// folder into real subfolders only (isRealFolder). onFile returns false to stop the walk; then
-// forEachFile returns false too. Worker-thread safe.
-bool forEachFile(const QString &folder, const std::function<bool(const QString &path)> &onFile);
+// Calls onFile for every readable file under folder, hidden and system ones too, folder by folder.
+// Links to folders (junctions, symlinks) are entered only with followLinks, and only after every
+// folder reachable without them, so a folder reachable both ways is listed under its own path.
+// Each folder on disk is walked once whatever path leads to it (identified by volume + file index /
+// st_dev + st_ino), so links and mounts pointing back up can't make the walk endless.
+// onFile returns false to stop the walk; then forEachFile returns false too. Worker-thread safe.
+bool forEachFile(const QString &folder, bool followLinks,
+                 const std::function<bool(const QString &path)> &onFile);
 
 struct JunkScan
 {
@@ -89,7 +93,8 @@ bool isJunkFile(const QString &path);
 
 // What "Видалити сміття" removes under rootFolder (never the root itself): junk files, and
 // folders that contain nothing but junk files at any depth. Other hidden/system files count
-// as content; symlinks/junctions are never entered and count as content. The program's folder
+// as content; symlinks/junctions are never entered (whatever the setting: this deletes
+// permanently) and count as content; a folder mounted twice is walked once. The program's folder
 // is left alone and counts as content. Worker-thread safe.
 JunkScan findJunk(const QString &rootFolder);
 

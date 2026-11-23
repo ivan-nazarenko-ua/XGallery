@@ -1116,6 +1116,66 @@ Plus grands d&apos;abord : par taille de fichier (les plus grands d&apos;abord),
         <translation>Impossible de changer le groupe du tag :
 %1</translation>
     </message>
+    <message>
+        <source>Зміниться під час наступного рескану.</source>
+        <translation>Pris en compte à la prochaine analyse.</translation>
+    </message>
+    <message>
+        <source>Заходити в junction-папки</source>
+        <translation>Entrer dans les dossiers de jonction</translation>
+    </message>
+    <message>
+        <source>Рескан і «Додати папку» заходять також у junction-папки й символьні посилання на папки.
+Кожна папка обходиться лише раз, тож зациклення не буде.
+Якщо зняти галочку, наступний рескан прибере з бази файли, знайдені через такі папки (разом з їхніми тегами).
+«Видалити сміття» в такі папки не заходить ніколи.</source>
+        <translation>« Analyser » et « Ajouter un dossier » entrent aussi dans les dossiers de jonction et les liens symboliques vers des dossiers.
+Chaque dossier n&apos;est parcouru qu&apos;une fois, il n&apos;y a donc pas de boucle sans fin.
+Si la case est décochée, la prochaine analyse retire de la base les fichiers trouvés par ces dossiers (avec leurs tags).
+« Supprimer les fichiers inutiles » n&apos;entre jamais dans ces dossiers.</translation>
+    </message>
+    <message>
+        <source>Увімкнути перехід у junction-папки?</source>
+        <translation>Entrer dans les dossiers de jonction ?</translation>
+    </message>
+    <message>
+        <source>Вимкнути перехід у junction-папки?</source>
+        <translation>Ne plus entrer dans les dossiers de jonction ?</translation>
+    </message>
+    <message>
+        <source>Рескан і «Додати папку» заходитимуть також у junction-папки й символьні посилання на папки.
+
+• Файли, на які вони ведуть, можуть лежати поза кореневою папкою галереї: на іншому диску, у мережі, в іншій галереї. Після наступного рескану вони з&apos;являться в галереї.
+• Усе, що програма робить із такими файлами (поворот, перейменування, видалення в Кошик), змінює оригінали, а не посилання.
+• Кожна папка обходиться лише раз, тож посилання, що веде вгору, не зациклить програму.
+• «Видалити сміття» в такі папки не заходить ніколи.</source>
+        <translation>« Analyser » et « Ajouter un dossier » entreront aussi dans les dossiers de jonction et les liens symboliques vers des dossiers.
+
+• Les fichiers vers lesquels ils mènent peuvent se trouver hors du dossier racine de la galerie : sur un autre disque, sur le réseau, dans une autre galerie. Ils apparaissent dans la galerie après la prochaine analyse.
+• Tout ce que le programme fait de ces fichiers (rotation, renommage, mise à la Corbeille) modifie les originaux, pas les liens.
+• Chaque dossier n&apos;est parcouru qu&apos;une fois, donc un lien qui remonte ne peut pas faire boucler le programme.
+• « Supprimer les fichiers inutiles » n&apos;entre jamais dans ces dossiers.</translation>
+    </message>
+    <message>
+        <source>Рескан і «Додати папку» більше не заходитимуть у junction-папки й символьні посилання на папки.
+
+• Наступний рескан прибере з бази всі файли, знайдені через такі папки, разом з їхніми тегами. Колекції, що лишаться без файлів, зникнуть разом із назвами, рейтингами й обкладинками.
+• Самі файли на диску не зміняться.
+• Якщо потім знову увімкнути, ці файли повернуться як нові, без ручних тегів.</source>
+        <translation>« Analyser » et « Ajouter un dossier » n&apos;entreront plus dans les dossiers de jonction ni dans les liens symboliques vers des dossiers.
+
+• La prochaine analyse retire de la base tous les fichiers trouvés par ces dossiers, avec leurs tags. Les collections qui restent sans fichiers disparaissent avec leurs noms, notes et couvertures.
+• Les fichiers sur le disque ne changent pas.
+• Si vous réactivez l&apos;option plus tard, ces fichiers reviennent comme de nouveaux fichiers, sans tags manuels.</translation>
+    </message>
+    <message>
+        <source>Увімкнути</source>
+        <translation>Activer</translation>
+    </message>
+    <message>
+        <source>Вимкнути</source>
+        <translation>Désactiver</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>

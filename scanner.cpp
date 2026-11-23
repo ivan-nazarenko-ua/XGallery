@@ -20,7 +20,41 @@
 #include <QTimeZone>
 #include <QVariant>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#else
+#include <sys/stat.h>
+#endif
+
 namespace {
+
+// The folder on disk, the same whatever path (junction, symlink, mount) leads to it.
+QString folderIdentity(const QString &path)
+{
+#ifdef Q_OS_WIN
+    // No access rights needed for the file index; BACKUP_SEMANTICS opens directories.
+    const HANDLE handle = CreateFileW(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(path).utf16()), 0,
+                                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                      OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (handle != INVALID_HANDLE_VALUE) {
+        BY_HANDLE_FILE_INFORMATION info;
+        const bool ok = GetFileInformationByHandle(handle, &info);
+        CloseHandle(handle);
+        if (ok)
+            return QStringLiteral("%1:%2:%3")
+                .arg(quint32(info.dwVolumeSerialNumber))
+                .arg(quint32(info.nFileIndexHigh))
+                .arg(quint32(info.nFileIndexLow));
+    }
+#else
+    struct stat st;
+    if (::stat(QFile::encodeName(path).constData(), &st) == 0)
+        return QStringLiteral("%1:%2").arg(quint64(st.st_dev)).arg(quint64(st.st_ino));
+#endif
+    // Not readable that way: the resolved path still catches links.
+    const QString canonical = QFileInfo(path).canonicalFilePath();
+    return canonical.isEmpty() ? QDir::cleanPath(path) : canonical;
+}
 
 struct KnownFile
 {
@@ -206,7 +240,7 @@ private:
 };
 
 ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galleryId,
-                   const QString &rootFolder)
+                   const QString &rootFolder, bool followLinks)
 {
     ScanStats stats;
     const QDir root(rootFolder);
@@ -237,8 +271,8 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
     QStringList files;
     // Every file, whatever its type. Hidden/system ones too: Windows sometimes marks
     // ordinary files that way (and hidden folders are then also walked into).
-    // Symlinked folders and junctions are not walked into (Scanner::isRealFolder).
-    const bool complete = Scanner::forEachFile(rootFolder, [&](const QString &path) {
+    // Folder links only with the setting; never in circles (Scanner::forEachFile).
+    const bool complete = Scanner::forEachFile(rootFolder, followLinks, [&](const QString &path) {
         if (isExcluded(path))
             return true;
         files << path;
@@ -428,7 +462,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
 
 namespace Scanner {
 
-void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootFolder)
+void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootFolder, bool followLinks)
 {
     const QString connection = QStringLiteral("xgallery_scan_%1")
                                    .arg(quintptr(QThread::currentThreadId()));
@@ -438,7 +472,7 @@ void rescan(QPromise<ScanStats> &promise, qint64 galleryId, const QString &rootF
         if (!db.isOpen())
             stats.error = Db::lastError();
         else
-            stats = doRescan(promise, db, galleryId, rootFolder);
+            stats = doRescan(promise, db, galleryId, rootFolder, followLinks);
     }
     Db::close(connection);
     promise.addResult(stats);
@@ -459,19 +493,37 @@ bool isRealFolder(const QFileInfo &info)
     return info.isDir() && !info.isSymLink() && !info.isJunction();
 }
 
-bool forEachFile(const QString &folder, const std::function<bool(const QString &path)> &onFile)
+bool forEachFile(const QString &folder, bool followLinks,
+                 const std::function<bool(const QString &path)> &onFile)
 {
-    // Folder by folder: QDirIterator's own recursion skips symlinks but walks into junctions.
+    // Folder by folder: QDirIterator's own recursion skips symlinks but walks into junctions,
+    // and knows nothing of loops.
+    QSet<QString> walked; // folderIdentity of every folder walked
     QStringList pending{folder};
-    while (!pending.isEmpty()) {
-        QDirIterator it(pending.takeLast(), QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Readable
-                                                | QDir::Hidden | QDir::System);
+    QStringList links; // folder links: walked once nothing else is left
+    for (;;) {
+        QString dir;
+        if (!pending.isEmpty())
+            dir = pending.takeLast();
+        else if (!links.isEmpty())
+            dir = links.takeFirst();
+        else
+            break;
+        const QString identity = folderIdentity(dir);
+        if (walked.contains(identity))
+            continue; // already walked through another path, or a loop back up
+        walked.insert(identity);
+
+        QDirIterator it(dir, QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Readable
+                                 | QDir::Hidden | QDir::System);
         while (it.hasNext()) {
             it.next();
             const QFileInfo info = it.fileInfo();
             if (info.isDir()) {
                 if (isRealFolder(info))
                     pending << info.absoluteFilePath();
+                else if (followLinks)
+                    links << info.absoluteFilePath();
             } else if (!onFile(info.filePath())) {
                 return false;
             }
@@ -704,10 +756,19 @@ JunkScan findJunk(const QString &rootFolder)
     QSet<QString> notEmpty; // folders known to hold something that stays
 
     // Folder by folder: QDirIterator's own recursion skips symlinks but walks into junctions,
-    // i.e. into folders outside the gallery.
+    // i.e. into folders outside the gallery. A folder mounted inside itself (Linux bind mount) is
+    // not a link: it is walked once.
+    QSet<QString> walked;
     QStringList pending{root};
     while (!pending.isEmpty()) {
-        QDirIterator it(pending.takeLast(), QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System);
+        const QString dir = pending.takeLast();
+        const QString identity = folderIdentity(dir);
+        if (walked.contains(identity)) {
+            notEmpty.insert(dir); // never "empty": the mount point stays (and keeps its parent), like a link
+            continue;
+        }
+        walked.insert(identity);
+        QDirIterator it(dir, QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System);
         while (it.hasNext()) {
             it.next();
             const QFileInfo fi = it.fileInfo();

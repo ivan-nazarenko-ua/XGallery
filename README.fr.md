@@ -205,9 +205,16 @@ programme vous demande quoi en faire.
 - Les fichiers `*.db` et `*.ini`, dont `Thumbs.db` et `desktop.ini`, n'entrent jamais dans une
   galerie. Le dossier du programme lui-même (exe, bibliothèques, base) et le dossier `thumbs` à
   côté de la base sont également ignorés s'ils se trouvent dans une galerie.
-- Les liens vers des dossiers (jonctions NTFS et liens symboliques vers des dossiers) ne sont pas
-  suivis : « Analyser », l'ajout d'un dossier et « Supprimer les fichiers inutiles » les
-  ignorent, donc les fichiers vers lesquels ils mènent n'entrent pas dans la galerie.
+- Les liens vers des dossiers (jonctions NTFS et liens symboliques vers des dossiers) sont ignorés
+  par défaut, donc les fichiers vers lesquels ils mènent n'entrent pas dans la galerie. Avec
+  **« Entrer dans les dossiers de jonction »** coché dans le menu **Paramètres**, « Analyser » et
+  « Ajouter un dossier » les suivent aussi. Activer ou désactiver l'option affiche d'abord une
+  fenêtre qui en décrit les conséquences. Dans les deux cas, chaque dossier n'est parcouru qu'une
+  fois : un lien qui remonte ne fait pas boucler le programme, et un dossier accessible directement
+  et par un lien est enregistré sous son propre chemin. Si l'option est décochée, la prochaine
+  analyse retire de la base les fichiers trouvés par des liens, avec leurs tags. « Supprimer les
+  fichiers inutiles » n'entre jamais dans ces dossiers, et un lien ne peut pas être choisi comme
+  dossier de la galerie où ajouter des fichiers.
 
 ## Le menu « Fichier »
 

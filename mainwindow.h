@@ -85,6 +85,9 @@ private:
     Db::SortOrder sortOrder() const;
     // Asks for a first-level folder of the gallery (existing, or a new name). Empty on cancel.
     QString chooseRootTag(const QString &title, const QString &suggestion);
+    // Menu "Налаштування" → "Заходити в junction-папки": asks first, describing what changes;
+    // on cancel the menu item goes back to its old state.
+    void setFollowFolderLinks(bool follow);
     // Collects files (in a worker) with collect(), then copies them into the gallery.
     void runImport(std::function<QList<Scanner::ImportItem>()> collect);
     void reloadTags();
@@ -136,6 +139,7 @@ private:
     QAction *m_quitAction = nullptr;
     QMenu *m_settingsMenu = nullptr;
     QAction *m_keepExtensionAction = nullptr;
+    QAction *m_followLinksAction = nullptr; // rescan and "add folder" walk into junctions/symlinked folders
     QLabel *m_galleryLabel = nullptr;
     QPushButton *m_createGalleryButton = nullptr;
     QLabel *m_includeLabel = nullptr;

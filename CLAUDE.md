@@ -75,8 +75,14 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - **Rescan**: all files incl. hidden/system, except `*.db`/`*.ini`, the program's own DB, the `thumbs` cache next to it and anything
   inside the exe folder (import and junk deletion skip that folder too). Unchanged = same size+mtime
   (no re-hash). Folder tags are added only to new files, so manual tag edits survive.
-  No walk (rescan, import, junk search, folder lists offered for import) enters symlinked folders or NTFS
-  junctions: `Scanner::forEachFile` / `Scanner::isRealFolder`, never `QDirIterator::Subdirectories` (it enters junctions).
+  Folder walks go through `Scanner::forEachFile`, never `QDirIterator::Subdirectories` (it enters junctions, knows no loops).
+  Links to folders (junctions, symlinks) are followed only with the program-wide setting `follow_folder_links` ("1"; menu
+  "Налаштування" → "Заходити в junction-папки", off by default; switching it either way asks first, describing
+  the consequences — `MainWindow::setFollowFolderLinks`) by rescan and "add folder" (read on the GUI thread, passed in),
+  and only after all folders reachable without them. Loops are always prevented: each folder is walked once by its
+  identity (volume serial + file index on Windows, st_dev + st_ino elsewhere — also catches Linux bind mounts).
+  Never followed, whatever the setting: junk search (deletes permanently; walked-twice mounts count as content) and the
+  gallery folder offered as an import target (`chooseRootTag`; import refuses targets outside the gallery).
   Moves/renames: a missing record + one new file with the same sha256+size (1:1 only) keep
   id and manual tags; old-folder tags are swapped for new ones.
   All files of one scan/import get the same `added_at` (for "newest first").

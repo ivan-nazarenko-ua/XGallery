@@ -180,8 +180,14 @@ with it.
 - `*.db` and `*.ini` files, including `Thumbs.db` and `desktop.ini`, never get into a gallery.
   The program's own folder (exe, libraries, database) and the `thumbs` folder next to the database
   are skipped too if they lie inside a gallery.
-- Folder links (NTFS junctions and symbolic links to folders) are not followed: rescan, adding a
-  folder and "Delete junk" skip them, so files they lead to don't get into the gallery.
+- Folder links (NTFS junctions and symbolic links to folders) are skipped by default, so files they
+  lead to don't get into the gallery. With **"Enter junction folders"** ticked in the **Settings**
+  menu, rescan and "Add folder" follow them too. Switching the option either way first shows a window
+  describing what will happen. Either way every folder is walked only once, so a
+  link pointing back up can't make the program loop, and a folder reachable both directly and
+  through a link is recorded under its own path. Unticking the option makes the next rescan remove
+  the files found through links from the database, together with their tags. "Delete junk" never
+  enters such folders, and a folder link can't be chosen as the gallery folder to add files to.
 
 ## The "File" menu
 
