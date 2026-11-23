@@ -52,6 +52,7 @@ set(PROJECT_SOURCES
         collectiondialog.cpp
         thumbcache.h
         thumbcache.cpp
+        third_party/xxhash/xxhash.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -123,3 +124,19 @@ qt_add_translations(XGallery
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(XGallery)
 endif()
+
+# Files that are part of the project but not built: listed only so that IDEs (Qt Creator) show them.
+add_custom_target(XGalleryOtherFiles SOURCES
+    .gitignore
+    CLAUDE.md
+    README.md
+    README.uk.md
+    README.fr.md
+    LICENSE
+    licenses/lgpl-3.0.txt
+    third_party/xxhash/LICENSE
+    logo.svg
+    flags/ua.svg
+    flags/us.svg
+    flags/fr.svg
+)

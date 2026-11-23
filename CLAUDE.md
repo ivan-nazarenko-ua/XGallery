@@ -21,7 +21,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 ```
 
 - Keep the build free of warnings.
-- New source files go into `PROJECT_SOURCES` in `CMakeLists.txt`. Windows-only libs
+- New source files (headers too, also third-party ones) go into `PROJECT_SOURCES` in `CMakeLists.txt`;
+  other repo files (docs, licenses, SVG sources) into the non-building `XGalleryOtherFiles` target, so Qt Creator shows them. Windows-only libs
   (`ole32 shell32 uuid`, for Explorer thumbnails) are linked under `if(WIN32)`.
 - There are no unit tests in the repo. Verify logic with a throwaway console program in the
   scratchpad that compiles the needed `.cpp` files (`database`, `migrations`, `scanner`,
