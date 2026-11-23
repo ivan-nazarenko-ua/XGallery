@@ -2,6 +2,7 @@
 
 #include "collections.h"
 #include "migrations.h"
+#include "thumbcache.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -279,11 +280,23 @@ bool updateGallery(const Gallery &gallery)
 
 bool deleteGallery(const QSqlDatabase &db, qint64 galleryId)
 {
-    // images, tags and image_tags go away via ON DELETE CASCADE.
+    QStringList hashes;
     QSqlQuery q(db);
+    q.prepare("SELECT DISTINCT sha256 FROM images WHERE gallery_id = ?");
+    q.addBindValue(galleryId);
+    if (!exec(q))
+        return false;
+    while (q.next())
+        hashes << q.value(0).toString();
+    q.finish();
+
+    // images, tags, image_tags and collections go away via ON DELETE CASCADE.
     q.prepare("DELETE FROM galleries WHERE id = ?");
     q.addBindValue(galleryId);
-    return exec(q);
+    if (!exec(q))
+        return false;
+    ThumbCache::removeUnused(db, hashes);
+    return true;
 }
 
 QStringList allTags(qint64 galleryId)
@@ -420,7 +433,7 @@ QList<ImageRecord> searchImages(qint64 galleryId, const TagQuery &query,
 
     QList<ImageRecord> result;
     QSqlQuery q(db);
-    q.prepare("SELECT i.id, i.path, i.size FROM images i" + QString(CollectionJoin) + whereSql + " ORDER BY " + orderTerms(order)
+    q.prepare("SELECT i.id, i.path, i.size, i.sha256 FROM images i" + QString(CollectionJoin) + whereSql + " ORDER BY " + orderTerms(order)
               + " LIMIT ? OFFSET ?");
     for (const QVariant &v : binds)
         q.addBindValue(v);
@@ -429,7 +442,7 @@ QList<ImageRecord> searchImages(qint64 galleryId, const TagQuery &query,
     if (!exec(q))
         return result;
     while (q.next())
-        result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toLongLong()});
+        result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toLongLong(), q.value(3).toString()});
     return result;
 }
 
@@ -439,12 +452,16 @@ static const char *CollectionColumns =
     "(SELECT i.vpath FROM images i WHERE i.gallery_id = c.gallery_id AND i.vpath_hash = c.vpath_hash LIMIT 1), "
     "COALESCE((SELECT i.path FROM images i WHERE i.id = c.cover_image_id), "
     " (SELECT i.path FROM images i WHERE i.gallery_id = c.gallery_id AND i.vpath_hash = c.vpath_hash "
+    "  ORDER BY i.name COLLATE NOCASE, i.id LIMIT 1)), "
+    "COALESCE((SELECT i.sha256 FROM images i WHERE i.id = c.cover_image_id), "
+    " (SELECT i.sha256 FROM images i WHERE i.gallery_id = c.gallery_id AND i.vpath_hash = c.vpath_hash "
     "  ORDER BY i.name COLLATE NOCASE, i.id LIMIT 1))";
 
-static CollectionRecord collectionFrom(const QSqlQuery &q, int fileCount)
+// Columns after CollectionColumns: the file count.
+static CollectionRecord collectionFrom(const QSqlQuery &q)
 {
     return {q.value(0).toLongLong(), q.value(1).toString(), q.value(3).toString(), q.value(2).toInt(),
-            q.value(4).toString(), fileCount};
+            q.value(4).toString(), q.value(6).toInt(), q.value(5).toString()};
 }
 
 QList<CollectionRecord> searchCollections(qint64 galleryId, const TagQuery &query, int offset, int limit,
@@ -484,7 +501,7 @@ QList<CollectionRecord> searchCollections(qint64 galleryId, const TagQuery &quer
     if (!exec(q))
         return result;
     while (q.next())
-        result.append(collectionFrom(q, q.value(5).toInt()));
+        result.append(collectionFrom(q));
     return result;
 }
 
@@ -498,7 +515,7 @@ CollectionRecord collection(qint64 galleryId, qint64 collectionId)
     q.addBindValue(galleryId);
     if (!exec(q) || !q.next())
         return {};
-    return collectionFrom(q, q.value(5).toInt());
+    return collectionFrom(q);
 }
 
 bool isCollectionCover(qint64 galleryId, qint64 imageId)
@@ -607,12 +624,13 @@ QList<ImageRecord> imagesByIds(qint64 galleryId, const QList<qint64> &imageIds)
     for (qint64 id : imageIds)
         ids << QString::number(id); // numbers only, safe to inline
     QSqlQuery q(mainDb());
-    q.prepare("SELECT id, path, size FROM images WHERE gallery_id = ? AND id IN (" + ids.join(',')
+    q.prepare("SELECT id, path, size, sha256 FROM images WHERE gallery_id = ? AND id IN (" + ids.join(',')
               + ") ORDER BY path COLLATE NOCASE");
     q.addBindValue(galleryId);
     if (exec(q))
         while (q.next())
-            result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toLongLong()});
+            result.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toLongLong(),
+                           q.value(3).toString()});
     return result;
 }
 
@@ -751,13 +769,23 @@ bool updateImageFile(qint64 galleryId, const QString &relativePath, qint64 size,
                      const QString &sha256)
 {
     QSqlQuery q(mainDb());
+    q.prepare("SELECT sha256 FROM images WHERE gallery_id = ? AND path = ?");
+    q.addBindValue(galleryId);
+    q.addBindValue(relativePath);
+    const QString oldSha256 = exec(q) && q.next() ? q.value(0).toString() : QString();
+    q.finish();
+
     q.prepare("UPDATE images SET size = ?, mtime = ?, sha256 = ? WHERE gallery_id = ? AND path = ?");
     q.addBindValue(size);
     q.addBindValue(mtime);
     q.addBindValue(sha256);
     q.addBindValue(galleryId);
     q.addBindValue(relativePath);
-    return exec(q);
+    if (!exec(q))
+        return false;
+    if (oldSha256 != sha256)
+        ThumbCache::removeUnused(mainDb(), {oldSha256}); // the picture changed (rotation)
+    return true;
 }
 
 bool renameImage(qint64 galleryId, qint64 imageId, const QString &relativePath, const QString &name)
@@ -787,7 +815,7 @@ QList<DuplicateGroup> findDuplicates(qint64 galleryId)
         const QString hash = q.value(0).toString();
         if (groups.isEmpty() || groups.last().sha256 != hash)
             groups.append({hash, q.value(1).toLongLong(), {}});
-        groups.last().files.append({q.value(2).toLongLong(), q.value(3).toString(), groups.last().size});
+        groups.last().files.append({q.value(2).toLongLong(), q.value(3).toString(), groups.last().size, hash});
     }
     return groups;
 }
@@ -800,10 +828,21 @@ bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds)
         return false;
     }
     bool ok = true;
+    QStringList hashes;
     {
         QSqlQuery q(db);
-        q.prepare("DELETE FROM images WHERE id = ? AND gallery_id = ?"); // image_tags: ON DELETE CASCADE
+        q.prepare("SELECT sha256 FROM images WHERE id = ? AND gallery_id = ?");
         for (qint64 id : imageIds) {
+            q.addBindValue(id);
+            q.addBindValue(galleryId);
+            if (!(ok = exec(q)))
+                break;
+            if (q.next())
+                hashes << q.value(0).toString();
+            q.finish();
+        }
+        q.prepare("DELETE FROM images WHERE id = ? AND gallery_id = ?"); // image_tags: ON DELETE CASCADE
+        for (qint64 id : ok ? imageIds : QList<qint64>{}) {
             q.addBindValue(id);
             q.addBindValue(galleryId);
             if (!(ok = exec(q)))
@@ -813,8 +852,10 @@ bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds)
             ok = deleteUnusedTags(db, galleryId, &g_lastError)
                  && Collections::sync(db, galleryId, {}, &g_lastError); // emptied collections go away
     }
-    if (ok && db.commit())
+    if (ok && db.commit()) {
+        ThumbCache::removeUnused(db, hashes);
         return true;
+    }
     if (ok)
         g_lastError = db.lastError().text();
     db.rollback();

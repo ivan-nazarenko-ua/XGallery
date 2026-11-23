@@ -230,6 +230,13 @@ backup, copy it while the program is closed. A new version of the program may up
 database on its first start, and an older version doesn't know about those changes and will not
 work with such a database correctly. So make a copy before updating the program.
 
+Next to the database lies the **`thumbs`** folder: ready-made thumbnails, so pages with big photos
+open quickly. Each thumbnail is named after the file's content (and lies in one of 256 subfolders, so no folder
+gets too big), so duplicates share one, and it is
+deleted together with the last file that uses it. The folder needs no backup and can be deleted at
+any time: the program simply makes the thumbnails again. If the folder can't be created or written
+to (for example, on a write-protected USB stick), the program works without it, only slower.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).

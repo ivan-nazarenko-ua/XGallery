@@ -19,6 +19,7 @@ struct ImageRecord
     qint64 id = 0;
     QString relativePath;
     qint64 size = 0; // bytes
+    QString sha256 = {}; // content; names the cached thumbnail
 };
 
 // A collection as the main window shows it (see collections.h).
@@ -30,6 +31,7 @@ struct CollectionRecord
     int rating = 50;
     QString coverPath;   // relative path of the cover; the first file if the collection has no image
     int fileCount = 0;
+    QString coverSha256; // content of coverPath
 };
 
 namespace Db {
@@ -74,7 +76,8 @@ QList<Gallery> galleries();
 // Returns the new gallery id, or 0 on failure.
 qint64 createGallery(const Gallery &gallery);
 bool updateGallery(const Gallery &gallery);
-// Removes the gallery and everything that belongs to it (images, tags). Files are not touched.
+// Removes the gallery and everything that belongs to it (images, tags, cached thumbnails no other
+// gallery needs). Files are not touched.
 // Takes an explicit connection so it can run in a worker thread.
 bool deleteGallery(const QSqlDatabase &db, qint64 galleryId);
 
@@ -158,7 +161,8 @@ struct DuplicateGroup
 // Files of the gallery that share a sha256, one group per hash.
 QList<DuplicateGroup> findDuplicates(qint64 galleryId);
 
-// Removes the records (not the files) and then tags nobody uses any more.
+// Removes the records (not the files), then tags nobody uses any more and cached thumbnails
+// no other record needs.
 bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds);
 
 } // namespace Db

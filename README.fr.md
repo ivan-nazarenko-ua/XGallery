@@ -259,6 +259,13 @@ programme peut mettre la base à jour à son premier lancement ; une version plu
 ces changements et ne fonctionnera pas correctement avec une telle base. Faites donc une copie
 avant de mettre le programme à jour.
 
+À côté de la base se trouve le dossier **`thumbs`** : des vignettes toutes prêtes, pour que les
+pages aux grandes photos s'ouvrent vite. Chaque vignette porte le nom du contenu du fichier (et se range dans
+l'un des 256 sous-dossiers, pour qu'aucun dossier ne grossisse trop) : les doublons en partagent donc une, supprimée avec le dernier fichier qui l'utilise. Ce dossier n'a pas
+besoin d'être sauvegardé et peut être supprimé à tout moment : le programme refait simplement les
+vignettes. Si le dossier ne peut pas être créé ou écrit (par exemple sur une clé USB protégée en
+écriture), le programme fonctionne sans lui, simplement plus lentement.
+
 ## Licence
 
 Ce projet est distribué sous la [licence MIT](LICENSE).

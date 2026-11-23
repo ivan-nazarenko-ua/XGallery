@@ -50,6 +50,8 @@ set(PROJECT_SOURCES
         collections.cpp
         collectiondialog.h
         collectiondialog.cpp
+        thumbcache.h
+        thumbcache.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

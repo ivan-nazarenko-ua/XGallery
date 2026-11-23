@@ -45,6 +45,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating |
 | `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
 | `collections.*` | Collections: xxh128 of the virtual path (`hashOf`), default name, `retag` (vpath/vpath_key/vpath_hash of files) and `sync` (collection rows: transfer, create, delete, covers) |
+| `thumbcache.*` | Grid thumbnails cached as `thumbs/<first 2 hex>/<sha256>.png` next to the DB (256 subfolders: FAT32 per-folder limit) (`ThumbCache::thumbnail` = load or make+store; images and videos only). All errors ignored |
 | `third_party/xxhash/` | Vendored xxHash 0.8.3 single header (BSD-2, used header-only via `XXH_INLINE_ALL` in `collections.cpp`) |
 | `i18n.*`, `languagedialog.*`, `translations/*.ts`, `flags/` | UI language (uk source, en/fr translations), first-start flag dialog, flag SVGs + rendered PNGs (48x32 and @2x) |
 | `xgallery.ico`, `xgallery.rc`, `resources.qrc` | Program icon, rendered from `logo.svg` (each size 16–256 px rendered directly, centred on a transparent square, PNG entries). Rebuild the .ico when the SVG changes |
@@ -108,6 +109,10 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   invalid covers are re-chosen (a cover is valid while its image stays in the collection). Renaming a file doesn't change
   the cover. "Встановити обкладинкою" in the single-image metadata dialog (disabled if already the cover, absent in bulk
   mode) is applied after Save via `Db::setCollectionCover` (the collection the file is in after the tag save).
+- **Thumbnail cache** (`thumbcache.*`): created at start (`ThumbCache::init`), keyed by sha256 so duplicates share one
+  file; a failure to create/read/write just means no cache. When records disappear or change content (`Db::deleteImages`,
+  `Db::deleteGallery`, `Db::updateImageFile` after rotation, rescan removed/updated files) collect the old hashes and call
+  `ThumbCache::removeUnused` after the commit: it deletes only thumbnails no record of any gallery uses any more.
 - Main window: the grid shows collections of the search result (`Db::searchCollections`: ordered by the position of
   their first file in the file order, paged by collection). Left click opens the collection (`m_openCollectionId`,
   row id — it survives transfers): grid = all its files (`TagQuery::collectionId`, ignores the search), search/sort/tag

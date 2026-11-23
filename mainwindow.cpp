@@ -10,6 +10,7 @@
 #include "imageviewer.h"
 #include "mediafiles.h"
 #include "scanner.h"
+#include "thumbcache.h"
 
 #include <QActionGroup>
 #include <QApplication>
@@ -76,6 +77,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     Db::makeRootsPortable();
+    ThumbCache::init();
     m_keepExtensionAction->setChecked(Db::setting(KeepExtensionKey) != "0");
     {
         const QSignalBlocker blocker(m_sortCombo);
@@ -895,20 +897,20 @@ void MainWindow::loadPage(int page)
     }
 
     m_page = page;
-    QStringList paths; // what the thumbnails show
+    QList<QPair<QString, QString>> paths; // what the thumbnails show: absolute path, sha256
     if (inCollection()) {
         m_pageCollections.clear();
         m_pageRecords = Db::searchImages(galleryId, collectionQuery(), page * PageSize, PageSize, &m_totalCount,
                                          sortOrder());
         m_totalFiles = m_totalCount;
         for (const ImageRecord &rec : std::as_const(m_pageRecords))
-            paths << absolutePath(rec.relativePath);
+            paths.append({absolutePath(rec.relativePath), rec.sha256});
     } else {
         m_pageRecords.clear();
         m_pageCollections = Db::searchCollections(galleryId, m_query, page * PageSize, PageSize, &m_totalCount,
                                                   &m_totalFiles, sortOrder());
         for (const CollectionRecord &collection : std::as_const(m_pageCollections))
-            paths << absolutePath(collection.coverPath);
+            paths.append({absolutePath(collection.coverPath), collection.coverSha256});
     }
     if (paths.isEmpty() && page > 0 && m_totalCount > 0) {
         // The page shrank (e.g. after editing tags): show the last one that exists.
@@ -950,8 +952,8 @@ void MainWindow::loadPage(int page)
                 m_thumbButtons[i]->setText(tr("(не читається)"));
         }
     });
-    watcher->setFuture(QtConcurrent::mapped(std::move(paths),[](const QString &path) {
-        return MediaFiles::makeThumbnail(path, ThumbnailSize);
+    watcher->setFuture(QtConcurrent::mapped(std::move(paths), [](const QPair<QString, QString> &file) {
+        return ThumbCache::thumbnail(file.first, file.second, ThumbnailSize);
     }));
 }
 

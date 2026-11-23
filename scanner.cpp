@@ -2,6 +2,7 @@
 
 #include "collections.h"
 #include "database.h"
+#include "thumbcache.h"
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -271,6 +272,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
 
     promise.setProgressRange(0, int(files.size()));
     QList<NewFile> newFiles;
+    QStringList goneContent; // content of removed records and of rewritten files: their cached thumbnails
     QSet<QString> seen;
     seen.reserve(files.size());
     for (int i = 0; i < files.size(); ++i) {
@@ -309,6 +311,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
             update.addBindValue(k->id);
             if (!update.exec())
                 return rollback(update.lastError().text());
+            goneContent << k->sha256;
             ++stats.updated;
         } else {
             newFiles.append({relative, fi.fileName(), size, mtime, hash}); // decided below
@@ -403,6 +406,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
         remove.addBindValue(k->id);
         if (!remove.exec())
             return rollback(remove.lastError().text());
+        goneContent << k->sha256;
         ++stats.removed;
     }
 
@@ -415,6 +419,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
 
     if (!db.commit())
         return rollback(db.lastError().text());
+    ThumbCache::removeUnused(db, goneContent);
     return stats;
 }
 
