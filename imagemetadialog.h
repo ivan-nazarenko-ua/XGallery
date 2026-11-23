@@ -5,6 +5,8 @@
 #include <QPointer>
 #include <QStringList>
 
+#include "database.h"
+
 class QLabel;
 class QLineEdit;
 class QListWidget;
@@ -24,8 +26,12 @@ public:
 
     // One path: single-file mode (preview, file name, delete and export buttons).
     // Several paths: bulk mode; imageTags are the tags common to all of them.
+    // galleryTags: all tags of the gallery, group by group (for the tag picker).
     ImageMetaDialog(const QStringList &filePaths, const QStringList &imageTags,
-                    const QStringList &galleryTags, QWidget *parent = nullptr);
+                    const QList<TagSection> &galleryTags, QWidget *parent = nullptr);
+
+    // Bulk mode: tags some of the files have, but not all (the tag picker shows them locked).
+    void setPartialTags(const QStringList &tags) { m_partialTags = tags; }
 
     // Viewer setting of the gallery, for images opened from this dialog.
     void setAllowUpscale(bool allow);
@@ -72,7 +78,8 @@ private:
     void openFile(int index); // click on the preview / on a row of the bulk list
     void chooseExportDestination();
 
-    QStringList m_galleryTags;
+    QList<TagSection> m_galleryTags;
+    QStringList m_partialTags;
     QStringList m_tags;
     QStringList m_initialTags;
     QStringList m_deletedTags;

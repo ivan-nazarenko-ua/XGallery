@@ -63,6 +63,7 @@ private slots:
     void addFolderToGallery();
     void showTagMenu(const QPoint &pos);
     void renameTag(const QString &oldName);
+    void setTagGroup(const QString &tag, qint64 groupId); // 0: no group
     void deleteTagsFromGallery(qint64 galleryId, const QStringList &tags);
 
 private:
@@ -70,6 +71,9 @@ private:
     static constexpr int GridRows = 4;
     static constexpr int PageSize = GridColumns * GridRows;
     static constexpr int ThumbnailSize = 160;
+    // Tag list item data. Qt::UserRole (bool) marks the "<без тегів>" service entry.
+    static constexpr int GroupHeaderRole = Qt::UserRole + 1; // bool: a group's name, not a tag
+    static constexpr int TagGroupRole = Qt::UserRole + 2;    // qint64: the tag's group, 0 = none
 
     void buildUi();
     void retranslateUi();

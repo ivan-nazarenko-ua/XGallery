@@ -21,9 +21,11 @@ constexpr int ColumnCount = 6;
 
 } // namespace
 
-TagPickerDialog::TagPickerDialog(const QStringList &availableTags, const QStringList &assignedTags, QWidget *parent)
+TagPickerDialog::TagPickerDialog(const QList<TagSection> &sections, const QStringList &assignedTags,
+                                 const QStringList &partialTags, QWidget *parent)
     : QDialog(parent)
     , m_assignedTags(assignedTags)
+    , m_partialTags(partialTags)
     , m_newTagsEdit(new QLineEdit(this))
     , m_scrollArea(new QScrollArea(this))
     , m_grid(new QGridLayout)
@@ -50,8 +52,15 @@ TagPickerDialog::TagPickerDialog(const QStringList &availableTags, const QString
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-    for (const QString &tag : availableTags)
-        m_entries << makeEntry(tag, true, false);
+    for (const TagSection &section : sections) {
+        if (section.groupId != 0)
+            m_entries << makeGroupLabel(section.groupName);
+        for (const QString &tag : section.tags) {
+            Entry entry = makeEntry(tag, true);
+            syncEntry(entry);
+            m_entries << entry;
+        }
+    }
     layoutEntries();
 
     auto *saveButton = new QPushButton(tr("Зберегти"), this);
@@ -74,13 +83,68 @@ TagPickerDialog::TagPickerDialog(const QStringList &availableTags, const QString
         button->setAutoDefault(false);
 }
 
-QStringList TagPickerDialog::chosenTags() const
+void TagPickerDialog::setAssignedTags(const QStringList &tags)
 {
-    QStringList chosen;
+    m_assignedTags = tags;
+    QStringList shown;
+    for (Entry &entry : m_entries) {
+        if (!entry.box)
+            continue;
+        shown << entry.tag;
+        if (!isTouched(entry))
+            syncEntry(entry);
+    }
+
+    // Tags the file got meanwhile (pasted) that this window doesn't show yet.
+    QList<Entry> fresh;
+    for (const QString &tag : tags) {
+        if (shown.contains(tag))
+            continue;
+        const bool wasDeleted = m_deletedTags.removeAll(tag) > 0; // given again: not deleted after all
+        Entry entry = makeEntry(tag, wasDeleted);
+        syncEntry(entry);
+        fresh << entry;
+    }
+    if (!fresh.isEmpty()) {
+        m_entries = fresh + m_entries;
+        layoutEntries();
+    }
+}
+
+bool TagPickerDialog::isTouched(const Entry &entry)
+{
+    return entry.box && entry.box->isEnabled() && entry.box->isChecked() != entry.initiallyChecked;
+}
+
+void TagPickerDialog::syncEntry(Entry &entry)
+{
+    const bool assigned = m_assignedTags.contains(entry.tag);
+    const bool partial = !assigned && m_partialTags.contains(entry.tag);
+    entry.initiallyChecked = assigned;
+    entry.box->setTristate(partial);
+    entry.box->setCheckState(partial ? Qt::PartiallyChecked : assigned ? Qt::Checked : Qt::Unchecked);
+    entry.box->setEnabled(!partial);
+    entry.box->setToolTip(partial ? tr("%1\nЦей тег є лише в частини обраних файлів, тут його не змінити.\n"
+                                       "Щоб дати його всім файлам, впиши його в «Нові теги».").arg(entry.tag)
+                                  : entry.tag);
+}
+
+QStringList TagPickerDialog::addedTags() const
+{
+    QStringList added;
     for (const Entry &entry : m_entries)
-        if (entry.box->isChecked())
-            chosen << entry.tag;
-    return chosen;
+        if (isTouched(entry) && entry.box->isChecked())
+            added << entry.tag;
+    return added;
+}
+
+QStringList TagPickerDialog::removedTags() const
+{
+    QStringList removed;
+    for (const Entry &entry : m_entries)
+        if (isTouched(entry) && !entry.box->isChecked())
+            removed << entry.tag;
+    return removed;
 }
 
 QStringList TagPickerDialog::deletedTags() const
@@ -95,16 +159,34 @@ void TagPickerDialog::accept()
         QDialog::accept();
 }
 
-TagPickerDialog::Entry TagPickerDialog::makeEntry(const QString &tag, bool inDatabase, bool checked)
+TagPickerDialog::Entry TagPickerDialog::makeEntry(const QString &tag, bool inDatabase)
 {
     auto *box = new QCheckBox(QString(tag).replace('&', "&&"), m_scrollArea->widget()); // '&' would be a mnemonic
-    box->setChecked(checked);
     box->setToolTip(tag);
     // Equal columns: a long name is cut (the tooltip has it) instead of widening its column.
     box->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
     box->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(box, &QWidget::customContextMenuRequested, this, [this, box] { confirmDelete(box); });
-    return {tag, box, inDatabase};
+    Entry entry;
+    entry.tag = tag;
+    entry.widget = box;
+    entry.box = box;
+    entry.inDatabase = inDatabase;
+    return entry;
+}
+
+TagPickerDialog::Entry TagPickerDialog::makeGroupLabel(const QString &name)
+{
+    auto *label = new QLabel(name, m_scrollArea->widget());
+    label->setTextFormat(Qt::PlainText);
+    QFont font = label->font();
+    font.setBold(true);
+    label->setFont(font);
+    label->setToolTip(tr("Група тегів «%1»").arg(name));
+    label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    Entry entry;
+    entry.widget = label;
+    return entry;
 }
 
 bool TagPickerDialog::addTagsFromField()
@@ -126,17 +208,22 @@ bool TagPickerDialog::addTagsFromField()
     QList<Entry> fresh;
     QCheckBox *lastExisting = nullptr;
     for (const QString &tag : std::as_const(tags)) {
-        if (m_assignedTags.contains(tag))
-            continue;
         const auto found = std::find_if(m_entries.cbegin(), m_entries.cend(),
-                                        [&tag](const Entry &entry) { return entry.tag == tag; });
+                                        [&tag](const Entry &entry) { return entry.box && entry.tag == tag; });
         if (found != m_entries.cend()) {
+            // A locked partial tag typed here goes to all the files.
+            found->box->setTristate(false);
+            found->box->setEnabled(true);
+            found->box->setToolTip(tag);
             found->box->setChecked(true);
             lastExisting = found->box;
         } else {
             // Typing a tag marked for deletion takes the deletion back.
             const bool wasDeleted = m_deletedTags.removeAll(tag) > 0;
-            fresh << makeEntry(tag, wasDeleted, true);
+            Entry entry = makeEntry(tag, wasDeleted);
+            entry.initiallyChecked = m_assignedTags.contains(tag);
+            entry.box->setChecked(true);
+            fresh << entry;
         }
     }
 
@@ -155,7 +242,7 @@ void TagPickerDialog::confirmDelete(QCheckBox *box)
 {
     const auto index = std::distance(m_entries.cbegin(),
                                      std::find_if(m_entries.cbegin(), m_entries.cend(),
-                                                  [box](const Entry &entry) { return entry.box == box; }));
+                                                  [box](const Entry &entry) { return entry.box && entry.box == box; }));
     if (index == m_entries.size())
         return;
     const Entry entry = m_entries.at(index);
@@ -175,8 +262,8 @@ void TagPickerDialog::confirmDelete(QCheckBox *box)
     if (entry.inDatabase)
         m_deletedTags << entry.tag;
     m_entries.removeAt(index);
-    entry.box->hide();
-    entry.box->deleteLater(); // we are inside a signal of this very widget
+    entry.widget->hide();
+    entry.widget->deleteLater(); // we are inside a signal of this very widget
     layoutEntries();
 }
 
@@ -184,6 +271,17 @@ void TagPickerDialog::layoutEntries()
 {
     while (QLayoutItem *item = m_grid->takeAt(0))
         delete item; // the widget stays, only its place in the grid goes
-    for (int i = 0; i < m_entries.size(); ++i)
-        m_grid->addWidget(m_entries.at(i).box, i / ColumnCount, i % ColumnCount);
+    int cell = 0;
+    for (int i = 0; i < m_entries.size(); ++i) {
+        const Entry &entry = m_entries.at(i);
+        if (!entry.box) {
+            // A group's name only while some tag of the group follows it.
+            const bool hasTags = i + 1 < m_entries.size() && m_entries.at(i + 1).box;
+            entry.widget->setVisible(hasTags);
+            if (!hasTags)
+                continue;
+        }
+        m_grid->addWidget(entry.widget, cell / ColumnCount, cell % ColumnCount);
+        ++cell;
+    }
 }

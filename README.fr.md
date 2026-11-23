@@ -33,6 +33,12 @@ Dans la fenêtre de modification, vous pouvez changer le nom, le dossier racine 
 remplir la visionneuse. La même fenêtre contient le bouton **« Supprimer la galerie… »**. Il
 efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichiers sur le disque.
 
+La liste **« Groupes de tags »** de la même fenêtre contient vos propres groupes de tags, par exemple
+« Personnes » et « Lieux ». « Ajouter… », « Renommer… » (ou un double-clic) et « Supprimer » modifient
+la liste ; « Monter » et « Descendre » déplacent le groupe sélectionné. Les modifications sont
+enregistrées avec « Enregistrer ». Supprimer un groupe ne supprime pas ses tags : ils restent
+simplement sans groupe.
+
 ## Tags
 
 - **Automatiques.** Chaque dossier entre le dossier racine et le fichier devient un tag. Le
@@ -44,10 +50,21 @@ efface de la base tout ce qui concerne la galerie, mais ne touche pas aux fichie
   supprimé automatiquement. Un double-clic sur un tag dans cette fenêtre l'ajoute au champ
   « Contient les tags » de la fenêtre principale. La recherche elle-même ne démarre que lorsque
   vous cliquez sur « Rechercher ».
+- **Groupes de tags.** Chaque tag appartient à un groupe de la galerie ou à aucun. La liste des
+  tags de la fenêtre principale montre d'abord les tags sans groupe, puis les groupes dans l'ordre
+  défini dans la fenêtre de modification de la galerie ; dans un groupe, les tags suivent l'ordre
+  alphabétique. Chaque groupe commence par son nom en italique gris entre tirets (— Personnes —) :
+  ce n'est pas un tag et il ne peut pas être sélectionné. Pour déplacer un tag, faites un clic droit
+  dessus dans la liste et choisissez **« Groupe »** → « Sans groupe » ou le groupe voulu ; le groupe
+  actuel est coché. Un tag qui n'est plus utilisé nulle part est supprimé avec son appartenance au groupe.
 - **Ajouter des tags.** Le bouton « Ajouter des tags » de la fenêtre des métadonnées ouvre une
   fenêtre avec un champ « Nouveaux tags : » (plusieurs tags séparés par des virgules) et un tableau
-  des tags de la galerie que le fichier n'a pas encore. Cochez ceux qu'il vous faut puis cliquez sur
-  « Enregistrer ». Pendant qu'elle est ouverte, vous pouvez toujours ouvrir la photo depuis la
+  de tous les tags de la galerie, groupés comme dans la liste de la fenêtre principale : le nom d'un
+  groupe (en gras) précède ses tags dans le tableau. Les tags du fichier sont cochés : cochez ceux à
+  ajouter, décochez ceux à retirer, puis cliquez sur
+  « Enregistrer ». En modification groupée, les tags que seuls certains des fichiers sélectionnés
+  ont sont grisés et ne peuvent pas être modifiés ; saisir un tel tag dans « Nouveaux tags : » le donne
+  à tous les fichiers. Pendant qu'elle est ouverte, vous pouvez toujours ouvrir la photo depuis la
   fenêtre des métadonnées ; elle se ferme avec cette dernière. Un clic droit sur un tag du tableau, après confirmation, le supprime de **tous
   les fichiers de la galerie** ; cela n'a lieu qu'à l'enregistrement de la fenêtre des métadonnées,
   donc « Annuler » dans l'une ou l'autre fenêtre conserve le tag.

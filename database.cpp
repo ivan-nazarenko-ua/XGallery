@@ -7,6 +7,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QHash>
 #include <QRegularExpression>
 #include <QSet>
 #include <QSqlError>
@@ -322,6 +323,110 @@ QStringList tagsForImage(qint64 imageId)
         while (q.next())
             tags << q.value(0).toString();
     return tags;
+}
+
+QList<TagGroup> tagGroups(qint64 galleryId)
+{
+    QList<TagGroup> groups;
+    QSqlQuery q(mainDb());
+    q.prepare("SELECT id, name FROM tag_groups WHERE gallery_id = ? ORDER BY position, id");
+    q.addBindValue(galleryId);
+    if (exec(q))
+        while (q.next())
+            groups.append({q.value(0).toLongLong(), q.value(1).toString()});
+    return groups;
+}
+
+bool saveTagGroups(qint64 galleryId, const QList<TagGroup> &groups)
+{
+    QSqlDatabase db = mainDb();
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return false;
+    }
+    const bool ok = [&] {
+        QSet<qint64> kept;
+        for (const TagGroup &group : groups)
+            if (group.id != 0)
+                kept.insert(group.id);
+        QSqlQuery q(db);
+        q.prepare("SELECT id FROM tag_groups WHERE gallery_id = ?");
+        q.addBindValue(galleryId);
+        if (!exec(q))
+            return false;
+        QList<qint64> removed;
+        while (q.next())
+            if (!kept.contains(q.value(0).toLongLong()))
+                removed << q.value(0).toLongLong();
+        q.finish();
+        for (const qint64 id : std::as_const(removed)) {
+            // ON DELETE SET NULL does the same; explicit, so it doesn't depend on the pragma.
+            q.prepare("UPDATE tags SET group_id = NULL WHERE group_id = ?");
+            q.addBindValue(id);
+            if (!exec(q))
+                return false;
+            q.prepare("DELETE FROM tag_groups WHERE id = ?");
+            q.addBindValue(id);
+            if (!exec(q))
+                return false;
+        }
+        for (int position = 0; position < groups.size(); ++position) {
+            const TagGroup &group = groups.at(position);
+            if (group.id != 0) {
+                q.prepare("UPDATE tag_groups SET name = ?, position = ? WHERE id = ? AND gallery_id = ?");
+                q.addBindValue(group.name);
+                q.addBindValue(position);
+                q.addBindValue(group.id);
+                q.addBindValue(galleryId);
+            } else {
+                q.prepare("INSERT INTO tag_groups(gallery_id, name, position) VALUES(?, ?, ?)");
+                q.addBindValue(galleryId);
+                q.addBindValue(group.name);
+                q.addBindValue(position);
+            }
+            if (!exec(q))
+                return false;
+        }
+        return true;
+    }();
+    if (ok && db.commit())
+        return true;
+    if (ok)
+        g_lastError = db.lastError().text();
+    db.rollback();
+    return false;
+}
+
+bool setTagGroup(qint64 galleryId, const QString &tag, qint64 groupId)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("UPDATE tags SET group_id = ? WHERE gallery_id = ? AND name = ?");
+    q.addBindValue(groupId != 0 ? QVariant(groupId) : QVariant(QMetaType::fromType<qint64>()));
+    q.addBindValue(galleryId);
+    q.addBindValue(tag);
+    return exec(q);
+}
+
+QList<TagSection> tagSections(qint64 galleryId, const QStringList &tags)
+{
+    QHash<QString, qint64> groupOf;
+    QSqlQuery q(mainDb());
+    q.prepare("SELECT name, group_id FROM tags WHERE gallery_id = ? AND group_id IS NOT NULL");
+    q.addBindValue(galleryId);
+    if (exec(q))
+        while (q.next())
+            groupOf.insert(q.value(0).toString(), q.value(1).toLongLong());
+
+    QList<TagSection> sections{TagSection{}};
+    QHash<qint64, qsizetype> indexOf{{0, 0}};
+    for (const TagGroup &group : tagGroups(galleryId)) {
+        indexOf.insert(group.id, sections.size());
+        sections.append({group.id, group.name, {}});
+    }
+    for (const QString &tag : tags)
+        sections[indexOf.value(groupOf.value(tag), 0)].tags << tag;
+    sections.removeIf([](const TagSection &section) { return section.tags.isEmpty(); });
+    return sections;
 }
 
 // WHERE clause (on "images i") and its bind values for a tag search; shared by the search

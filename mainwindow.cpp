@@ -38,7 +38,13 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScrollBar>
+#include <QResizeEvent>
 #include <QSplitter>
+#include <QStyledItemDelegate>
+#include <QTextLayout>
+#include <QPainter>
+#include <cmath>
 #include <QTextCharFormat>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -51,6 +57,103 @@ namespace {
 const char *CurrentGalleryKey = "current_gallery";
 const char *SortOrderKey = "sort_order";
 const char *KeepExtensionKey = "keep_extension_on_rename"; // "0" = off; not set = on
+
+// Lays text out in lines of the given width: at word boundaries, a word longer than a line is
+// broken anywhere (like CSS overflow-wrap: break-word). Returns the height of the text.
+qreal layoutWrapped(QTextLayout &layout, qreal width)
+{
+    QTextOption option;
+    option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+    layout.setTextOption(option);
+    qreal height = 0;
+    layout.beginLayout();
+    for (QTextLine line = layout.createLine(); line.isValid(); line = layout.createLine()) {
+        line.setLineWidth(width);
+        line.setPosition(QPointF(0, height));
+        height += line.height();
+    }
+    layout.endLayout();
+    return height;
+}
+
+// Tag list entries as wide as the list, long names wrapped onto more lines instead of a
+// horizontal scroll bar. Background, selection and colours (grey group headers) come from the style.
+class WrappingItemDelegate : public QStyledItemDelegate
+{
+public:
+    explicit WrappingItemDelegate(QAbstractItemView *view)
+        : QStyledItemDelegate(view)
+        , m_view(view)
+    {
+        view->viewport()->installEventFilter(this);
+    }
+
+    // The heights depend on the width of the visible part. It also changes when the vertical scroll
+    // bar appears or goes, which the view's own Adjust mode misses: entries kept their old heights
+    // and wrapped text ran into the next entry.
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (watched == m_view->viewport() && event->type() == QEvent::Resize) {
+            const int width = static_cast<QResizeEvent *>(event)->size().width();
+            if (width != m_width) {
+                m_width = width;
+                // Queued: not inside the resize, which a new layout may cause again (scroll bar).
+                QMetaObject::invokeMethod(m_view, [view = m_view] { view->doItemsLayout(); }, Qt::QueuedConnection);
+            }
+        }
+        return QStyledItemDelegate::eventFilter(watched, event);
+    }
+
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        QStyleOptionViewItem opt(option);
+        initStyleOption(&opt, index);
+        const auto *view = qobject_cast<const QAbstractItemView *>(opt.widget);
+        const int width = view ? view->viewport()->width() : opt.rect.width();
+        const int oneLine = QStyledItemDelegate::sizeHint(option, index).height();
+        QTextLayout layout(opt.text, opt.font);
+        const qreal textHeight = layoutWrapped(layout, qMax(1, width - 2 * textMargin(opt)));
+        // Same padding around the text as a one-line entry has.
+        const int padding = oneLine - QFontMetrics(opt.font).height();
+        return QSize(width, qMax(oneLine, int(std::ceil(textHeight)) + padding));
+    }
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        QStyleOptionViewItem opt(option);
+        initStyleOption(&opt, index);
+        const QString text = opt.text;
+        opt.text.clear(); // the style draws the panel only, the text is ours
+        QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
+        style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, opt.widget);
+
+        const int margin = textMargin(opt);
+        const QRect rect = opt.rect.adjusted(margin, 0, -margin, 0);
+        QTextLayout layout(text, opt.font);
+        const qreal height = layoutWrapped(layout, qMax(1, rect.width()));
+        const QPalette::ColorGroup group = !(opt.state & QStyle::State_Enabled) ? QPalette::Disabled
+                                         : (opt.state & QStyle::State_Active)   ? QPalette::Active
+                                                                                : QPalette::Inactive;
+        const QPalette::ColorRole role = (opt.state & QStyle::State_Selected) ? QPalette::HighlightedText
+                                                                               : QPalette::Text;
+        painter->save();
+        painter->setPen(opt.palette.color(group, role));
+        painter->setClipRect(opt.rect);
+        layout.draw(painter, QPointF(rect.left(), rect.top() + (rect.height() - height) / 2));
+        painter->restore();
+    }
+
+private:
+    static int textMargin(const QStyleOptionViewItem &opt)
+    {
+        // As QCommonStyle places item text.
+        const QStyle *style = opt.widget ? opt.widget->style() : QApplication::style();
+        return style->pixelMetric(QStyle::PM_FocusFrameHMargin, nullptr, opt.widget) + 1;
+    }
+
+    QAbstractItemView *m_view;
+    int m_width = -1; // of the viewport at the last layout request
+};
 
 } // namespace
 
@@ -233,8 +336,14 @@ void MainWindow::buildUi()
     connect(m_tagFilterEdit, &QLineEdit::textChanged, this, &MainWindow::applyTagFilter);
     tagsLayout->addWidget(m_tagFilterEdit);
     m_tagList = new QListWidget;
+    // Long names wrap; entries are laid out again whenever the list's width changes.
+    m_tagList->setItemDelegate(new WrappingItemDelegate(m_tagList));
+    m_tagList->setResizeMode(QListView::Adjust);
+    m_tagList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_tagList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tagList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
+        if (item->data(GroupHeaderRole).toBool())
+            return;
         addTagToEdit(m_includeEdit, item->text());
         applySearch();
     });
@@ -481,7 +590,7 @@ void MainWindow::createGallery()
 {
     if (isBusy())
         return;
-    GalleryDialog dialog(Gallery{}, galleryNamesExcept(0), this);
+    GalleryDialog dialog(Gallery{}, galleryNamesExcept(0), {}, this);
     if (dialog.exec() != QDialog::Accepted)
         return;
 
@@ -490,6 +599,8 @@ void MainWindow::createGallery()
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося створити галерею:\n%1").arg(Db::lastError()));
         return;
     }
+    if (!Db::saveTagGroups(id, dialog.tagGroups()))
+        QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти групи тегів:\n%1").arg(Db::lastError()));
     reloadGalleries(id);
     askForRescan(tr("Галерею «%1» створено. Запустити рескан зараз?").arg(dialog.name()));
 }
@@ -501,7 +612,7 @@ void MainWindow::editGallery()
         return;
     const Gallery original = *current;
 
-    GalleryDialog dialog(original, galleryNamesExcept(original.id), this);
+    GalleryDialog dialog(original, galleryNamesExcept(original.id), Db::tagGroups(original.id), this);
     const int result = dialog.exec();
 
     if (result == GalleryDialog::DeleteRequested) {
@@ -540,6 +651,8 @@ void MainWindow::editGallery()
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти галерею:\n%1").arg(Db::lastError()));
         return;
     }
+    if (!Db::saveTagGroups(updated.id, dialog.tagGroups()))
+        QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти групи тегів:\n%1").arg(Db::lastError()));
     reloadGalleries(updated.id);
     if (QDir(updated.rootFolder) != QDir(original.rootFolder))
         askForRescan(tr("Кореневу папку змінено. Запустити рескан зараз?\n\n"
@@ -685,7 +798,8 @@ void MainWindow::addTagToEdit(QLineEdit *edit, const QString &tag)
 void MainWindow::showTagMenu(const QPoint &pos)
 {
     QListWidgetItem *item = m_tagList->itemAt(pos);
-    if (!item)
+    const Gallery *gallery = currentGallery();
+    if (!item || !gallery || item->data(GroupHeaderRole).toBool())
         return;
     const QString tag = item->text();
     QMenu menu(this);
@@ -700,6 +814,24 @@ void MainWindow::showTagMenu(const QPoint &pos)
     if (!item->data(Qt::UserRole).toBool()) { // the service entry has a fixed name
         menu.addSeparator();
         menu.addAction(tr("Перейменувати…"), this, [this, tag] { renameTag(tag); });
+
+        // One group per tag: checkable items of one exclusive group, the current one ticked.
+        QMenu *groupMenu = menu.addMenu(tr("Група"));
+        auto *choices = new QActionGroup(groupMenu);
+        const qint64 current = item->data(TagGroupRole).toLongLong();
+        const auto addChoice = [&](const QString &text, qint64 groupId) {
+            QAction *action = groupMenu->addAction(text);
+            action->setCheckable(true);
+            action->setChecked(groupId == current);
+            choices->addAction(action);
+            connect(action, &QAction::triggered, this, [this, tag, groupId] { setTagGroup(tag, groupId); });
+        };
+        addChoice(tr("Без групи"), 0);
+        const QList<TagGroup> groups = Db::tagGroups(gallery->id);
+        if (!groups.isEmpty())
+            groupMenu->addSeparator();
+        for (const TagGroup &group : groups)
+            addChoice(QString(group.name).replace('&', "&&"), group.id); // '&' would be a mnemonic
     }
     menu.exec(m_tagList->viewport()->mapToGlobal(pos));
 }
@@ -774,21 +906,71 @@ void MainWindow::reloadTags()
     noTags->setToolTip(tr("Зображення, у яких немає жодного тегу"));
     noTags->setData(Qt::UserRole, true); // marks the service entry
 
-    if (m_hideForeignTagsCheck->isChecked())
-        m_tagList->addItems(Db::tagsOfSearch(gallery->id, m_query));
-    else
-        m_tagList->addItems(Db::allTags(gallery->id));
+    const QStringList tags = m_hideForeignTagsCheck->isChecked() ? Db::tagsOfSearch(gallery->id, m_query)
+                                                                 : Db::allTags(gallery->id);
+    // Tags without a group first, then the groups in the order set in the gallery dialog,
+    // each after a header that can't be selected and doesn't look like a tag.
+    const QList<TagSection> sections = Db::tagSections(gallery->id, tags);
+    for (const TagSection &section : sections) {
+        if (section.groupId != 0) {
+            auto *header = new QListWidgetItem(QStringLiteral("— %1 —").arg(section.groupName), m_tagList);
+            header->setFlags(Qt::NoItemFlags); // grey, not selectable, no double click
+            // Left, like the tags: centring uses the width of the widest entry, which may be wider
+            // than the visible part of the list, and the name was cut off at its right edge.
+            header->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+            QFont headerFont = header->font();
+            headerFont.setBold(true);
+            headerFont.setItalic(true);
+            header->setFont(headerFont);
+            header->setToolTip(tr("Група тегів «%1»").arg(section.groupName));
+            header->setData(GroupHeaderRole, true);
+        }
+        for (const QString &tag : section.tags) {
+            auto *item = new QListWidgetItem(tag, m_tagList);
+            item->setData(TagGroupRole, section.groupId);
+        }
+    }
     applyTagFilter();
 }
 
 void MainWindow::applyTagFilter()
 {
     const QString text = m_tagFilterEdit->text();
+    QListWidgetItem *header = nullptr; // of the group being walked
+    bool groupShown = false;
     for (int i = 0; i < m_tagList->count(); ++i) {
         QListWidgetItem *item = m_tagList->item(i);
+        if (item->data(GroupHeaderRole).toBool()) {
+            if (header)
+                header->setHidden(!groupShown);
+            header = item;
+            groupShown = false;
+            continue;
+        }
         const bool isServiceEntry = item->data(Qt::UserRole).toBool(); // never filtered out
-        item->setHidden(!isServiceEntry && !item->text().contains(text, Qt::CaseInsensitive));
+        const bool shown = isServiceEntry || item->text().contains(text, Qt::CaseInsensitive);
+        item->setHidden(!shown);
+        groupShown = groupShown || shown;
     }
+    if (header)
+        header->setHidden(!groupShown); // a header stays only while some tag of its group is shown
+}
+
+void MainWindow::setTagGroup(const QString &tag, qint64 groupId)
+{
+    const Gallery *gallery = currentGallery();
+    if (isBusy() || !gallery)
+        return;
+    if (!Db::setTagGroup(gallery->id, tag, groupId)) {
+        QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося змінити групу тегу:\n%1").arg(Db::lastError()));
+        return;
+    }
+    // The list keeps its scroll position: sorting many tags into groups one by one must not make
+    // the user search for the place they were at. (No current item: that would scroll to it.)
+    const int scroll = m_tagList->verticalScrollBar()->value();
+    reloadTags();
+    m_tagList->doItemsLayout(); // the layout is delayed otherwise, and the scroll range with it
+    m_tagList->verticalScrollBar()->setValue(scroll);
 }
 
 QString MainWindow::absolutePath(const QString &relativePath) const
@@ -1215,7 +1397,8 @@ void MainWindow::editImageMeta(int index)
         return; // nothing to do for other files for now
 
     const QString path = absolutePath(record.relativePath);
-    ImageMetaDialog dialog({path}, Db::tagsForImage(record.id), Db::allTags(galleryId), this);
+    ImageMetaDialog dialog({path}, Db::tagsForImage(record.id),
+                           Db::tagSections(galleryId, Db::allTags(galleryId)), this);
     wireMetaDialog(dialog);
     dialog.setIsCover(Db::isCollectionCover(galleryId, record.id));
     const int result = dialog.exec();
@@ -1332,11 +1515,15 @@ void MainWindow::editTagsOfSelection()
     QStringList paths;
     QList<qint64> ids;
     QStringList common;
+    QStringList any; // tags of at least one file
     bool first = true;
     for (const ImageRecord &rec : records) {
         paths << absolutePath(rec.relativePath);
         ids << rec.id;
         const QStringList tags = Db::tagsForImage(rec.id);
+        for (const QString &tag : tags)
+            if (!any.contains(tag))
+                any << tag;
         if (first) {
             common = tags;
             first = false;
@@ -1347,7 +1534,12 @@ void MainWindow::editTagsOfSelection()
         }
     }
 
-    ImageMetaDialog dialog(paths, common, Db::allTags(galleryId), this);
+    ImageMetaDialog dialog(paths, common, Db::tagSections(galleryId, Db::allTags(galleryId)), this);
+    QStringList partial; // only some of the files have them: the tag picker shows them locked
+    for (const QString &tag : std::as_const(any))
+        if (!common.contains(tag))
+            partial << tag;
+    dialog.setPartialTags(partial);
     wireMetaDialog(dialog);
     if (dialog.exec() != QDialog::Accepted)
         return;

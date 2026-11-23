@@ -7,20 +7,29 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QVBoxLayout>
 
-GalleryDialog::GalleryDialog(const Gallery &gallery, const QStringList &otherNames, QWidget *parent)
+GalleryDialog::GalleryDialog(const Gallery &gallery, const QStringList &otherNames,
+                             const QList<TagGroup> &tagGroups, QWidget *parent)
     : QDialog(parent)
     , m_gallery(gallery)
     , m_otherNames(otherNames)
     , m_nameEdit(new QLineEdit(gallery.name, this))
     , m_rootEdit(new QLineEdit(QDir::toNativeSeparators(gallery.rootFolder), this))
     , m_allowUpscaleCheck(new QCheckBox(tr("Дозволити збільшення зображень"), this))
+    , m_groupList(new QListWidget(this))
+    , m_renameGroupButton(new QPushButton(tr("Перейменувати…"), this))
+    , m_deleteGroupButton(new QPushButton(tr("Видалити"), this))
+    , m_upButton(new QPushButton(tr("Вгору"), this))
+    , m_downButton(new QPushButton(tr("Вниз"), this))
 {
     m_allowUpscaleCheck->setChecked(gallery.allowUpscale);
     m_allowUpscaleCheck->setToolTip(tr("У вікні перегляду маленькі зображення розтягуватимуться під розмір вікна.\n"
@@ -61,10 +70,113 @@ GalleryDialog::GalleryDialog(const Gallery &gallery, const QStringList &otherNam
         connect(deleteButton, &QPushButton::clicked, this, &GalleryDialog::requestDelete);
     }
 
+    // Tag groups: the main window's tag list shows tags without a group first, then the groups in this order.
+    for (const TagGroup &group : tagGroups) {
+        auto *item = new QListWidgetItem(group.name, m_groupList);
+        item->setData(Qt::UserRole, group.id);
+    }
+    m_groupList->setToolTip(tr("У списку тегів головного вікна спершу йдуть теги без групи,\n"
+                               "потім групи в цьому порядку. Тег до групи додають правим кліком у тому списку."));
+    connect(m_groupList, &QListWidget::currentRowChanged, this, &GalleryDialog::updateGroupButtons);
+    connect(m_groupList, &QListWidget::itemDoubleClicked, this, &GalleryDialog::renameGroup);
+    auto *addGroupButton = new QPushButton(tr("Додати…"), this);
+    connect(addGroupButton, &QPushButton::clicked, this, &GalleryDialog::addGroup);
+    connect(m_renameGroupButton, &QPushButton::clicked, this, &GalleryDialog::renameGroup);
+    connect(m_deleteGroupButton, &QPushButton::clicked, this, &GalleryDialog::deleteGroup);
+    connect(m_upButton, &QPushButton::clicked, this, [this] { moveGroup(-1); });
+    connect(m_downButton, &QPushButton::clicked, this, [this] { moveGroup(1); });
+    auto *groupButtons = new QVBoxLayout;
+    for (QPushButton *button : {addGroupButton, m_renameGroupButton, m_deleteGroupButton, m_upButton, m_downButton})
+        groupButtons->addWidget(button);
+    groupButtons->addStretch();
+    auto *groupBox = new QGroupBox(tr("Групи тегів"), this);
+    auto *groupLayout = new QHBoxLayout(groupBox);
+    groupLayout->addWidget(m_groupList, 1);
+    groupLayout->addLayout(groupButtons);
+    updateGroupButtons();
+
     auto *layout = new QVBoxLayout(this);
     layout->addLayout(form);
-    layout->addStretch();
+    layout->addWidget(groupBox, 1);
     layout->addWidget(buttons);
+}
+
+QList<TagGroup> GalleryDialog::tagGroups() const
+{
+    QList<TagGroup> groups;
+    for (int i = 0; i < m_groupList->count(); ++i) {
+        const QListWidgetItem *item = m_groupList->item(i);
+        groups.append({item->data(Qt::UserRole).toLongLong(), item->text()});
+    }
+    return groups;
+}
+
+void GalleryDialog::updateGroupButtons()
+{
+    const int row = m_groupList->currentRow();
+    m_renameGroupButton->setEnabled(row >= 0);
+    m_deleteGroupButton->setEnabled(row >= 0);
+    m_upButton->setEnabled(row > 0);
+    m_downButton->setEnabled(row >= 0 && row < m_groupList->count() - 1);
+}
+
+QString GalleryDialog::askGroupName(const QString &title, const QString &current)
+{
+    QString text = current;
+    for (;;) {
+        bool ok = false;
+        text = QInputDialog::getText(this, title, tr("Назва групи:"), QLineEdit::Normal, text, &ok).simplified();
+        if (!ok || text.isEmpty())
+            return {};
+        bool taken = false;
+        for (int i = 0; i < m_groupList->count(); ++i) {
+            const QString other = m_groupList->item(i)->text();
+            if (other != current && other.compare(text, Qt::CaseInsensitive) == 0)
+                taken = true;
+        }
+        if (!taken)
+            return text;
+        QMessageBox::warning(this, title, tr("Група «%1» вже є.").arg(text));
+    }
+}
+
+void GalleryDialog::addGroup()
+{
+    const QString name = askGroupName(tr("Нова група"), QString());
+    if (name.isEmpty())
+        return;
+    auto *item = new QListWidgetItem(name, m_groupList);
+    item->setData(Qt::UserRole, qint64(0));
+    m_groupList->setCurrentItem(item);
+}
+
+void GalleryDialog::renameGroup()
+{
+    QListWidgetItem *item = m_groupList->currentItem();
+    if (!item)
+        return;
+    const QString name = askGroupName(tr("Перейменувати групу"), item->text());
+    if (!name.isEmpty())
+        item->setText(name);
+}
+
+void GalleryDialog::deleteGroup()
+{
+    // Takes effect on "Save" only: the group's tags then stay without a group.
+    delete m_groupList->takeItem(m_groupList->currentRow());
+    updateGroupButtons();
+}
+
+void GalleryDialog::moveGroup(int step)
+{
+    const int row = m_groupList->currentRow();
+    const int target = row + step;
+    if (row < 0 || target < 0 || target >= m_groupList->count())
+        return;
+    QListWidgetItem *item = m_groupList->takeItem(row);
+    m_groupList->insertItem(target, item);
+    m_groupList->setCurrentItem(item);
+    updateGroupButtons(); // the row number may be the same as before the move
 }
 
 QString GalleryDialog::name() const

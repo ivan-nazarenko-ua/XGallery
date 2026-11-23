@@ -208,6 +208,48 @@ Les fichiers sur le disque resteront inchangés.</translation>
         <source>Видалити</source>
         <translation>Supprimer</translation>
     </message>
+    <message>
+        <source>Перейменувати…</source>
+        <translation>Renommer…</translation>
+    </message>
+    <message>
+        <source>Вгору</source>
+        <translation>Monter</translation>
+    </message>
+    <message>
+        <source>Вниз</source>
+        <translation>Descendre</translation>
+    </message>
+    <message>
+        <source>У списку тегів головного вікна спершу йдуть теги без групи,
+потім групи в цьому порядку. Тег до групи додають правим кліком у тому списку.</source>
+        <translation>La liste des tags de la fenêtre principale montre d’abord les tags sans groupe,
+puis les groupes dans cet ordre. On met un tag dans un groupe par un clic droit dans cette liste.</translation>
+    </message>
+    <message>
+        <source>Додати…</source>
+        <translation>Ajouter…</translation>
+    </message>
+    <message>
+        <source>Групи тегів</source>
+        <translation>Groupes de tags</translation>
+    </message>
+    <message>
+        <source>Назва групи:</source>
+        <translation>Nom du groupe :</translation>
+    </message>
+    <message>
+        <source>Група «%1» вже є.</source>
+        <translation>Le groupe « %1 » existe déjà.</translation>
+    </message>
+    <message>
+        <source>Нова група</source>
+        <translation>Nouveau groupe</translation>
+    </message>
+    <message>
+        <source>Перейменувати групу</source>
+        <translation>Renommer le groupe</translation>
+    </message>
 </context>
 <context>
     <name>ImageMetaDialog</name>
@@ -1050,6 +1092,30 @@ tags (par ordre alphabétique, joints par « / ») ; le nom du fichier vient tou
 Plus récents d&apos;abord : par date d&apos;ajout à la galerie, puis comme classique.
 Plus grands d&apos;abord : par taille de fichier (les plus grands d&apos;abord), puis comme classique.</translation>
     </message>
+    <message>
+        <source>Не вдалося зберегти групи тегів:
+%1</source>
+        <translation>Impossible d’enregistrer les groupes de tags :
+%1</translation>
+    </message>
+    <message>
+        <source>Група</source>
+        <translation>Groupe</translation>
+    </message>
+    <message>
+        <source>Без групи</source>
+        <translation>Sans groupe</translation>
+    </message>
+    <message>
+        <source>Група тегів «%1»</source>
+        <translation>Groupe de tags « %1 »</translation>
+    </message>
+    <message>
+        <source>Не вдалося змінити групу тегу:
+%1</source>
+        <translation>Impossible de changer le groupe du tag :
+%1</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>
@@ -1149,6 +1215,18 @@ La suppression aura lieu à l&apos;enregistrement de la fenêtre des métadonné
     <message>
         <source>Скасувати</source>
         <translation>Annuler</translation>
+    </message>
+    <message>
+        <source>%1
+Цей тег є лише в частини обраних файлів, тут його не змінити.
+Щоб дати його всім файлам, впиши його в «Нові теги».</source>
+        <translation>%1
+Seuls certains des fichiers sélectionnés ont ce tag ; il ne peut pas être modifié ici.
+Pour le donner à tous les fichiers, saisissez-le dans « Nouveaux tags ».</translation>
+    </message>
+    <message>
+        <source>Група тегів «%1»</source>
+        <translation>Groupe de tags « %1 »</translation>
     </message>
 </context>
 </TS>

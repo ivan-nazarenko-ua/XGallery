@@ -208,6 +208,48 @@ The image files on disk will stay unchanged.</translation>
         <source>Видалити</source>
         <translation>Delete</translation>
     </message>
+    <message>
+        <source>Перейменувати…</source>
+        <translation>Rename…</translation>
+    </message>
+    <message>
+        <source>Вгору</source>
+        <translation>Up</translation>
+    </message>
+    <message>
+        <source>Вниз</source>
+        <translation>Down</translation>
+    </message>
+    <message>
+        <source>У списку тегів головного вікна спершу йдуть теги без групи,
+потім групи в цьому порядку. Тег до групи додають правим кліком у тому списку.</source>
+        <translation>The tag list of the main window shows tags without a group first,
+then the groups in this order. A tag is put into a group by right-clicking it in that list.</translation>
+    </message>
+    <message>
+        <source>Додати…</source>
+        <translation>Add…</translation>
+    </message>
+    <message>
+        <source>Групи тегів</source>
+        <translation>Tag groups</translation>
+    </message>
+    <message>
+        <source>Назва групи:</source>
+        <translation>Group name:</translation>
+    </message>
+    <message>
+        <source>Група «%1» вже є.</source>
+        <translation>The group &quot;%1&quot; already exists.</translation>
+    </message>
+    <message>
+        <source>Нова група</source>
+        <translation>New group</translation>
+    </message>
+    <message>
+        <source>Перейменувати групу</source>
+        <translation>Rename group</translation>
+    </message>
 </context>
 <context>
     <name>ImageMetaDialog</name>
@@ -1050,6 +1092,30 @@ tags (in alphabetical order, joined with &quot;/&quot;); the file name always co
 Newest first: by the date added to the gallery, then as classic.
 Largest first: by file size (largest first), then as classic.</translation>
     </message>
+    <message>
+        <source>Не вдалося зберегти групи тегів:
+%1</source>
+        <translation>Could not save the tag groups:
+%1</translation>
+    </message>
+    <message>
+        <source>Група</source>
+        <translation>Group</translation>
+    </message>
+    <message>
+        <source>Без групи</source>
+        <translation>No group</translation>
+    </message>
+    <message>
+        <source>Група тегів «%1»</source>
+        <translation>Tag group &quot;%1&quot;</translation>
+    </message>
+    <message>
+        <source>Не вдалося змінити групу тегу:
+%1</source>
+        <translation>Could not change the tag&apos;s group:
+%1</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>
@@ -1149,6 +1215,18 @@ It will be deleted when the metadata window is saved.</translation>
     <message>
         <source>Скасувати</source>
         <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>%1
+Цей тег є лише в частини обраних файлів, тут його не змінити.
+Щоб дати його всім файлам, впиши його в «Нові теги».</source>
+        <translation>%1
+Only some of the selected files have this tag; it can&apos;t be changed here.
+To give it to all the files, type it into &quot;New tags&quot;.</translation>
+    </message>
+    <message>
+        <source>Група тегів «%1»</source>
+        <translation>Tag group &quot;%1&quot;</translation>
     </message>
 </context>
 </TS>

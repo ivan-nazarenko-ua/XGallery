@@ -14,6 +14,21 @@ struct Gallery
     bool allowUpscale = false; // viewer may enlarge images beyond their original size
 };
 
+// A group of tags, as the user named and ordered it in the gallery dialog.
+struct TagGroup
+{
+    qint64 id = 0; // 0: not stored yet
+    QString name;
+};
+
+// Tags of one group (groupId 0: tags without a group), for lists that show tags group by group.
+struct TagSection
+{
+    qint64 groupId = 0;
+    QString groupName;
+    QStringList tags;
+};
+
 struct ImageRecord
 {
     qint64 id = 0;
@@ -83,6 +98,17 @@ bool deleteGallery(const QSqlDatabase &db, qint64 galleryId);
 
 QStringList allTags(qint64 galleryId);
 QStringList tagsForImage(qint64 imageId);
+
+// The gallery's tag groups in the user's order.
+QList<TagGroup> tagGroups(qint64 galleryId);
+// Makes the gallery's groups exactly `groups`, in this order: id 0 = new; stored groups that are
+// missing are deleted and their tags left without a group. One transaction.
+bool saveTagGroups(qint64 galleryId, const QList<TagGroup> &groups);
+// Puts the tag into the group (0: no group).
+bool setTagGroup(qint64 galleryId, const QString &tag, qint64 groupId);
+// Splits tags (their order kept inside each part) by group: tags without a group (also names the
+// DB doesn't know) first, then the groups in the user's order. Empty parts are left out.
+QList<TagSection> tagSections(qint64 galleryId, const QStringList &tags);
 
 enum class SortOrder {
     Classic,     // collection: its rating, shown name, virtual path; then file name, id

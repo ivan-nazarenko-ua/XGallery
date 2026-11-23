@@ -42,7 +42,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `mediafiles.*` | File kind by extension (image / video / other) and thumbnails (videos via `IShellItemImageFactory`, others as an extension card) |
 | `imageviewer.*` | Viewer window: fit/upscale, arrows (circular), double-click full screen, right-click rotation |
 | `imagerotation.*` | Saving rotations to disk (lossless for JPEG via EXIF orientation) |
-| `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating |
+| `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating. `GalleryDialog` also edits the tag groups |
 | `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
 | `collections.*` | Collections: xxh128 of the virtual path (`hashOf`), default name, `retag` (vpath/vpath_key/vpath_hash of files) and `sync` (collection rows: transfer, create, delete, covers) |
 | `thumbcache.*` | Grid thumbnails cached as `thumbs/<first 2 hex>/<sha256>.png` next to the DB (256 subfolders: FAT32 per-folder limit) (`ThumbCache::thumbnail` = load or make+store; images and videos only). All errors ignored |
@@ -53,9 +53,9 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 ## Rules that must keep holding
 
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
-  never edit existing steps. Current version: 10 (galleries; rating+name; allow_upscale; no commas in tags;
+  never edit existing steps. Current version: 11 (galleries; rating+name; allow_upscale; no commas in tags;
   normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space;
-  collections — images.rating dropped; collections.name_key).
+  collections — images.rating dropped; collections.name_key; tag groups).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -126,7 +126,18 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (`m_selectedIds`) kept across pages/searches, cleared by "Зняти всі" or a gallery switch; "Обрати всі"
   ticks the current page only. Right click on a file with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.
   Double click on a tag in the metadata dialog adds it to "Містить" without searching.
-- Tag picker (`TagPickerDialog`, from the metadata dialog): new tags (comma list) + 6 columns of checkboxes for gallery tags not on the file.
+- **Tag groups**: table `tag_groups` (gallery_id, name, position = user order; names unique per gallery only in the dialog);
+  `tags.group_id` (NULL = no group, ON DELETE SET NULL; `Db::saveTagGroups` also nulls it explicitly). Edited in `GalleryDialog`
+  (saved on its Save via `Db::saveTagGroups`), a tag is moved via the tag list's right-click menu "Група" (`Db::setTagGroup`).
+  `Db::tagSections` splits a tag list: no group first, then groups by position, order inside kept. A deleted unused tag loses
+  its group. Main tag list: a group header item before each group (`GroupHeaderRole`, `Qt::NoItemFlags`, "— name —"), hidden by the
+  filter when no tag of its group is shown; tag items carry `TagGroupRole`. Changing a tag's group keeps the list's scroll position.
+  The tag list has no horizontal scroll: `WrappingItemDelegate` (mainwindow.cpp) wraps long names (word boundary, else anywhere),
+  entries are as wide as the viewport, `ResizeMode::Adjust` re-lays them out on resize.
+- Tag picker (`TagPickerDialog`, from the metadata dialog): new tags (comma list) + 6 columns of checkboxes for all gallery tags
+  (a group's name is a bold label taking a cell before its tags; the file's tags ticked, unticking removes them; bulk mode: tags
+  only some files have (`ImageMetaDialog::setPartialTags`) are locked, partially checked; typing one in "Нові теги" unlocks it).
+  It returns added/removed relative to the state it showed; boxes the user didn't touch follow `setAssignedTags`.
   Not modal (`show()`, a child of the metadata dialog, closes with it), so the preview and viewer stay usable. Writes nothing itself. Right click + confirmation marks a tag for deletion from the whole gallery; `MainWindow::deleteTagsFromGallery` (`Db::deleteTags`)
   runs it after the metadata dialog's Save, and giving the tag to the file again takes the deletion back.
 - Tag clipboard (metadata dialog, single and bulk): Ctrl+C / context menu copies the selected tags as `А, Б`;

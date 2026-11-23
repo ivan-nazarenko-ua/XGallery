@@ -526,6 +526,20 @@ bool toV10CollectionNameKey(Sql &s)
     return true;
 }
 
+// ---- v10 -> v11: tag groups -----------------------------------------------------------------
+// Each tag is in at most one group of its gallery (tags.group_id, NULL = no group). The user
+// orders the groups (position); a deleted group leaves its tags without a group.
+bool toV11TagGroups(Sql &s)
+{
+    return s.exec("CREATE TABLE tag_groups ("
+                  " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                  " gallery_id INTEGER NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,"
+                  " name TEXT NOT NULL,"
+                  " position INTEGER NOT NULL)")
+        && s.exec("ALTER TABLE tags ADD COLUMN group_id INTEGER REFERENCES tag_groups(id) ON DELETE SET NULL")
+        && s.exec("CREATE INDEX idx_tags_group ON tags(group_id)");
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -604,6 +618,7 @@ static const QList<Migrations::Step> &steps()
         {toV8UnderscoreIsSpace, false},
         {toV9Collections, false},
         {toV10CollectionNameKey, false},
+        {toV11TagGroups, false},
     };
     return list;
 }

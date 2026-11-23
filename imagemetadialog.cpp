@@ -39,7 +39,7 @@ bool lessCaseInsensitive(const QString &a, const QString &b)
 } // namespace
 
 ImageMetaDialog::ImageMetaDialog(const QStringList &filePaths, const QStringList &imageTags,
-                                 const QStringList &galleryTags, QWidget *parent)
+                                 const QList<TagSection> &galleryTags, QWidget *parent)
     : QDialog(parent)
     , m_galleryTags(galleryTags)
     , m_tags(imageTags)
@@ -341,20 +341,41 @@ void ImageMetaDialog::chooseTags()
         return;
     }
 
-    QStringList available;
-    for (const QString &tag : std::as_const(m_galleryTags))
-        if (!m_tags.contains(tag) && !m_deletedTags.contains(tag))
-            available << tag;
+    // All gallery tags but those marked for deletion, plus the file's tags the DB doesn't know yet
+    // (pasted) and the partial ones of a bulk edit, which are stored tags anyway.
+    QList<TagSection> sections = m_galleryTags;
+    QStringList known;
+    for (TagSection &section : sections) {
+        section.tags.removeIf([this](const QString &tag) { return m_deletedTags.contains(tag); });
+        known << section.tags;
+    }
+    QStringList extra;
+    for (const QString &tag : std::as_const(m_tags))
+        if (!known.contains(tag))
+            extra << tag;
+    if (!extra.isEmpty()) {
+        if (sections.isEmpty() || sections.first().groupId != 0)
+            sections.prepend(TagSection{});
+        sections.first().tags << extra;
+        std::sort(sections.first().tags.begin(), sections.first().tags.end(), lessCaseInsensitive);
+    }
 
     // A child of the dialog, so it works while the dialog is modal.
-    m_picker = new TagPickerDialog(available, m_tags, this);
+    m_picker = new TagPickerDialog(sections, m_tags, m_partialTags, this);
     m_picker->setAttribute(Qt::WA_DeleteOnClose);
     connect(m_picker, &QDialog::accepted, this, [this] {
-        m_deletedTags << m_picker->deletedTags();
-        const QStringList chosen = m_picker->chosenTags();
-        for (const QString &tag : chosen)
+        const QStringList added = m_picker->addedTags();
+        for (const QString &tag : added)
             if (!m_tags.contains(tag))
                 m_tags << tag;
+        const QStringList removed = m_picker->removedTags();
+        for (const QString &tag : removed)
+            m_tags.removeAll(tag);
+        // A tag deleted from the gallery leaves this file (these files) as well.
+        const QStringList deleted = m_picker->deletedTags();
+        for (const QString &tag : deleted)
+            m_tags.removeAll(tag);
+        m_deletedTags << deleted;
         std::sort(m_tags.begin(), m_tags.end(), lessCaseInsensitive);
         refresh();
     });
