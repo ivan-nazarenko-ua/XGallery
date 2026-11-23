@@ -1494,18 +1494,6 @@ You can type a new name — the folder will be created:</translation>
 %1</translation>
     </message>
     <message>
-        <source>Порядок знайдених файлів. Колекція стоїть там, де її перший файл.
-Класичне: за оцінкою колекції (більші спочатку), потім за ім&apos;ям колекції, потім за її
-тегами (за абеткою через «/»); останніми завжди ім&apos;я файлу.
-Спочатку новіші: за датою додавання в галерею, потім як класичне.
-Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.</source>
-        <translation>Order of the found files. A collection comes where its first file is.
-Classic: by the collection&apos;s rating (higher first), then by the collection&apos;s name, then by its
-tags (in alphabetical order, joined with &quot;/&quot;); the file name always comes last.
-Newest first: by the date added to the gallery, then as classic.
-Largest first: by file size (largest first), then as classic.</translation>
-    </message>
-    <message>
         <source>Не вдалося зберегти групи тегів:
 %1</source>
         <translation>Could not save the tag groups:
@@ -1596,6 +1584,20 @@ When unticked, the next rescan removes the files found through such folders from
     <message>
         <source>Завантажити з інтернету</source>
         <translation>Download from the Internet</translation>
+    </message>
+    <message>
+        <source>Порядок знайдених файлів. Колекція стоїть там, де її перший файл.
+Класичне: за оцінкою колекції (більші спочатку), потім за ім&apos;ям колекції, потім за її
+тегами (за абеткою через «/»); останніми завжди ім&apos;я файлу.
+Спочатку новіші: за датою додавання в галерею, потім як класичне.
+Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.
+Усередині відкритої колекції файли завжди йдуть за ім&apos;ям.</source>
+        <translation>Order of the found files. A collection comes where its first file is.
+Classic: by the collection&apos;s rating (higher first), then by the collection&apos;s name, then by its
+tags (in alphabetical order, joined with &quot;/&quot;); the file name always comes last.
+Newest first: by the date added to the gallery, then as classic.
+Largest first: by file size (largest first), then as classic.
+Inside an open collection the files always go by name.</translation>
     </message>
 </context>
 <context>

@@ -148,13 +148,12 @@ restent groupées, quel que soit le dossier où elles se trouvent.
   droit permet de choisir où ajouter le tag, et aussi de le **renommer**. Si un tag portant le
   nouveau nom existe déjà, rien n'est renommé.
 - **Le tri** ordonne les fichiers trouvés ; chaque collection se place là où se trouve son premier
-  fichier, et dans une collection ouverte ses fichiers suivent le même ordre :
+  fichier. Dans une collection ouverte (et dans la visionneuse), les fichiers sont toujours classés
+  par nom de fichier, quel que soit le tri :
   - « Classique » — par **note** de la collection (les plus hautes d'abord), puis par **nom** de la
     collection tel que vous le voyez (par ordre alphabétique, sans tenir compte de la casse), puis
     par son chemin (voir plus haut). Par exemple, en
-    cherchant « Marie », « Marie/Village/2024 » notée 90 vient avant « Marie/Mer/2024 » notée 10.
-    Les fichiers d'une même collection partagent sa note et son nom, ils y sont donc classés par nom
-    de fichier ;
+    cherchant « Marie », « Marie/Village/2024 » notée 90 vient avant « Marie/Mer/2024 » notée 10 ;
   - « Plus récents d'abord » — les fichiers ajoutés le plus récemment à la galerie viennent en
     premier (pratique après l'ajout d'un nouveau lot de photos), puis comme en Classique ;
   - « Plus gros d'abord » — les fichiers les plus volumineux d'abord (pratique pour libérer de

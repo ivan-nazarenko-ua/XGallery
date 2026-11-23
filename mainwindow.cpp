@@ -479,7 +479,8 @@ void MainWindow::retranslateUi()
                                "Класичне: за оцінкою колекції (більші спочатку), потім за ім'ям колекції, потім за її\n"
                                "тегами (за абеткою через «/»); останніми завжди ім'я файлу.\n"
                                "Спочатку новіші: за датою додавання в галерею, потім як класичне.\n"
-                               "Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне."));
+                               "Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.\n"
+                               "Усередині відкритої колекції файли завжди йдуть за ім'ям."));
 
     m_tagsBox->setTitle(tr("Теги"));
     m_hideForeignTagsCheck->setText(tr("Сховати чужі теги"));
@@ -1102,8 +1103,9 @@ void MainWindow::loadPage(int page)
     QList<QPair<QString, QString>> paths; // what the thumbnails show: absolute path, sha256
     if (inCollection()) {
         m_pageCollections.clear();
+        // Inside a collection files always go by name: Classic, whose collection keys are equal here.
         m_pageRecords = Db::searchImages(galleryId, collectionQuery(), page * PageSize, PageSize, &m_totalCount,
-                                         sortOrder());
+                                         Db::SortOrder::Classic);
         m_totalFiles = m_totalCount;
         for (const ImageRecord &rec : std::as_const(m_pageRecords))
             paths.append({absolutePath(rec.relativePath), rec.sha256});
@@ -1241,8 +1243,9 @@ void MainWindow::openThumbnail(int index)
     }
 
     // The arrows in the viewer walk through the images of the whole collection (not just this
-    // page); videos and other files are skipped.
-    const QList<ImageRecord> all = Db::searchImages(gallery->id, collectionQuery(), 0, -1, nullptr, sortOrder());
+    // page), by file name like the grid; videos and other files are skipped.
+    const QList<ImageRecord> all = Db::searchImages(gallery->id, collectionQuery(), 0, -1, nullptr,
+                                                    Db::SortOrder::Classic);
     QStringList paths;
     paths.reserve(all.size());
     int current = 0;

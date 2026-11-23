@@ -135,8 +135,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   If the open collection's row is gone, `loadPage` falls back to the collection list.
 - Sorting (files joined to their collection row as `ic`): Classic = ic.rating DESC, ic.name_key, vpath_key,
   file name NOCASE, id (file name and id always last); NewestFirst = added_at DESC then classic;
-  LargestFirst = size DESC then classic. The viewer walks the open collection (images only)
-  in the same order.
+  LargestFirst = size DESC then classic. These order the collections; the files of an open collection
+  (grid and viewer, images only) always use Classic, i.e. file name then id (owner's decision).
 - Bulk tag edit (inside a collection only): checkboxes on file thumbnails (hidden for "other" files and for collections). The selection is a set of image ids
   (`m_selectedIds`) kept across pages/searches, cleared by "Зняти всі" or a gallery switch; "Обрати всі"
   ticks the current page only. Right click on a file with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.

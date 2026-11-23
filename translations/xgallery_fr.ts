@@ -1494,18 +1494,6 @@ Vous pouvez saisir un nouveau nom — le dossier sera créé :</translation>
 %1</translation>
     </message>
     <message>
-        <source>Порядок знайдених файлів. Колекція стоїть там, де її перший файл.
-Класичне: за оцінкою колекції (більші спочатку), потім за ім&apos;ям колекції, потім за її
-тегами (за абеткою через «/»); останніми завжди ім&apos;я файлу.
-Спочатку новіші: за датою додавання в галерею, потім як класичне.
-Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.</source>
-        <translation>Ordre des fichiers trouvés. Une collection se place là où se trouve son premier fichier.
-Classique : par note de la collection (les plus hautes d&apos;abord), puis par nom de la collection, puis par ses
-tags (par ordre alphabétique, joints par « / ») ; le nom du fichier vient toujours en dernier.
-Plus récents d&apos;abord : par date d&apos;ajout à la galerie, puis comme classique.
-Plus grands d&apos;abord : par taille de fichier (les plus grands d&apos;abord), puis comme classique.</translation>
-    </message>
-    <message>
         <source>Не вдалося зберегти групи тегів:
 %1</source>
         <translation>Impossible d’enregistrer les groupes de tags :
@@ -1596,6 +1584,20 @@ Si la case est décochée, la prochaine analyse retire de la base les fichiers t
     <message>
         <source>Завантажити з інтернету</source>
         <translation>Télécharger depuis Internet</translation>
+    </message>
+    <message>
+        <source>Порядок знайдених файлів. Колекція стоїть там, де її перший файл.
+Класичне: за оцінкою колекції (більші спочатку), потім за ім&apos;ям колекції, потім за її
+тегами (за абеткою через «/»); останніми завжди ім&apos;я файлу.
+Спочатку новіші: за датою додавання в галерею, потім як класичне.
+Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.
+Усередині відкритої колекції файли завжди йдуть за ім&apos;ям.</source>
+        <translation>Ordre des fichiers trouvés. Une collection se place là où se trouve son premier fichier.
+Classique : par note de la collection (les plus hautes d&apos;abord), puis par nom de la collection, puis par ses
+tags (par ordre alphabétique, joints par « / ») ; le nom du fichier vient toujours en dernier.
+Plus récents d&apos;abord : par date d&apos;ajout à la galerie, puis comme classique.
+Plus grands d&apos;abord : par taille de fichier (les plus grands d&apos;abord), puis comme classique.
+Dans une collection ouverte, les fichiers sont toujours classés par nom.</translation>
     </message>
 </context>
 <context>

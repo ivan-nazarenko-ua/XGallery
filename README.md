@@ -126,12 +126,11 @@ photos with the same set of tags stay together, no matter which folder they are 
 - Double-clicking a tag in the list on the left adds it to "Contains tags". Right-clicking lets
   you choose where to add the tag, and also **rename** it. If a tag with the new name already
   exists, nothing is renamed.
-- **Sorting** puts the found files in order; each collection stands where its first file is, and
-  inside an open collection its files follow the same order:
+- **Sorting** puts the found files in order; each collection stands where its first file is.
+  Inside an open collection (and in the viewer) files always go by file name, whatever the sorting:
   - "Classic" — by the collection's **rating** (higher first), then by the collection's **name**
     as you see it (alphabetically, case doesn't matter), then by its path (see above). For example, when searching for "Kate", "Kate/Village/2024"
-    with rating 90 comes before "Kate/Sea/2024" with rating 10. Files of one collection share its
-    rating and name, so inside it they go by file name;
+    with rating 90 comes before "Kate/Sea/2024" with rating 10;
   - "Newest first" — the files added to the gallery most recently come first (handy after
     adding a new batch of photos), then as in Classic;
   - "Largest first" — the biggest files first (handy for freeing up space), then as in Classic.
