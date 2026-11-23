@@ -203,8 +203,11 @@ programme vous demande quoi en faire.
   dans l'Explorateur Windows. Un clic ouvre la vidéo dans le programme que Windows lui associe.
 - **Les autres fichiers** s'affichent sous forme de carte avec leur extension et n'ouvrent rien.
 - Les fichiers `*.db` et `*.ini`, dont `Thumbs.db` et `desktop.ini`, n'entrent jamais dans une
-  galerie. Le dossier du programme lui-même (exe, bibliothèques, base) est également ignoré s'il
-  se trouve dans une galerie.
+  galerie. Le dossier du programme lui-même (exe, bibliothèques, base) et le dossier `thumbs` à
+  côté de la base sont également ignorés s'ils se trouvent dans une galerie.
+- Les liens vers des dossiers (jonctions NTFS et liens symboliques vers des dossiers) ne sont pas
+  suivis : « Analyser », l'ajout d'un dossier et « Supprimer les fichiers inutiles » les
+  ignorent, donc les fichiers vers lesquels ils mènent n'entrent pas dans la galerie.
 
 ## Le menu « Fichier »
 

@@ -178,7 +178,10 @@ with it.
   Explorer. A click opens the video in the program Windows assigns to it.
 - **Other files** are shown as a card with their extension and don't open anything.
 - `*.db` and `*.ini` files, including `Thumbs.db` and `desktop.ini`, never get into a gallery.
-  The program's own folder (exe, libraries, database) is skipped too if it lies inside a gallery.
+  The program's own folder (exe, libraries, database) and the `thumbs` folder next to the database
+  are skipped too if they lie inside a gallery.
+- Folder links (NTFS junctions and symbolic links to folders) are not followed: rescan, adding a
+  folder and "Delete junk" skip them, so files they lead to don't get into the gallery.
 
 ## The "File" menu
 

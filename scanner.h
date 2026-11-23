@@ -4,7 +4,10 @@
 #include <QPromise>
 #include <QString>
 
+#include <functional>
 #include <optional>
+
+class QFileInfo;
 
 struct ScanStats
 {
@@ -66,6 +69,15 @@ std::optional<QString> folderInGallery(const QString &rootFolder, const QString 
 // Copies a file out of the gallery. A file already at destination is replaced, but only after
 // the copy has succeeded. Worker-thread safe.
 bool exportCopy(const QString &source, const QString &destination);
+
+// A folder the program walks into: a real directory, not a symlink or an NTFS junction. Those may
+// lead outside the gallery or back up into it (an endless walk), so no walk ever enters them.
+bool isRealFolder(const QFileInfo &info);
+
+// Calls onFile for every readable file under folder, hidden and system ones too, going folder by
+// folder into real subfolders only (isRealFolder). onFile returns false to stop the walk; then
+// forEachFile returns false too. Worker-thread safe.
+bool forEachFile(const QString &folder, const std::function<bool(const QString &path)> &onFile);
 
 struct JunkScan
 {

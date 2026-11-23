@@ -70,8 +70,9 @@ bool isInProgramFolder(const QString &path)
 }
 
 // Records of such files already in the DB are dropped by the next rescan as "missing".
-// The program's folder and its own DB (with the SQLite side files) are excluded too.
-// A bare file name is checked by its suffix only.
+// The program's folder, its own DB (with the SQLite side files) and the thumbnail cache next to
+// the DB are excluded too (a gallery root may contain AppData). A bare file name is checked by
+// its suffix only.
 bool isExcluded(const QString &path)
 {
     static const QStringList suffixes = {"db", "ini"};
@@ -82,11 +83,12 @@ bool isExcluded(const QString &path)
     if (isInProgramFolder(path))
         return true;
     static const QString dbPath = QFileInfo(Db::databasePath()).absoluteFilePath();
+    static const QString thumbsDir = QDir::cleanPath(QFileInfo(ThumbCache::folder()).absoluteFilePath());
     const QString absolute = QFileInfo(path).absoluteFilePath();
     for (const char *side : {"", "-journal", "-wal", "-shm"})
         if (absolute.compare(dbPath + QLatin1String(side), Qt::CaseInsensitive) == 0)
             return true;
-    return false;
+    return absolute.startsWith(thumbsDir + '/', Qt::CaseInsensitive);
 }
 
 // Windows device names can't be folder names, with an extension either ("CON", "nul.old").
@@ -235,19 +237,18 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
     QStringList files;
     // Every file, whatever its type. Hidden/system ones too: Windows sometimes marks
     // ordinary files that way (and hidden folders are then also walked into).
-    QDirIterator it(rootFolder, QDir::Files | QDir::Readable | QDir::Hidden | QDir::System,
-                    QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        const QString path = it.next();
+    // Symlinked folders and junctions are not walked into (Scanner::isRealFolder).
+    const bool complete = Scanner::forEachFile(rootFolder, [&](const QString &path) {
         if (isExcluded(path))
-            continue;
+            return true;
         files << path;
         if (files.size() % 500 == 0)
             promise.setProgressValueAndText(
                 0, QCoreApplication::translate("Scanner", "Шукаю файли… знайдено %1").arg(files.size()));
-        if (promise.isCanceled())
-            return stats;
-    }
+        return !promise.isCanceled();
+    });
+    if (!complete)
+        return stats;
 
     // 3. Sync.
     if (!db.transaction()) {
@@ -453,6 +454,32 @@ bool isIgnoredFile(const QString &path)
     return isExcluded(path) || isJunkFile(path);
 }
 
+bool isRealFolder(const QFileInfo &info)
+{
+    return info.isDir() && !info.isSymLink() && !info.isJunction();
+}
+
+bool forEachFile(const QString &folder, const std::function<bool(const QString &path)> &onFile)
+{
+    // Folder by folder: QDirIterator's own recursion skips symlinks but walks into junctions.
+    QStringList pending{folder};
+    while (!pending.isEmpty()) {
+        QDirIterator it(pending.takeLast(), QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot | QDir::Readable
+                                                | QDir::Hidden | QDir::System);
+        while (it.hasNext()) {
+            it.next();
+            const QFileInfo info = it.fileInfo();
+            if (info.isDir()) {
+                if (isRealFolder(info))
+                    pending << info.absoluteFilePath();
+            } else if (!onFile(info.filePath())) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 bool isValidFileName(const QString &name)
 {
     static const QRegularExpression forbidden(QStringLiteral(R"([\\/:*?"<>|\x00-\x1f])"));
@@ -471,7 +498,8 @@ QString freeFileName(const QDir &dir, const QString &fileName)
     const QString base = fi.completeBaseName();
     const QString suffix = fi.suffix().isEmpty() ? QString() : '.' + fi.suffix();
     for (int n = 1;; ++n) {
-        const QString candidate = QString("%1 (%2)%3").arg(base).arg(n).arg(suffix);
+        // One arg() call: chained ones would treat a "%1"/"%2B" in the file name as a placeholder.
+        const QString candidate = QString("%1 (%2)%3").arg(base, QString::number(n), suffix);
         if (!dir.exists(candidate))
             return candidate;
     }
@@ -675,21 +703,27 @@ JunkScan findJunk(const QString &rootFolder)
     QStringList dirs;
     QSet<QString> notEmpty; // folders known to hold something that stays
 
-    QDirIterator it(root, QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System,
-                    QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        it.next();
-        const QFileInfo fi = it.fileInfo();
-        if (isInProgramFolder(fi.absoluteFilePath())) {
-            notEmpty.insert(fi.absolutePath()); // the program's folder is never touched and keeps its parent
-            continue;
+    // Folder by folder: QDirIterator's own recursion skips symlinks but walks into junctions,
+    // i.e. into folders outside the gallery.
+    QStringList pending{root};
+    while (!pending.isEmpty()) {
+        QDirIterator it(pending.takeLast(), QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System);
+        while (it.hasNext()) {
+            it.next();
+            const QFileInfo fi = it.fileInfo();
+            if (isInProgramFolder(fi.absoluteFilePath())) {
+                notEmpty.insert(fi.absolutePath()); // the program's folder is never touched and keeps its parent
+                continue;
+            }
+            if (isRealFolder(fi)) {
+                dirs << fi.absoluteFilePath();
+                pending << fi.absoluteFilePath();
+            } else if (fi.isFile() && !fi.isSymLink() && isJunkFile(fi.fileName())) {
+                result.junkFiles << fi.absoluteFilePath(); // goes away, doesn't keep the folder
+            } else {
+                notEmpty.insert(fi.absolutePath()); // a real file (or link) keeps its folder alive
+            }
         }
-        if (fi.isDir() && !fi.isSymLink() && !fi.isJunction())
-            dirs << fi.absoluteFilePath();
-        else if (fi.isFile() && !fi.isSymLink() && isJunkFile(fi.fileName()))
-            result.junkFiles << fi.absoluteFilePath(); // goes away, doesn't keep the folder
-        else
-            notEmpty.insert(fi.absolutePath()); // a real file (or link) keeps its folder alive
     }
 
     // Deepest first: a folder is empty if nothing marked it and none of its subfolders stays.

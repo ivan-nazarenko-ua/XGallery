@@ -22,7 +22,9 @@ QString extensionLabel(const QString &path);
 // Images: the picture itself. Videos: the Windows Explorer thumbnail (first frame) with
 // the extension as a badge, or just the extension if Windows has none. Others: the extension.
 // Returns a null image only for an image file that can't be read.
-QImage makeThumbnail(const QString &path, int size);
+// *isPreview (optional): true if the result shows the file's content, false for an extension card
+// (also the stand-in of a video Windows can't preview now) or a null image.
+QImage makeThumbnail(const QString &path, int size, bool *isPreview = nullptr);
 
 } // namespace MediaFiles
 

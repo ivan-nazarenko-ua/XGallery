@@ -46,7 +46,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating. `GalleryDialog` also edits the tag groups |
 | `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
 | `collections.*` | Collections: xxh128 of the virtual path (`hashOf`), default name, `retag` (vpath/vpath_key/vpath_hash of files) and `sync` (collection rows: transfer, create, delete, covers) |
-| `thumbcache.*` | Grid thumbnails cached as `thumbs/<first 2 hex>/<sha256>.png` next to the DB (256 subfolders: FAT32 per-folder limit) (`ThumbCache::thumbnail` = load or make+store; images and videos only). All errors ignored |
+| `thumbcache.*` | Grid thumbnails cached as `thumbs/<first 2 hex>/<sha256>.png` next to the DB (256 subfolders: FAT32 per-folder limit) (`ThumbCache::thumbnail` = load or make+store; stores only real previews of images and videos, never extension cards — a video Windows can't preview is tried again; "other" files skip the cache). All errors ignored |
 | `third_party/xxhash/` | Vendored xxHash 0.8.3 single header (BSD-2, used header-only via `XXH_INLINE_ALL` in `collections.cpp`) |
 | `i18n.*`, `languagedialog.*`, `translations/*.ts`, `flags/` | UI language (uk source, en/fr translations), first-start flag dialog, flag SVGs + rendered PNGs (48x32 and @2x) |
 | `xgallery.ico`, `xgallery.rc`, `resources.qrc` | Program icon, rendered from `logo.svg` (each size 16–256 px rendered directly, centred on a transparent square, PNG entries). Rebuild the .ico when the SVG changes |
@@ -72,9 +72,11 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   not a tag: it exists only in `MainWindow` as text in the search fields and the tag list's service
   entry (`parseTags` turns it into the untagged flags, `tagsText` back). `Db::` knows no service tags.
   Shown bold on a tinted background in the list and the search fields (`highlightNoTags`), so it differs from a real tag "Без тегів".
-- **Rescan**: all files incl. hidden/system, except `*.db`/`*.ini`, the program's own DB and anything
+- **Rescan**: all files incl. hidden/system, except `*.db`/`*.ini`, the program's own DB, the `thumbs` cache next to it and anything
   inside the exe folder (import and junk deletion skip that folder too). Unchanged = same size+mtime
   (no re-hash). Folder tags are added only to new files, so manual tag edits survive.
+  No walk (rescan, import, junk search, folder lists offered for import) enters symlinked folders or NTFS
+  junctions: `Scanner::forEachFile` / `Scanner::isRealFolder`, never `QDirIterator::Subdirectories` (it enters junctions).
   Moves/renames: a missing record + one new file with the same sha256+size (1:1 only) keep
   id and manual tags; old-folder tags are swapped for new ones.
   All files of one scan/import get the same `added_at` (for "newest first").

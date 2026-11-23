@@ -22,7 +22,6 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QDirIterator>
 #include <QInputDialog>
 #include <QRegularExpression>
 #include <QFutureWatcher>
@@ -1061,8 +1060,13 @@ void MainWindow::editCollection(int index)
 
 void MainWindow::loadPage(int page)
 {
-    if (isBusy())
+    if (isBusy()) {
+        // E.g. a viewer saved a rotation while the metadata dialog was closing, and the thumbnails
+        // it asked for are still loading: the page is loaded again once they are there.
+        m_reloadPending = true;
         return;
+    }
+    m_reloadPending = false;
 
     const Gallery *gallery = currentGallery();
     const qint64 galleryId = gallery ? gallery->id : 0;
@@ -1133,6 +1137,8 @@ void MainWindow::loadPage(int page)
             else if (inCollection()) // a collection keeps its name under an empty cover
                 m_thumbButtons[i]->setText(tr("(не читається)"));
         }
+        if (m_reloadPending) // asked for while these were loading: the page may be out of date
+            loadPage(m_page);
     });
     watcher->setFuture(QtConcurrent::mapped(std::move(paths), [](const QPair<QString, QString> &file) {
         return ThumbCache::thumbnail(file.first, file.second, ThumbnailSize);
@@ -1146,9 +1152,9 @@ void MainWindow::refreshPageTexts()
     if (inCollection()) {
         m_pageLabel->setText(tr("Сторінка %1 з %2 (%3 зобр.)").arg(m_page + 1).arg(pageCount).arg(m_totalCount));
         m_collectionLabel->setText(tr("Колекція «%1» · оцінка %2 · файлів: %3")
-                                       .arg(collectionDisplayName(m_openCollection))
-                                       .arg(m_openCollection.rating)
-                                       .arg(m_openCollection.fileCount));
+                                       .arg(collectionDisplayName(m_openCollection),
+                                            QString::number(m_openCollection.rating),
+                                            QString::number(m_openCollection.fileCount)));
         m_collectionLabel->setToolTip(m_openCollection.virtualPath);
     } else {
         m_pageLabel->setText(tr("Сторінка %1 з %2 (колекцій: %3, файлів: %4)")
@@ -1247,8 +1253,13 @@ void MainWindow::openThumbnail(int index)
 void MainWindow::fileRewritten(qint64 galleryId, const QString &root, const QString &file)
 {
     const QFileInfo fi(file);
-    Db::updateImageFile(galleryId, QDir(root).relativeFilePath(file), fi.size(),
-                        fi.lastModified(QTimeZone::UTC).toMSecsSinceEpoch(), Scanner::fileSha256(file));
+    // Can't be read right now: the record stays as it is (an empty hash would stick, since rescan
+    // trusts size + date, and would pair the file with others as "duplicates"). Rescan sees the new
+    // size/date and hashes the file then.
+    const QString sha256 = Scanner::fileSha256(file);
+    if (!sha256.isEmpty())
+        Db::updateImageFile(galleryId, QDir(root).relativeFilePath(file), fi.size(),
+                            fi.lastModified(QTimeZone::UTC).toMSecsSinceEpoch(), sha256);
     const Gallery *current = currentGallery();
     if (current && current->id == galleryId && !isBusy())
         loadPage(m_page);
@@ -1655,9 +1666,14 @@ QString MainWindow::chooseRootTag(const QString &title, const QString &suggestio
     const Gallery *gallery = currentGallery();
     if (!gallery)
         return {};
-    QStringList folders = QDir(gallery->rootFolder)
-                              .entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden,
-                                         QDir::Name | QDir::IgnoreCase);
+    // Real folders only: rescan doesn't walk into junctions or symlinked folders.
+    QStringList folders;
+    const QFileInfoList entries = QDir(gallery->rootFolder)
+                                      .entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden,
+                                                     QDir::Name | QDir::IgnoreCase);
+    for (const QFileInfo &entry : entries)
+        if (Scanner::isRealFolder(entry))
+            folders << entry.fileName();
     int current = 0;
     if (!suggestion.isEmpty()) {
         current = int(folders.indexOf(suggestion));
@@ -1734,16 +1750,16 @@ void MainWindow::addFolderToGallery()
         }
 
     // Every file under `from`, going to `tag` + its subfolder path below `from`.
-    auto collectInto = [fileFilter](const QString &from, const QString &tag, QList<Scanner::ImportItem> &items) {
+    // Junctions and symlinked folders are not walked into, as in rescan.
+    auto collectInto = [](const QString &from, const QString &tag, QList<Scanner::ImportItem> &items) {
         const QDir base(from);
-        QDirIterator it(from, fileFilter, QDirIterator::Subdirectories);
-        while (it.hasNext()) {
-            const QString file = it.next();
-            if (Scanner::isIgnoredFile(file))
-                continue;
-            const QString sub = base.relativeFilePath(QFileInfo(file).absolutePath());
-            items.append({file, QDir::cleanPath(tag + '/' + sub)});
-        }
+        Scanner::forEachFile(from, [&](const QString &file) {
+            if (!Scanner::isIgnoredFile(file)) {
+                const QString sub = base.relativeFilePath(QFileInfo(file).absolutePath());
+                items.append({file, QDir::cleanPath(tag + '/' + sub)});
+            }
+            return true;
+        });
     };
 
     if (hasOwnFiles) {
@@ -1760,7 +1776,11 @@ void MainWindow::addFolderToGallery()
     }
 
     // Only subfolders: each first-level subfolder is a root tag of its own.
-    const QStringList subfolders = sourceDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden);
+    QStringList subfolders;
+    const QFileInfoList entries = sourceDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden);
+    for (const QFileInfo &entry : entries)
+        if (Scanner::isRealFolder(entry))
+            subfolders << entry.fileName();
     if (subfolders.isEmpty()) {
         QMessageBox::information(this, tr("Додати папку"), tr("У цій папці немає файлів для додавання."));
         return;

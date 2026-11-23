@@ -183,5 +183,6 @@ private:
     BusyDialog *m_busyDialog = nullptr;
     QTimer m_busyShowTimer;
     int m_busyDepth = 0;
+    bool m_reloadPending = false; // loadPage() was called while busy; done after the thumbnails load
 };
 #endif // MAINWINDOW_H

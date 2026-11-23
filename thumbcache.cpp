@@ -75,11 +75,16 @@ void store(const QString &sha256, const QImage &thumbnail)
 
 QImage thumbnail(const QString &path, const QString &sha256, int size)
 {
+    // Other files are always a card, even if the same content is cached as a picture
+    // (e.g. a photo renamed to another extension).
+    if (MediaFiles::kindOf(path) == MediaFiles::Kind::Other)
+        return MediaFiles::makeThumbnail(path, size);
     const QImage cached = load(sha256);
     if (!cached.isNull())
         return cached;
-    const QImage made = MediaFiles::makeThumbnail(path, size);
-    if (MediaFiles::kindOf(path) != MediaFiles::Kind::Other)
+    bool isPreview = false;
+    const QImage made = MediaFiles::makeThumbnail(path, size, &isPreview);
+    if (isPreview) // not the card of a video Windows can't preview yet: it is tried again next time
         store(sha256, made);
     return made;
 }

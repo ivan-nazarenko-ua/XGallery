@@ -23,8 +23,9 @@ QImage load(const QString &sha256);
 
 void store(const QString &sha256, const QImage &thumbnail);
 
-// The cached thumbnail if there is one; otherwise MediaFiles::makeThumbnail, cached for images and
-// videos (cards of other files cost nothing to draw).
+// The cached thumbnail if there is one; otherwise MediaFiles::makeThumbnail, cached only when it
+// shows the content (images, video frames). Cards are never cached: those of other files cost
+// nothing to draw, and a video Windows can't preview now may get a frame later.
 QImage thumbnail(const QString &path, const QString &sha256, int size);
 
 // Deletes the cached thumbnails of these hashes that no file record in `db` has any more.

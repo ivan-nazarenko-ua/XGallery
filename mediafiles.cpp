@@ -162,17 +162,25 @@ QString extensionLabel(const QString &path)
     return QFileInfo(path).suffix().toUpper();
 }
 
-QImage makeThumbnail(const QString &path, int size)
+QImage makeThumbnail(const QString &path, int size, bool *isPreview)
 {
+    if (isPreview)
+        *isPreview = false;
     switch (kindOf(path)) {
-    case Kind::Image:
-        return imageThumbnail(path, size);
+    case Kind::Image: {
+        QImage image = imageThumbnail(path, size);
+        if (isPreview)
+            *isPreview = !image.isNull();
+        return image;
+    }
     case Kind::Video: {
         QImage frame = shellThumbnail(path, size);
         if (frame.isNull())
             return extensionCard(extensionLabel(path), size);
         frame = frame.convertToFormat(QImage::Format_ARGB32_Premultiplied);
         drawBadge(frame, extensionLabel(path));
+        if (isPreview)
+            *isPreview = true;
         return frame;
     }
     case Kind::Other:
