@@ -31,6 +31,8 @@ set(PROJECT_SOURCES
         imagemetadialog.cpp
         tagpickerdialog.h
         tagpickerdialog.cpp
+        wrappedtext.h
+        wrappedtext.cpp
         migrations.h
         migrations.cpp
         mediafiles.h

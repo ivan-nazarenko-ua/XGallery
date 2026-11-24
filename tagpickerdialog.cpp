@@ -1,6 +1,7 @@
 #include "tagpickerdialog.h"
 
 #include "database.h"
+#include "wrappedtext.h"
 
 #include <QCheckBox>
 #include <QGridLayout>
@@ -8,16 +9,147 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QStyleOptionButton>
+#include <QTextLayout>
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <cmath>
 
 namespace {
 
 constexpr int ColumnCount = 6;
+
+// The height of text wrapped in lines of the given width (as the main window's tag list does it).
+qreal wrappedHeight(const QString &text, const QFont &font, int width)
+{
+    QTextLayout layout(text, font);
+    return WrappedText::layout(layout, qMax(1, width));
+}
+
+// A size policy for equal columns (a long name never widens its column) whose height follows the width.
+QSizePolicy wrappingPolicy()
+{
+    QSizePolicy policy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    policy.setHeightForWidth(true);
+    return policy;
+}
+
+// A checkbox whose text wraps onto more lines instead of being cut. The box stands beside the first line;
+// the whole widget, text included, is clickable. The text is plain (no '&' mnemonic).
+class WrappingCheckBox : public QCheckBox
+{
+public:
+    WrappingCheckBox(const QString &text, QWidget *parent)
+        : QCheckBox(parent)
+        , m_text(text)
+    {
+        setSizePolicy(wrappingPolicy());
+    }
+
+    bool hasHeightForWidth() const override { return true; }
+
+    int heightForWidth(int width) const override
+    {
+        const int textHeight = int(std::ceil(wrappedHeight(m_text, font(), width - textLeft())));
+        return qMax(indicatorSize().height(), textHeight);
+    }
+
+    QSize sizeHint() const override
+    {
+        const int width = textLeft() + fontMetrics().horizontalAdvance(m_text);
+        return QSize(width, heightForWidth(width));
+    }
+
+    QSize minimumSizeHint() const override { return indicatorSize(); }
+
+protected:
+    bool hitButton(const QPoint &pos) const override { return rect().contains(pos); }
+
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        QTextLayout layout(m_text, font());
+        const qreal textHeight = WrappedText::layout(layout, qMax(1, width() - textLeft()));
+        const QSize box = indicatorSize();
+        const qreal firstLine = layout.lineCount() > 0 ? layout.lineAt(0).height() : box.height();
+
+        QStyleOptionButton option;
+        initStyleOption(&option);
+        option.rect = QRect(QPoint(0, qMax(0, int(std::round((firstLine - box.height()) / 2)))), box);
+        style()->drawPrimitive(QStyle::PE_IndicatorCheckBox, &option, &painter, this);
+
+        const QPointF textTopLeft(textLeft(), qMax(0.0, (box.height() - firstLine) / 2));
+        painter.setPen(palette().color(isEnabled() ? QPalette::Active : QPalette::Disabled, QPalette::WindowText));
+        layout.draw(&painter, textTopLeft);
+
+        if (option.state & QStyle::State_HasFocus) {
+            QStyleOptionFocusRect focus;
+            focus.initFrom(this);
+            focus.rect = QRectF(textTopLeft, QSizeF(layout.boundingRect().width(), textHeight))
+                             .toAlignedRect()
+                             .adjusted(-1, 0, 1, 0)
+                             .intersected(rect());
+            style()->drawPrimitive(QStyle::PE_FrameFocusRect, &focus, &painter, this);
+        }
+    }
+
+private:
+    QSize indicatorSize() const
+    {
+        return QSize(style()->pixelMetric(QStyle::PM_IndicatorWidth, nullptr, this),
+                     style()->pixelMetric(QStyle::PM_IndicatorHeight, nullptr, this));
+    }
+
+    int textLeft() const
+    {
+        return indicatorSize().width() + style()->pixelMetric(QStyle::PM_CheckBoxLabelSpacing, nullptr, this);
+    }
+
+    QString m_text;
+};
+
+// A label whose text wraps like WrappingCheckBox's (QLabel can't break a word longer than a line).
+class WrappingLabel : public QWidget
+{
+public:
+    WrappingLabel(const QString &text, QWidget *parent)
+        : QWidget(parent)
+        , m_text(text)
+    {
+        setSizePolicy(wrappingPolicy());
+    }
+
+    bool hasHeightForWidth() const override { return true; }
+
+    int heightForWidth(int width) const override
+    {
+        return qMax(fontMetrics().height(), int(std::ceil(wrappedHeight(m_text, font(), width))));
+    }
+
+    QSize sizeHint() const override
+    {
+        const int width = fontMetrics().horizontalAdvance(m_text);
+        return QSize(width, heightForWidth(width));
+    }
+
+protected:
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter painter(this);
+        QTextLayout layout(m_text, font());
+        WrappedText::layout(layout, qMax(1, width()));
+        painter.setPen(palette().color(QPalette::WindowText));
+        layout.draw(&painter, QPointF(0, 0));
+    }
+
+private:
+    QString m_text;
+};
 
 } // namespace
 
@@ -161,10 +293,9 @@ void TagPickerDialog::accept()
 
 TagPickerDialog::Entry TagPickerDialog::makeEntry(const QString &tag, bool inDatabase)
 {
-    auto *box = new QCheckBox(QString(tag).replace('&', "&&"), m_scrollArea->widget()); // '&' would be a mnemonic
+    // Equal columns: a long name wraps onto more lines instead of widening its column.
+    auto *box = new WrappingCheckBox(tag, m_scrollArea->widget());
     box->setToolTip(tag);
-    // Equal columns: a long name is cut (the tooltip has it) instead of widening its column.
-    box->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
     box->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(box, &QWidget::customContextMenuRequested, this, [this, box] { confirmDelete(box); });
     Entry entry;
@@ -177,13 +308,11 @@ TagPickerDialog::Entry TagPickerDialog::makeEntry(const QString &tag, bool inDat
 
 TagPickerDialog::Entry TagPickerDialog::makeGroupLabel(const QString &name)
 {
-    auto *label = new QLabel(name, m_scrollArea->widget());
-    label->setTextFormat(Qt::PlainText);
+    auto *label = new WrappingLabel(name, m_scrollArea->widget());
     QFont font = label->font();
     font.setBold(true);
     label->setFont(font);
     label->setToolTip(tr("Група тегів «%1»").arg(name));
-    label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
     Entry entry;
     entry.widget = label;
     return entry;
@@ -282,6 +411,9 @@ void TagPickerDialog::layoutEntries()
             entry.widget->setVisible(hasTags);
             if (!hasTags)
                 continue;
+            // Every group starts a new row.
+            if (cell % ColumnCount != 0)
+                cell += ColumnCount - cell % ColumnCount;
         }
         m_grid->addWidget(entry.widget, cell / ColumnCount, cell % ColumnCount);
         ++cell;

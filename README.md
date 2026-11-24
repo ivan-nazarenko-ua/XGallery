@@ -53,7 +53,7 @@ just stay without a group.
   one is ticked. A tag that is no longer used anywhere is deleted together with its group membership.
 - **Adding tags.** The "Add tags" button in the metadata window opens a window with a "New tags:"
   field (several tags separated by commas) and a table of all the gallery's tags, grouped as in the
-  main window's list: a group's name (in bold) stands in the table before its tags. The file's tags
+  main window's list: each group starts a new row with its name (in bold) before its tags. Long names wrap onto more lines. The file's tags
   are ticked: tick the ones to add, clear the ones to remove and click "Save". In bulk editing, tags
   that only some of the selected files have are greyed out and can't be changed; typing such a tag
   into "New tags:" gives it to all the files. While it is open you can still open the photo from

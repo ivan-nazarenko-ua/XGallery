@@ -52,6 +52,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `htmllinks.*` | Regex tag tokenizer (no WebKit): profile → strings → links; entities; page charset (Windows code pages when Qt has no ICU) |
 | `downloadnames.*` | Next `NNN-collection` folder, file name from a link, `file_NNN.ext`, `page_N.html/bin`, extension from Content-Type |
 | `httpfetcher.*` | One GET at a time over `QNetworkAccessManager`: manual redirects, credentials only for the page's host, 60 s transfer timeout |
+| `wrappedtext.*` | `WrappedText::layout`: text wrapped at word boundaries, else anywhere (main tag list, tag picker) |
 | `thumbcache.*` | Grid thumbnails cached as `thumbs/<first 2 hex>/<sha256>.png` next to the DB (256 subfolders: FAT32 per-folder limit) (`ThumbCache::thumbnail` = load or make+store; stores only real previews of images and videos, never extension cards — a video Windows can't preview is tried again; "other" files skip the cache). All errors ignored |
 | `third_party/xxhash/` | Vendored xxHash 0.8.3 single header (BSD-2, used header-only via `XXH_INLINE_ALL` in `collections.cpp`) |
 | `i18n.*`, `languagedialog.*`, `translations/*.ts`, `flags/` | UI language (uk source, en/fr translations), first-start flag dialog, flag SVGs + rendered PNGs (48x32 and @2x) |
@@ -147,10 +148,11 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   `Db::tagSections` splits a tag list: no group first, then groups by position, order inside kept. A deleted unused tag loses
   its group. Main tag list: a group header item before each group (`GroupHeaderRole`, `Qt::NoItemFlags`, "— name —"), hidden by the
   filter when no tag of its group is shown; tag items carry `TagGroupRole`. Changing a tag's group keeps the list's scroll position.
-  The tag list has no horizontal scroll: `WrappingItemDelegate` (mainwindow.cpp) wraps long names (word boundary, else anywhere),
+  The tag list has no horizontal scroll: `WrappingItemDelegate` (mainwindow.cpp) wraps long names (`WrappedText::layout`: word boundary, else anywhere),
   entries are as wide as the viewport, `ResizeMode::Adjust` re-lays them out on resize.
-- Tag picker (`TagPickerDialog`, from the metadata dialog): new tags (comma list) + 6 columns of checkboxes for all gallery tags
-  (a group's name is a bold label taking a cell before its tags; the file's tags ticked, unticking removes them; bulk mode: tags
+- Tag picker (`TagPickerDialog`, from the metadata dialog): new tags (comma list) + 6 equal columns of checkboxes for all gallery tags
+  (long names and group names wrap like the main tag list: `WrappingCheckBox`/`WrappingLabel`, height for width)
+  (each group starts a new row, its name a bold label taking a cell before its tags; the file's tags ticked, unticking removes them; bulk mode: tags
   only some files have (`ImageMetaDialog::setPartialTags`) are locked, partially checked; typing one in "Нові теги" unlocks it).
   It returns added/removed relative to the state it showed; boxes the user didn't touch follow `setAssignedTags`.
   Not modal (`show()`, a child of the metadata dialog, closes with it), so the preview and viewer stay usable. Writes nothing itself. Right click + confirmation marks a tag for deletion from the whole gallery; `MainWindow::deleteTagsFromGallery` (`Db::deleteTags`)

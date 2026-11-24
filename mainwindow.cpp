@@ -12,6 +12,7 @@
 #include "mediafiles.h"
 #include "scanner.h"
 #include "thumbcache.h"
+#include "wrappedtext.h"
 
 #include <QActionGroup>
 #include <QApplication>
@@ -59,24 +60,6 @@ const char *SortOrderKey = "sort_order";
 const char *KeepExtensionKey = "keep_extension_on_rename"; // "0" = off; not set = on
 const char *FollowFolderLinksKey = "follow_folder_links";    // "1" = on; not set = off
 
-// Lays text out in lines of the given width: at word boundaries, a word longer than a line is
-// broken anywhere (like CSS overflow-wrap: break-word). Returns the height of the text.
-qreal layoutWrapped(QTextLayout &layout, qreal width)
-{
-    QTextOption option;
-    option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
-    layout.setTextOption(option);
-    qreal height = 0;
-    layout.beginLayout();
-    for (QTextLine line = layout.createLine(); line.isValid(); line = layout.createLine()) {
-        line.setLineWidth(width);
-        line.setPosition(QPointF(0, height));
-        height += line.height();
-    }
-    layout.endLayout();
-    return height;
-}
-
 // Tag list entries as wide as the list, long names wrapped onto more lines instead of a
 // horizontal scroll bar. Background, selection and colours (grey group headers) come from the style.
 class WrappingItemDelegate : public QStyledItemDelegate
@@ -113,7 +96,7 @@ public:
         const int width = view ? view->viewport()->width() : opt.rect.width();
         const int oneLine = QStyledItemDelegate::sizeHint(option, index).height();
         QTextLayout layout(opt.text, opt.font);
-        const qreal textHeight = layoutWrapped(layout, qMax(1, width - 2 * textMargin(opt)));
+        const qreal textHeight = WrappedText::layout(layout, qMax(1, width - 2 * textMargin(opt)));
         // Same padding around the text as a one-line entry has.
         const int padding = oneLine - QFontMetrics(opt.font).height();
         return QSize(width, qMax(oneLine, int(std::ceil(textHeight)) + padding));
@@ -131,7 +114,7 @@ public:
         const int margin = textMargin(opt);
         const QRect rect = opt.rect.adjusted(margin, 0, -margin, 0);
         QTextLayout layout(text, opt.font);
-        const qreal height = layoutWrapped(layout, qMax(1, rect.width()));
+        const qreal height = WrappedText::layout(layout, qMax(1, rect.width()));
         const QPalette::ColorGroup group = !(opt.state & QStyle::State_Enabled) ? QPalette::Disabled
                                          : (opt.state & QStyle::State_Active)   ? QPalette::Active
                                                                                 : QPalette::Inactive;
