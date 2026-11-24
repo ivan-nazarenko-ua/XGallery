@@ -60,7 +60,7 @@ simplement sans groupe.
 - **Ajouter des tags.** Le bouton « Ajouter des tags » de la fenêtre des métadonnées ouvre une
   fenêtre avec un champ « Nouveaux tags : » (plusieurs tags séparés par des virgules) et un tableau
   de tous les tags de la galerie, groupés comme dans la liste de la fenêtre principale : chaque
-  groupe commence une nouvelle ligne, son nom (en gras) précédant ses tags. Les noms longs passent à la ligne. Les tags du fichier sont cochés : cochez ceux à
+  groupe commence une nouvelle ligne, son nom (en gras) précédant ses tags. Les noms longs passent à la ligne. Le nombre entre parenthèses après un tag indique combien de collections l'ont (des collections, pas des fichiers). Les tags du fichier sont cochés : cochez ceux à
   ajouter, décochez ceux à retirer, puis cliquez sur
   « Enregistrer ». En modification groupée, les tags que seuls certains des fichiers sélectionnés
   ont sont grisés et ne peuvent pas être modifiés ; saisir un tel tag dans « Nouveaux tags : » le donne

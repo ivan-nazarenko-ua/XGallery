@@ -32,6 +32,8 @@ public:
 
     // Bulk mode: tags some of the files have, but not all (the tag picker shows them locked).
     void setPartialTags(const QStringList &tags) { m_partialTags = tags; }
+    // Shown after each tag in the tag picker: in how many collections of the gallery it is.
+    void setTagCollectionCounts(const QHash<QString, int> &counts) { m_tagCollectionCounts = counts; }
 
     // Viewer setting of the gallery, for images opened from this dialog.
     void setAllowUpscale(bool allow);
@@ -79,6 +81,7 @@ private:
     void chooseExportDestination();
 
     QList<TagSection> m_galleryTags;
+    QHash<QString, int> m_tagCollectionCounts;
     QStringList m_partialTags;
     QStringList m_tags;
     QStringList m_initialTags;

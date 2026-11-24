@@ -361,7 +361,7 @@ void ImageMetaDialog::chooseTags()
     }
 
     // A child of the dialog, so it works while the dialog is modal.
-    m_picker = new TagPickerDialog(sections, m_tags, m_partialTags, this);
+    m_picker = new TagPickerDialog(sections, m_tags, m_partialTags, m_tagCollectionCounts, this);
     m_picker->setAttribute(Qt::WA_DeleteOnClose);
     connect(m_picker, &QDialog::accepted, this, [this] {
         const QStringList added = m_picker->addedTags();

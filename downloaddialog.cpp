@@ -498,7 +498,7 @@ void DownloadDialog::chooseTags()
         std::sort(sections.first().tags.begin(), sections.first().tags.end(), lessCaseInsensitive);
     }
 
-    m_picker = new TagPickerDialog(sections, m_tags, QStringList(), this);
+    m_picker = new TagPickerDialog(sections, m_tags, QStringList(), Db::tagCollectionCounts(m_gallery.id), this);
     m_picker->setGalleryDeletionAllowed(false); // this window changes no gallery tags
     m_picker->setAttribute(Qt::WA_DeleteOnClose);
     connect(m_picker, &QDialog::accepted, this, [this] {

@@ -1273,6 +1273,7 @@ void MainWindow::wireMetaDialog(ImageMetaDialog &dialog)
     const Gallery *gallery = currentGallery();
     dialog.setAllowUpscale(gallery->allowUpscale);
     dialog.setKeepExtension(m_keepExtensionAction->isChecked());
+    dialog.setTagCollectionCounts(Db::tagCollectionCounts(gallery->id));
     connect(&dialog, &ImageMetaDialog::tagActivated, this, [this](const QString &tag) {
         addTagToEdit(m_includeEdit, tag); // the search itself waits for "Шукати"
     });

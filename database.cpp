@@ -315,6 +315,23 @@ QStringList allTags(qint64 galleryId)
     return tags;
 }
 
+QHash<QString, int> tagCollectionCounts(qint64 galleryId)
+{
+    // All files of a collection have the same tags, so a tag's collections are the distinct
+    // vpath_hash values of its files.
+    QHash<QString, int> counts;
+    QSqlQuery q(mainDb());
+    q.prepare("SELECT t.name, COUNT(DISTINCT i.vpath_hash) FROM tags t"
+              " JOIN image_tags it ON it.tag_id = t.id"
+              " JOIN images i ON i.id = it.image_id"
+              " WHERE t.gallery_id = ? GROUP BY t.id");
+    q.addBindValue(galleryId);
+    if (exec(q))
+        while (q.next())
+            counts.insert(q.value(0).toString(), q.value(1).toInt());
+    return counts;
+}
+
 QStringList tagsForImage(qint64 imageId)
 {
     QStringList tags;

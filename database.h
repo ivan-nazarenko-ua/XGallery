@@ -1,6 +1,7 @@
 #ifndef DATABASE_H
 #define DATABASE_H
 
+#include <QHash>
 #include <QList>
 #include <QSqlDatabase>
 #include <QString>
@@ -99,6 +100,8 @@ bool updateGallery(const Gallery &gallery);
 bool deleteGallery(const QSqlDatabase &db, qint64 galleryId);
 
 QStringList allTags(qint64 galleryId);
+// Tag name -> how many collections (distinct virtual paths) of the gallery have it. Unused tags are absent.
+QHash<QString, int> tagCollectionCounts(qint64 galleryId);
 QStringList tagsForImage(qint64 imageId);
 
 // The gallery's tag groups in the user's order.

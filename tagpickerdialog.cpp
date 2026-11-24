@@ -154,10 +154,12 @@ private:
 } // namespace
 
 TagPickerDialog::TagPickerDialog(const QList<TagSection> &sections, const QStringList &assignedTags,
-                                 const QStringList &partialTags, QWidget *parent)
+                                 const QStringList &partialTags, const QHash<QString, int> &collectionCounts,
+                                 QWidget *parent)
     : QDialog(parent)
     , m_assignedTags(assignedTags)
     , m_partialTags(partialTags)
+    , m_collectionCounts(collectionCounts)
     , m_newTagsEdit(new QLineEdit(this))
     , m_scrollArea(new QScrollArea(this))
     , m_grid(new QGridLayout)
@@ -294,7 +296,8 @@ void TagPickerDialog::accept()
 TagPickerDialog::Entry TagPickerDialog::makeEntry(const QString &tag, bool inDatabase)
 {
     // Equal columns: a long name wraps onto more lines instead of widening its column.
-    auto *box = new WrappingCheckBox(tag, m_scrollArea->widget());
+    auto *box = new WrappingCheckBox(QStringLiteral("%1 (%2)").arg(tag).arg(m_collectionCounts.value(tag)),
+                                     m_scrollArea->widget());
     box->setToolTip(tag);
     box->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(box, &QWidget::customContextMenuRequested, this, [this, box] { confirmDelete(box); });

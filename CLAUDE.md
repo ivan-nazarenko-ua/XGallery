@@ -151,7 +151,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   The tag list has no horizontal scroll: `WrappingItemDelegate` (mainwindow.cpp) wraps long names (`WrappedText::layout`: word boundary, else anywhere),
   entries are as wide as the viewport, `ResizeMode::Adjust` re-lays them out on resize.
 - Tag picker (`TagPickerDialog`, from the metadata dialog): new tags (comma list) + 6 equal columns of checkboxes for all gallery tags
-  (long names and group names wrap like the main tag list: `WrappingCheckBox`/`WrappingLabel`, height for width)
+  (long names and group names wrap like the main tag list: `WrappingCheckBox`/`WrappingLabel`, height for width;
+  each tag shown as "tag (N)", N = collections having it, `Db::tagCollectionCounts`, read when the dialog opening it opens, 0 for new tags)
   (each group starts a new row, its name a bold label taking a cell before its tags; the file's tags ticked, unticking removes them; bulk mode: tags
   only some files have (`ImageMetaDialog::setPartialTags`) are locked, partially checked; typing one in "Нові теги" unlocks it).
   It returns added/removed relative to the state it showed; boxes the user didn't touch follow `setAssignedTags`.

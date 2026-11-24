@@ -2,6 +2,7 @@
 #define TAGPICKERDIALOG_H
 
 #include <QDialog>
+#include <QHash>
 #include <QList>
 #include <QStringList>
 
@@ -22,9 +23,11 @@ class TagPickerDialog : public QDialog
 
 public:
     // sections: every tag to show; assignedTags: the file's (or the common) tags;
-    // partialTags: bulk edit, tags some of the files have.
+    // partialTags: bulk edit, tags some of the files have; collectionCounts: shown as "tag (N)",
+    // N = collections of the gallery with the tag (0 when absent, e.g. a new tag).
     TagPickerDialog(const QList<TagSection> &sections, const QStringList &assignedTags,
-                    const QStringList &partialTags, QWidget *parent = nullptr);
+                    const QStringList &partialTags, const QHash<QString, int> &collectionCounts,
+                    QWidget *parent = nullptr);
 
     // The file's tags changed in the metadata dialog meanwhile: boxes the user hasn't touched follow.
     void setAssignedTags(const QStringList &tags);
@@ -60,6 +63,7 @@ private:
 
     QStringList m_assignedTags;
     QStringList m_partialTags;
+    QHash<QString, int> m_collectionCounts;
     QStringList m_deletedTags;
     bool m_galleryDeletionAllowed = true;
     QList<Entry> m_entries; // in display order
