@@ -208,6 +208,53 @@ bool setSetting(const QString &key, const QString &value)
     return exec(q);
 }
 
+bool repairCollections()
+{
+    QSqlDatabase db = mainDb();
+    QHash<qint64, QList<qint64>> unplaced; // gallery -> files without a virtual path
+    QSet<qint64> galleries;
+    {
+        QSqlQuery q(db);
+        if (!q.exec("SELECT gallery_id, id FROM images WHERE vpath_hash IS NULL")) {
+            g_lastError = q.lastError().text();
+            return false;
+        }
+        while (q.next()) {
+            unplaced[q.value(0).toLongLong()] << q.value(1).toLongLong();
+            galleries.insert(q.value(0).toLongLong());
+        }
+        // Collections whose files were all deleted or moved away.
+        if (!q.exec("SELECT DISTINCT c.gallery_id FROM collections c WHERE NOT EXISTS ("
+                    " SELECT 1 FROM images i WHERE i.gallery_id = c.gallery_id AND i.vpath_hash = c.vpath_hash)")) {
+            g_lastError = q.lastError().text();
+            return false;
+        }
+        while (q.next())
+            galleries.insert(q.value(0).toLongLong());
+    }
+    if (galleries.isEmpty())
+        return true;
+
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return false;
+    }
+    bool ok = true;
+    for (const qint64 galleryId : std::as_const(galleries)) {
+        QList<Collections::Move> moves;
+        ok = Collections::retag(db, unplaced.value(galleryId), &moves, &g_lastError)
+             && Collections::sync(db, galleryId, moves, &g_lastError);
+        if (!ok)
+            break;
+    }
+    if (ok && db.commit())
+        return true;
+    if (ok)
+        g_lastError = db.lastError().text();
+    db.rollback();
+    return false;
+}
+
 QString gallerySetting(qint64 galleryId, const QString &key, const QString &defaultValue)
 {
     QSqlQuery q(mainDb());

@@ -94,6 +94,11 @@ bool setSetting(const QString &key, const QString &value);
 QString gallerySetting(qint64 galleryId, const QString &key, const QString &defaultValue = {});
 bool setGallerySetting(qint64 galleryId, const QString &key, const QString &value);
 
+// Collections of records an older program version wrote (it opens a newer DB without knowing
+// collections): files without a virtual path get one, collections left without files go (sync).
+// Does nothing when everything is in order. True on success.
+bool repairCollections();
+
 QList<Gallery> galleries();
 // Returns the new gallery id, or 0 on failure.
 qint64 createGallery(const Gallery &gallery);

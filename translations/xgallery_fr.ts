@@ -1749,6 +1749,16 @@ Lancez une analyse.</translation>
         <source>Видалено остаточно: %1</source>
         <translation>Supprimé définitivement : %1</translation>
     </message>
+    <message>
+        <source>Не вдалося привести колекції до ладу:
+%1
+
+Зроби рескан.</source>
+        <translation>Impossible de remettre les collections en ordre :
+%1
+
+Lancez une analyse.</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>

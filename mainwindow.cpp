@@ -167,6 +167,10 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     Db::makeRootsPortable();
+    // An older version may have changed files in this DB without knowing collections.
+    if (!Db::repairCollections())
+        QMessageBox::warning(this, tr("Помилка БД"),
+                             tr("Не вдалося привести колекції до ладу:\n%1\n\nЗроби рескан.").arg(Db::lastError()));
     ThumbCache::init();
     m_keepExtensionAction->setChecked(Db::setting(KeepExtensionKey) != "0");
     m_followLinksAction->setChecked(Db::setting(FollowFolderLinksKey) == "1");

@@ -1749,6 +1749,16 @@ Run a rescan.</translation>
         <source>Видалено остаточно: %1</source>
         <translation>Deleted permanently: %1</translation>
     </message>
+    <message>
+        <source>Не вдалося привести колекції до ладу:
+%1
+
+Зроби рескан.</source>
+        <translation>Couldn&apos;t put the collections in order:
+%1
+
+Run a rescan.</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>

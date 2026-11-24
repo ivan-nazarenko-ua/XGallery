@@ -335,7 +335,9 @@ The path of the database in use is shown in the status bar for a few seconds aft
 All tags, collections and galleries are stored in the single file `xgallery.sqlite`. To make a
 backup, copy it while the program is closed. A new version of the program may update the
 database on its first start, and an older version doesn't know about those changes and will not
-work with such a database correctly. So make a copy before updating the program.
+work with such a database correctly. So make a copy before updating the program. From this version
+on, the program refuses to open a database updated by a newer version and says so. Files that a
+version older than this one added or deleted are put in order (collections) on the next start.
 
 Next to the database lies the **`thumbs`** folder: ready-made thumbnails, so pages with big photos
 open quickly. Each thumbnail is named after the file's content (and lies in one of 256 subfolders, so no folder

@@ -385,7 +385,9 @@ Tous les tags, collections et galeries sont enregistrés dans un seul fichier, `
 faire une sauvegarde, copiez-le pendant que le programme est fermé. Une nouvelle version du
 programme peut mettre la base à jour à son premier lancement ; une version plus ancienne ignore
 ces changements et ne fonctionnera pas correctement avec une telle base. Faites donc une copie
-avant de mettre le programme à jour.
+avant de mettre le programme à jour. À partir de cette version, le programme refuse d'ouvrir une
+base mise à jour par une version plus récente et le signale. Les fichiers qu'une version plus
+ancienne que celle-ci a ajoutés ou supprimés sont remis en ordre (collections) au lancement suivant.
 
 À côté de la base se trouve le dossier **`thumbs`** : des vignettes toutes prêtes, pour que les
 pages aux grandes photos s'ouvrent vite. Chaque vignette porte le nom du contenu du fichier (et se range dans

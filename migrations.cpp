@@ -593,6 +593,16 @@ bool Migrations::run(QSqlDatabase &db, QString *error)
     const int version = q.value(0).toInt();
     q.finish();
 
+    // Made by a newer version of the program: its tables may differ in ways this one doesn't know,
+    // and writing to it could spoil it for that version. Not opened at all.
+    if (version > latestVersion()) {
+        *error = QString("Базу даних оновила новіша версія програми (схема %1, ця версія знає лише до %2). "
+                         "Встанови новішу версію XGallery.")
+                     .arg(version)
+                     .arg(latestVersion());
+        return false;
+    }
+
     for (int v = version; v < latestVersion(); ++v)
         if (!runStep(db, steps().at(v), v + 1, error))
             return false;

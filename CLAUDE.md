@@ -62,7 +62,9 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 ## Rules that must keep holding
 
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
-  never edit existing steps. Current version: 13 (galleries; rating+name; allow_upscale; no commas in tags;
+  never edit existing steps. A DB with a newer `user_version` than `latestVersion()` is refused (not opened). At start
+  `Db::repairCollections` fixes what an older version (which ignores newer schemas) may have written: files without
+  vpath_hash are retagged, collections left without files are synced away. Current version: 13 (galleries; rating+name; allow_upscale; no commas in tags;
   normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space;
   collections — images.rating dropped; collections.name_key; tag groups; download profiles; gallery settings).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
