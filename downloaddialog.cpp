@@ -526,7 +526,7 @@ void DownloadDialog::chooseTags()
     }
 
     m_picker = new TagPickerDialog(sections, m_tags, QStringList(), Db::tagCollectionCounts(m_gallery.id), this);
-    m_picker->setGalleryDeletionAllowed(false); // this window changes no gallery tags
+    m_picker->setTagGroups(Db::tagGroups(m_gallery.id), m_pendingGroups);
     m_picker->setAttribute(Qt::WA_DeleteOnClose);
     connect(m_picker, &QDialog::accepted, this, [this] {
         for (const QString &tag : m_picker->addedTags())
@@ -534,6 +534,13 @@ void DownloadDialog::chooseTags()
                 m_tags << tag;
         for (const QString &tag : m_picker->removedTags())
             m_tags.removeAll(tag);
+        const QStringList deleted = m_picker->deletedTags();
+        for (const QString &tag : deleted)
+            m_tags.removeAll(tag);
+        const QHash<QString, qint64> groupChanges = m_picker->groupChanges();
+        if (!groupChanges.isEmpty() || !deleted.isEmpty())
+            emit galleryTagsEdited(groupChanges, deleted);
+        keepPendingGroups(groupChanges);
         refreshTags();
     });
     m_picker->show();
@@ -566,6 +573,16 @@ void DownloadDialog::pasteTags()
         if (!m_tags.contains(tag))
             m_tags << tag;
     refreshTags();
+}
+
+void DownloadDialog::keepPendingGroups(const QHash<QString, qint64> &changes)
+{
+    // Only tags of this window the gallery doesn't know: the stored ones got their group already.
+    const QStringList stored = Db::allTags(m_gallery.id);
+    m_pendingGroups.clear();
+    for (auto it = changes.cbegin(); it != changes.cend(); ++it)
+        if (m_tags.contains(it.key()) && !stored.contains(it.key()))
+            m_pendingGroups.insert(it.key(), it.value());
 }
 
 void DownloadDialog::refreshTags()
@@ -799,6 +816,12 @@ void DownloadDialog::importDownloads()
         watcher->deleteLater();
         const Scanner::ImportStats stats = watcher->future().resultCount() > 0 ? watcher->result()
                                                                                 : Scanner::ImportStats{};
+        // The new tags exist now: they get the groups chosen for them.
+        if (!m_pendingGroups.isEmpty()) {
+            const QHash<QString, qint64> pending = m_pendingGroups; // keepPendingGroups clears the member
+            emit galleryTagsEdited(pending, {});
+            keepPendingGroups(pending); // what a stopped run didn't bring in stays pending
+        }
         emit filesAdded();
         QString message = downloadSummary();
         message += "\n" + tr("Додано в галерею — %1 (папка «%2»).").arg(stats.copied).arg(m_targetDir);

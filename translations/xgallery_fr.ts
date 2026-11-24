@@ -1904,14 +1904,6 @@ Continuer la suppression des autres fichiers ?</translation>
         <translation>Un nom de tag ne peut pas contenir « , », « &lt; », « &gt; », « / » ni « \ ».</translation>
     </message>
     <message>
-        <source>Ви впевнені, що хочете видалити тег «%1» з усіх файлів галереї?
-
-Видалення відбудеться після збереження у вікні метаданих.</source>
-        <translation>Voulez-vous vraiment supprimer le tag « %1 » de tous les fichiers de la galerie ?
-
-La suppression aura lieu à l&apos;enregistrement de la fenêtre des métadonnées.</translation>
-    </message>
-    <message>
         <source>Прибрати новий тег «%1» зі списку?</source>
         <translation>Retirer le nouveau tag « %1 » de la liste ?</translation>
     </message>
@@ -1938,6 +1930,26 @@ Pour le donner à tous les fichiers, saisissez-le dans « Nouveaux tags ».</tra
     <message>
         <source>Група тегів «%1»</source>
         <translation>Groupe de tags « %1 »</translation>
+    </message>
+    <message>
+        <source>Видалити…</source>
+        <translation>Supprimer…</translation>
+    </message>
+    <message>
+        <source>Група</source>
+        <translation>Groupe</translation>
+    </message>
+    <message>
+        <source>Без групи</source>
+        <translation>Sans groupe</translation>
+    </message>
+    <message>
+        <source>Ви впевнені, що хочете видалити тег «%1» з усіх файлів галереї?
+
+Видалення відбудеться, коли ви натиснете «Зберегти» в цьому вікні.</source>
+        <translation>Voulez-vous vraiment supprimer le tag « %1 » de tous les fichiers de la galerie ?
+
+La suppression aura lieu quand vous cliquerez sur « Enregistrer » dans cette fenêtre.</translation>
     </message>
 </context>
 </TS>

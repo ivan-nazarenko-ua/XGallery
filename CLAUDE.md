@@ -174,8 +174,15 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (each group starts a new row, its name a bold label taking a cell before its tags; the file's tags ticked, unticking removes them; bulk mode: tags
   only some files have (`ImageMetaDialog::setPartialTags`) are locked, partially checked; typing one in "Нові теги" unlocks it).
   It returns added/removed relative to the state it showed; boxes the user didn't touch follow `setAssignedTags`.
-  Not modal (`show()`, a child of the metadata dialog, closes with it), so the preview and viewer stay usable. Writes nothing itself. Right click + confirmation marks a tag for deletion from the whole gallery; `MainWindow::deleteTagsFromGallery` (`Db::deleteTags`)
-  runs it after the metadata dialog's Save, and giving the tag to the file again takes the deletion back.
+  Not modal (`show()`, a child of the metadata dialog, closes with it), so the preview and viewer stay usable. Writes nothing itself. Right click = a menu:
+  "Видалити…" + confirmation marks a tag for deletion from the whole gallery (typing/pasting it again in the open picker takes that
+  back); "Група" (only after `setTagGroups`) moves the tag to another group in the table at once (`groupChanges()` = tag → group vs.
+  the sections given). Gallery-wide edits are written on the picker's own "Зберегти" (owner's decision: the metadata dialog's
+  Cancel doesn't undo them): both the metadata and the download window emit `galleryTagsEdited(groupChanges, deleted)`, handled by
+  `MainWindow::applyGalleryTagEdits` (`setTagGroups` → `Db::setTagGroup`, `deleteTagsFromGallery` → `Db::deleteTags`, reload list and
+  page); the metadata dialog then gets fresh `setGalleryTags`/counts and drops deleted tags from its initial/partial lists. Groups of
+  tags not stored yet stay pending (passed back to the picker as `pending`): `ImageMetaDialog::groupChanges()` is applied after its
+  Save, the download window's `m_pendingGroups` after the run's import.
 - Tag clipboard (metadata dialog, single and bulk): Ctrl+C / context menu copies the selected tags as `А, Б`;
   Ctrl+V adds a list via `Db::tagsFromText` (commas and line breaks separate; other forbidden characters → space; normalized).
 - **i18n**: source strings are Ukrainian in `tr()` / `QCoreApplication::translate`. Language code

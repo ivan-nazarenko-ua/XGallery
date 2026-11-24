@@ -3,18 +3,22 @@
 #include "database.h"
 #include "wrappedtext.h"
 
+#include <QActionGroup>
 #include <QCheckBox>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
+#include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QStyleOptionButton>
 #include <QTextLayout>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -187,10 +191,13 @@ TagPickerDialog::TagPickerDialog(const QList<TagSection> &sections, const QStrin
     m_scrollArea->installEventFilter(this); // its width sets the number of columns
 
     for (const TagSection &section : sections) {
-        if (section.groupId != 0)
-            m_entries << makeGroupLabel(section.groupName);
+        if (section.groupId != 0) {
+            m_groupOrder << section.groupId;
+            m_groupNames.insert(section.groupId, section.groupName);
+        }
         for (const QString &tag : section.tags) {
             Entry entry = makeEntry(tag, true);
+            entry.groupId = entry.originalGroupId = section.groupId;
             syncEntry(entry);
             m_entries << entry;
         }
@@ -222,8 +229,6 @@ void TagPickerDialog::setAssignedTags(const QStringList &tags)
     m_assignedTags = tags;
     QStringList shown;
     for (Entry &entry : m_entries) {
-        if (!entry.box)
-            continue;
         shown << entry.tag;
         if (!isTouched(entry))
             syncEntry(entry);
@@ -247,7 +252,7 @@ void TagPickerDialog::setAssignedTags(const QStringList &tags)
 
 bool TagPickerDialog::isTouched(const Entry &entry)
 {
-    return entry.box && entry.box->isEnabled() && entry.box->isChecked() != entry.initiallyChecked;
+    return entry.box->isEnabled() && entry.box->isChecked() != entry.initiallyChecked;
 }
 
 void TagPickerDialog::syncEntry(Entry &entry)
@@ -286,6 +291,39 @@ QStringList TagPickerDialog::deletedTags() const
     return m_deletedTags;
 }
 
+QHash<QString, qint64> TagPickerDialog::groupChanges() const
+{
+    QHash<QString, qint64> changes;
+    for (const Entry &entry : m_entries)
+        if (entry.groupId != entry.originalGroupId)
+            changes.insert(entry.tag, entry.groupId);
+    return changes;
+}
+
+void TagPickerDialog::setTagGroups(const QList<TagGroup> &groups, const QHash<QString, qint64> &pending)
+{
+    m_groupsEditable = true;
+    m_groupOrder.clear();
+    for (const TagGroup &group : groups) {
+        m_groupOrder << group.id;
+        m_groupNames.insert(group.id, group.name);
+    }
+    bool moved = false;
+    for (auto it = pending.cbegin(); it != pending.cend(); ++it) {
+        const qsizetype index = std::distance(m_entries.cbegin(),
+                                              std::find_if(m_entries.cbegin(), m_entries.cend(),
+                                                           [&it](const Entry &entry) { return entry.tag == it.key(); }));
+        if (index == m_entries.size() || (it.value() != 0 && !m_groupOrder.contains(it.value())))
+            continue; // the tag isn't shown, or its group is gone
+        Entry entry = m_entries.takeAt(index);
+        entry.groupId = it.value();
+        insertEntry(entry);
+        moved = true;
+    }
+    if (moved)
+        layoutEntries();
+}
+
 void TagPickerDialog::accept()
 {
     // Tags typed but not yet added with the button count as well.
@@ -300,25 +338,26 @@ TagPickerDialog::Entry TagPickerDialog::makeEntry(const QString &tag, bool inDat
                                      m_scrollArea->widget());
     box->setToolTip(tag);
     box->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(box, &QWidget::customContextMenuRequested, this, [this, box] { confirmDelete(box); });
+    connect(box, &QWidget::customContextMenuRequested, this, [this, box](const QPoint &pos) { showTagMenu(box, pos); });
     Entry entry;
     entry.tag = tag;
-    entry.widget = box;
     entry.box = box;
     entry.inDatabase = inDatabase;
     return entry;
 }
 
-TagPickerDialog::Entry TagPickerDialog::makeGroupLabel(const QString &name)
+QWidget *TagPickerDialog::groupLabel(qint64 groupId)
 {
-    auto *label = new WrappingLabel(name, m_scrollArea->widget());
-    QFont font = label->font();
-    font.setBold(true);
-    label->setFont(font);
-    label->setToolTip(tr("Група тегів «%1»").arg(name));
-    Entry entry;
-    entry.widget = label;
-    return entry;
+    QWidget *&label = m_groupLabels[groupId];
+    if (!label) {
+        const QString name = m_groupNames.value(groupId);
+        label = new WrappingLabel(name, m_scrollArea->widget());
+        QFont font = label->font();
+        font.setBold(true);
+        label->setFont(font);
+        label->setToolTip(tr("Група тегів «%1»").arg(name));
+    }
+    return label;
 }
 
 bool TagPickerDialog::addTagsFromField()
@@ -341,7 +380,7 @@ bool TagPickerDialog::addTagsFromField()
     QCheckBox *lastExisting = nullptr;
     for (const QString &tag : std::as_const(tags)) {
         const auto found = std::find_if(m_entries.cbegin(), m_entries.cend(),
-                                        [&tag](const Entry &entry) { return entry.box && entry.tag == tag; });
+                                        [&tag](const Entry &entry) { return entry.tag == tag; });
         if (found != m_entries.cend()) {
             // A locked partial tag typed here goes to all the files.
             found->box->setTristate(false);
@@ -370,20 +409,89 @@ bool TagPickerDialog::addTagsFromField()
     return true;
 }
 
+qsizetype TagPickerDialog::indexOf(const QCheckBox *box) const
+{
+    for (qsizetype i = 0; i < m_entries.size(); ++i)
+        if (m_entries.at(i).box == box)
+            return i;
+    return -1;
+}
+
+void TagPickerDialog::showTagMenu(QCheckBox *box, const QPoint &pos)
+{
+    const qsizetype index = indexOf(box);
+    if (index < 0)
+        return;
+    const Entry &entry = m_entries.at(index);
+
+    QMenu menu(this);
+    menu.addAction(tr("Видалити…"), this, [this, box] { confirmDelete(box); });
+
+    if (m_groupsEditable) {
+        // As in the main window's tag list: one exclusive choice, the group the tag is shown in ticked.
+        QMenu *groupMenu = menu.addMenu(tr("Група"));
+        auto *choices = new QActionGroup(groupMenu);
+        const auto addChoice = [&](const QString &text, qint64 groupId) {
+            QAction *action = groupMenu->addAction(text);
+            action->setCheckable(true);
+            action->setChecked(groupId == entry.groupId);
+            choices->addAction(action);
+            connect(action, &QAction::triggered, this, [this, box, groupId] { moveToGroup(box, groupId); });
+        };
+        addChoice(tr("Без групи"), 0);
+        if (!m_groupOrder.isEmpty())
+            groupMenu->addSeparator();
+        for (const qint64 groupId : std::as_const(m_groupOrder))
+            addChoice(QString(m_groupNames.value(groupId)).replace('&', "&&"), groupId); // '&' would be a mnemonic
+    }
+    menu.exec(box->mapToGlobal(pos));
+}
+
+void TagPickerDialog::moveToGroup(QCheckBox *box, qint64 groupId)
+{
+    const qsizetype index = indexOf(box);
+    if (index < 0 || m_entries.at(index).groupId == groupId)
+        return;
+    Entry entry = m_entries.takeAt(index);
+    entry.groupId = groupId;
+    insertEntry(entry);
+    layoutEntries();
+    // Show where it went (once the scroll area has taken the new layout).
+    QTimer::singleShot(0, this, [this, target = QPointer<QCheckBox>(box)] {
+        if (target)
+            m_scrollArea->ensureWidgetVisible(target);
+    });
+}
+
+int TagPickerDialog::groupRank(qint64 groupId) const
+{
+    if (groupId == 0)
+        return -1;
+    const qsizetype rank = m_groupOrder.indexOf(groupId);
+    return rank >= 0 ? int(rank) : int(m_groupOrder.size()); // unknown: last
+}
+
+void TagPickerDialog::insertEntry(const Entry &entry)
+{
+    const int rank = groupRank(entry.groupId);
+    const auto place = std::find_if(m_entries.cbegin(), m_entries.cend(), [&](const Entry &other) {
+        const int otherRank = groupRank(other.groupId);
+        return otherRank > rank
+               || (otherRank == rank && QString::compare(entry.tag, other.tag, Qt::CaseInsensitive) < 0);
+    });
+    m_entries.insert(std::distance(m_entries.cbegin(), place), entry);
+}
+
 void TagPickerDialog::confirmDelete(QCheckBox *box)
 {
-    const auto index = std::distance(m_entries.cbegin(),
-                                     std::find_if(m_entries.cbegin(), m_entries.cend(),
-                                                  [box](const Entry &entry) { return entry.box && entry.box == box; }));
-    if (index == m_entries.size())
+    const qsizetype index = indexOf(box);
+    if (index < 0)
         return;
     const Entry entry = m_entries.at(index);
-    if (entry.inDatabase && !m_galleryDeletionAllowed)
-        return;
 
     const QString text = entry.inDatabase
         ? tr("Ви впевнені, що хочете видалити тег «%1» з усіх файлів галереї?\n\n"
-             "Видалення відбудеться після збереження у вікні метаданих.").arg(entry.tag)
+             "Видалення відбудеться, коли ви натиснете «Зберегти» в цьому вікні.").arg(entry.tag)
         : tr("Прибрати новий тег «%1» зі списку?").arg(entry.tag);
     QMessageBox question(QMessageBox::Warning, tr("Видалити тег"), text, QMessageBox::NoButton, this);
     QPushButton *yes = question.addButton(tr("Видалити"), QMessageBox::DestructiveRole);
@@ -396,8 +504,8 @@ void TagPickerDialog::confirmDelete(QCheckBox *box)
     if (entry.inDatabase)
         m_deletedTags << entry.tag;
     m_entries.removeAt(index);
-    entry.widget->hide();
-    entry.widget->deleteLater(); // we are inside a signal of this very widget
+    entry.box->hide();
+    entry.box->deleteLater(); // we are inside its context menu
     layoutEntries();
 }
 
@@ -423,20 +531,25 @@ void TagPickerDialog::layoutEntries()
         m_grid->setColumnStretch(column, column < m_columns ? 1 : 0);
     while (QLayoutItem *item = m_grid->takeAt(0))
         delete item; // the widget stays, only its place in the grid goes
+    // A group's name only while some tag of the group is shown: it takes a cell before them.
+    for (QWidget *label : std::as_const(m_groupLabels))
+        label->hide();
     int cell = 0;
-    for (int i = 0; i < m_entries.size(); ++i) {
-        const Entry &entry = m_entries.at(i);
-        if (!entry.box) {
-            // A group's name only while some tag of the group follows it.
-            const bool hasTags = i + 1 < m_entries.size() && m_entries.at(i + 1).box;
-            entry.widget->setVisible(hasTags);
-            if (!hasTags)
-                continue;
+    qint64 group = 0;
+    for (const Entry &entry : std::as_const(m_entries)) {
+        if (entry.groupId != group) {
+            group = entry.groupId;
             // Every group starts a new row.
             if (cell % m_columns != 0)
                 cell += m_columns - cell % m_columns;
+            if (group != 0) {
+                QWidget *label = groupLabel(group);
+                m_grid->addWidget(label, cell / m_columns, cell % m_columns);
+                label->show();
+                ++cell;
+            }
         }
-        m_grid->addWidget(entry.widget, cell / m_columns, cell % m_columns);
+        m_grid->addWidget(entry.box, cell / m_columns, cell % m_columns);
         ++cell;
     }
 }

@@ -347,14 +347,12 @@ void ImageMetaDialog::chooseTags()
         return;
     }
 
-    // All gallery tags but those marked for deletion, plus the file's tags the DB doesn't know yet
-    // (pasted) and the partial ones of a bulk edit, which are stored tags anyway.
+    // All gallery tags, plus the file's tags the DB doesn't know yet (typed, pasted).
+    // (The partial ones of a bulk edit are stored tags anyway.)
     QList<TagSection> sections = m_galleryTags;
     QStringList known;
-    for (TagSection &section : sections) {
-        section.tags.removeIf([this](const QString &tag) { return m_deletedTags.contains(tag); });
+    for (const TagSection &section : std::as_const(sections))
         known << section.tags;
-    }
     QStringList extra;
     for (const QString &tag : std::as_const(m_tags))
         if (!known.contains(tag))
@@ -368,6 +366,7 @@ void ImageMetaDialog::chooseTags()
 
     // A child of the dialog, so it works while the dialog is modal.
     m_picker = new TagPickerDialog(sections, m_tags, m_partialTags, m_tagCollectionCounts, this);
+    m_picker->setTagGroups(m_tagGroups, m_groupChanges); // the sections are the stored groups
     m_picker->setAttribute(Qt::WA_DeleteOnClose);
     connect(m_picker, &QDialog::accepted, this, [this] {
         const QStringList added = m_picker->addedTags();
@@ -377,11 +376,25 @@ void ImageMetaDialog::chooseTags()
         const QStringList removed = m_picker->removedTags();
         for (const QString &tag : removed)
             m_tags.removeAll(tag);
-        // A tag deleted from the gallery leaves this file (these files) as well.
+        // A tag deleted from the gallery is gone from these files already: given again, it is a new tag.
         const QStringList deleted = m_picker->deletedTags();
-        for (const QString &tag : deleted)
+        for (const QString &tag : deleted) {
             m_tags.removeAll(tag);
-        m_deletedTags << deleted;
+            m_initialTags.removeAll(tag);
+            m_partialTags.removeAll(tag);
+        }
+        // Written at once, like the download window does it: the caller refreshes m_galleryTags meanwhile.
+        const QHash<QString, qint64> groupChanges = m_picker->groupChanges();
+        if (!groupChanges.isEmpty() || !deleted.isEmpty())
+            emit galleryTagsEdited(groupChanges, deleted);
+        // Tags the gallery doesn't have yet keep their group until the file's tags are saved.
+        QStringList stored;
+        for (const TagSection &section : std::as_const(m_galleryTags))
+            stored << section.tags;
+        m_groupChanges.clear();
+        for (auto it = groupChanges.cbegin(); it != groupChanges.cend(); ++it)
+            if (m_tags.contains(it.key()) && !stored.contains(it.key()))
+                m_groupChanges.insert(it.key(), it.value());
         std::sort(m_tags.begin(), m_tags.end(), lessCaseInsensitive);
         refresh();
     });
@@ -423,10 +436,6 @@ void ImageMetaDialog::refresh()
     m_tagList->clear();
     m_tagList->addItems(m_tags);
     m_removeButton->setEnabled(false);
-
-    // A tag marked for deletion and then given to the file again (typed, pasted) stays in the gallery.
-    for (const QString &tag : std::as_const(m_tags))
-        m_deletedTags.removeAll(tag);
 
     if (m_picker)
         m_picker->setAssignedTags(m_tags); // the file's tags can change while the picker is open

@@ -65,9 +65,12 @@ simplement sans groupe.
   « Enregistrer ». En modification groupée, les tags que seuls certains des fichiers sélectionnés
   ont sont grisés et ne peuvent pas être modifiés ; saisir un tel tag dans « Nouveaux tags : » le donne
   à tous les fichiers. Pendant qu'elle est ouverte, vous pouvez toujours ouvrir la photo depuis la
-  fenêtre des métadonnées ; elle se ferme avec cette dernière. Un clic droit sur un tag du tableau, après confirmation, le supprime de **tous
-  les fichiers de la galerie** ; cela n'a lieu qu'à l'enregistrement de la fenêtre des métadonnées,
-  donc « Annuler » dans l'une ou l'autre fenêtre conserve le tag.
+  fenêtre des métadonnées ; elle se ferme avec cette dernière. Un clic droit sur un tag du tableau ouvre un menu :
+  **« Supprimer… »**, après confirmation, le supprime de **tous les fichiers de la galerie** ; **« Groupe »**
+  → « Sans groupe » ou un autre groupe l'y déplace (il apparaît aussitôt dans ce groupe, le groupe actuel
+  est coché). Les deux modifient toute la galerie : ils sont enregistrés dès que vous cliquez sur
+  « Enregistrer » dans cette fenêtre (« Annuler » ici conserve le tag tel quel ; « Annuler » dans la
+  fenêtre des métadonnées ne les défait plus).
 - **Copier et coller des tags.** Dans la liste des tags de cette fenêtre (aussi en modification
   groupée), sélectionnez des tags à la souris ou au clavier et appuyez sur Ctrl+C, ou choisissez
   « Copier les tags » dans le menu du clic droit. Ctrl+V ou « Coller les tags » ajoute une liste
@@ -331,8 +334,8 @@ Sous le profil :
   l'adresse de la page** : si le serveur redirige vers un autre site (ou de `https` vers `http`
   simple), ils n'y sont pas envoyés.
 - **Tags des fichiers téléchargés** — ces tags (et eux seuls) sont donnés à chaque fichier
-  téléchargé. « Ajouter des tags » fonctionne comme dans la fenêtre des métadonnées. La liste est
-  effacée à la fermeture de la fenêtre.
+  téléchargé. « Ajouter des tags » fonctionne comme dans la fenêtre des métadonnées. Un nouveau tag
+  que la galerie n'a pas encore reçoit le groupe choisi pour lui quand un téléchargement l'ajoute. La liste est effacée à la fermeture de la fenêtre.
 - **Dossier racine** — un dossier de premier niveau de la galerie (ou un nouveau nom). Le dossier
   choisi est retenu pour chaque galerie et proposé la fois suivante (le premier de la liste s'il
   n'existe plus). Chaque

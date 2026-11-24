@@ -57,9 +57,11 @@ just stay without a group.
   are ticked: tick the ones to add, clear the ones to remove and click "Save". In bulk editing, tags
   that only some of the selected files have are greyed out and can't be changed; typing such a tag
   into "New tags:" gives it to all the files. While it is open you can still open the photo from
-  the metadata window; closing the metadata window closes it too. Right-clicking a tag in the table, after a
-  confirmation, deletes it from **all files of the gallery**; this happens only when the metadata
-  window is saved, so "Cancel" in either window keeps the tag.
+  the metadata window; closing the metadata window closes it too. Right-clicking a tag in the table opens a
+  menu: **"Delete…"**, after a confirmation, deletes it from **all files of the gallery**; **"Group"** → "No
+  group" or another group moves it there (it is shown in that group right away, the current one is ticked).
+  Both change the whole gallery, so they are written as soon as you click "Save" in this window ("Cancel"
+  here keeps the tag as it was; "Cancel" in the metadata window no longer undoes them).
 - **Copying and pasting tags.** In the tag list of this window (also in bulk editing) select tags
   with the mouse or keyboard and press Ctrl+C, or use "Copy tags" in the right-click menu. Ctrl+V or
   "Paste tags" adds a list from the clipboard: tags are separated by commas or line breaks, the
@@ -290,7 +292,8 @@ Below the profile:
   them. They are sent **only to the site of the page address**: if the server redirects to another
   site (or from `https` to plain `http`), they are not sent there.
 - **Tags of the downloaded files** — these tags (and only these) are given to every downloaded
-  file. "Add tags" works as in the metadata window. The list is cleared when the window closes.
+  file. "Add tags" works as in the metadata window. A new tag the gallery doesn't have yet gets the
+  group chosen for it when a download adds it. The list is cleared when the window closes.
 - **Root folder** — a first-level folder of the gallery (or a new name). The folder chosen last is
   remembered for each gallery and offered next time (the first one if it no longer exists). Each download goes into a
   new numbered folder inside it: the program finds the folders whose names start with a number

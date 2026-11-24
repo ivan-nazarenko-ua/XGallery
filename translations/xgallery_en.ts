@@ -1904,14 +1904,6 @@ Go on deleting the other files?</translation>
         <translation>A tag name cannot contain &quot;,&quot;, &quot;&lt;&quot;, &quot;&gt;&quot;, &quot;/&quot; or &quot;\&quot;.</translation>
     </message>
     <message>
-        <source>Ви впевнені, що хочете видалити тег «%1» з усіх файлів галереї?
-
-Видалення відбудеться після збереження у вікні метаданих.</source>
-        <translation>Are you sure you want to delete the tag &quot;%1&quot; from all files of the gallery?
-
-It will be deleted when the metadata window is saved.</translation>
-    </message>
-    <message>
         <source>Прибрати новий тег «%1» зі списку?</source>
         <translation>Remove the new tag &quot;%1&quot; from the list?</translation>
     </message>
@@ -1938,6 +1930,26 @@ To give it to all the files, type it into &quot;New tags&quot;.</translation>
     <message>
         <source>Група тегів «%1»</source>
         <translation>Tag group &quot;%1&quot;</translation>
+    </message>
+    <message>
+        <source>Видалити…</source>
+        <translation>Delete…</translation>
+    </message>
+    <message>
+        <source>Група</source>
+        <translation>Group</translation>
+    </message>
+    <message>
+        <source>Без групи</source>
+        <translation>No group</translation>
+    </message>
+    <message>
+        <source>Ви впевнені, що хочете видалити тег «%1» з усіх файлів галереї?
+
+Видалення відбудеться, коли ви натиснете «Зберегти» в цьому вікні.</source>
+        <translation>Are you sure you want to delete the tag &quot;%1&quot; from all files of the gallery?
+
+It will be deleted when you click &quot;Save&quot; in this window.</translation>
     </message>
 </context>
 </TS>

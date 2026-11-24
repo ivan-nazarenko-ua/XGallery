@@ -34,6 +34,10 @@ public:
     void setPartialTags(const QStringList &tags) { m_partialTags = tags; }
     // Shown after each tag in the tag picker: in how many collections of the gallery it is.
     void setTagCollectionCounts(const QHash<QString, int> &counts) { m_tagCollectionCounts = counts; }
+    // All groups of the gallery, by position: the tag picker's right-click menu can move a tag to another.
+    void setTagGroups(const QList<TagGroup> &groups) { m_tagGroups = groups; }
+    // The gallery's tags changed (galleryTagsEdited was handled): what the next tag picker shows.
+    void setGalleryTags(const QList<TagSection> &galleryTags) { m_galleryTags = galleryTags; }
 
     // Viewer setting of the gallery, for images opened from this dialog.
     void setAllowUpscale(bool allow);
@@ -54,7 +58,9 @@ public:
     QStringList tags() const;
     QStringList addedTags() const;  // compared with the tags the dialog started with
     QStringList removedTags() const;
-    QStringList deletedTags() const { return m_deletedTags; } // to delete from the whole gallery
+    // Groups chosen in the tag picker for new tags the gallery doesn't have yet (tag → group, 0 = none):
+    // the caller sets them after saving the tags.
+    QHash<QString, qint64> groupChanges() const { return m_groupChanges; }
 
 signals:
     // Double click on a tag: put it into the main window's search ("Містить").
@@ -63,6 +69,9 @@ signals:
     void fileChanged(const QString &path);
     // The user chose where to save a copy of the file; the caller does the copying.
     void exportRequested(const QString &destination);
+    // Saved in the tag picker, written at once by the caller (groupChanges: tag → group, 0 = none;
+    // deleted: tags to delete from the whole gallery), who then calls setGalleryTags etc.
+    void galleryTagsEdited(const QHash<QString, qint64> &groupChanges, const QStringList &deleted);
 
 public slots:
     void done(int result) override;
@@ -82,10 +91,11 @@ private:
 
     QList<TagSection> m_galleryTags;
     QHash<QString, int> m_tagCollectionCounts;
+    QList<TagGroup> m_tagGroups;
+    QHash<QString, qint64> m_groupChanges;
     QStringList m_partialTags;
     QStringList m_tags;
     QStringList m_initialTags;
-    QStringList m_deletedTags;
     QStringList m_filePaths;
     bool m_allowUpscale = false;
     bool m_exporting = false;

@@ -1530,6 +1530,15 @@ void MainWindow::wireMetaDialog(ImageMetaDialog &dialog)
     dialog.setAllowUpscale(gallery->allowUpscale);
     dialog.setKeepExtension(m_keepExtensionAction->isChecked());
     dialog.setTagCollectionCounts(Db::tagCollectionCounts(gallery->id));
+    dialog.setTagGroups(Db::tagGroups(gallery->id));
+    connect(&dialog, &ImageMetaDialog::galleryTagsEdited, this,
+            [this, &dialog, galleryId = gallery->id](const QHash<QString, qint64> &groupChanges,
+                                                     const QStringList &deleted) {
+                applyGalleryTagEdits(galleryId, groupChanges, deleted);
+                // The next tag picker of this dialog shows the gallery as it is now.
+                dialog.setGalleryTags(Db::tagSections(galleryId, Db::allTags(galleryId)));
+                dialog.setTagCollectionCounts(Db::tagCollectionCounts(galleryId));
+            });
     connect(&dialog, &ImageMetaDialog::tagActivated, this, [this](const QString &tag) {
         addTagToEdit(m_includeEdit, tag); // the search itself waits for "Шукати"
     });
@@ -1694,10 +1703,30 @@ void MainWindow::editImageMeta(int index)
         if (newName != fileName && renameImageFile(galleryId, record, newName))
             fileName = newName;
     }
-    deleteTagsFromGallery(galleryId, dialog.deletedTags());
+    setTagGroups(galleryId, dialog.groupChanges()); // of tags that exist only now
     statusBar()->showMessage(tr("Збережено: %1").arg(fileName), 5000);
     reloadTags();
     loadPage(m_offset); // new tags may have moved the file to another collection
+}
+
+void MainWindow::applyGalleryTagEdits(qint64 galleryId, const QHash<QString, qint64> &groupChanges,
+                                      const QStringList &deleted)
+{
+    setTagGroups(galleryId, groupChanges);
+    deleteTagsFromGallery(galleryId, deleted);
+    reloadTags();
+    loadPage(m_offset); // a deleted tag may have moved files to other collections
+}
+
+void MainWindow::setTagGroups(qint64 galleryId, const QHash<QString, qint64> &changes)
+{
+    // After the tags were saved: a new tag exists only now (one no file kept is simply not found).
+    for (auto it = changes.cbegin(); it != changes.cend(); ++it) {
+        if (!Db::setTagGroup(galleryId, it.key(), it.value())) {
+            QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося змінити групу тегу:\n%1").arg(Db::lastError()));
+            return;
+        }
+    }
 }
 
 void MainWindow::deleteTagsFromGallery(qint64 galleryId, const QStringList &tags)
@@ -1815,15 +1844,14 @@ void MainWindow::editTagsOfSelection()
         return;
     const QStringList added = dialog.addedTags();
     const QStringList removed = dialog.removedTags();
-    const QStringList deleted = dialog.deletedTags();
-    if (added.isEmpty() && removed.isEmpty() && deleted.isEmpty())
+    if (added.isEmpty() && removed.isEmpty())
         return;
 
     if (!Db::applyTagChanges(galleryId, ids, added, removed)) {
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти зміни:\n%1").arg(Db::lastError()));
         return;
     }
-    deleteTagsFromGallery(galleryId, deleted);
+    setTagGroups(galleryId, dialog.groupChanges()); // of tags that exist only now
     statusBar()->showMessage(tr("Теги оновлено у файлів: %1").arg(ids.size()), 5000);
     reloadTags();
     loadPage(m_offset);
@@ -2103,6 +2131,11 @@ void MainWindow::downloadFromInternet()
         reloadTags();
         loadPage(0);
     });
+    const qint64 galleryId = gallery->id;
+    connect(&dialog, &DownloadDialog::galleryTagsEdited, this,
+            [this, galleryId](const QHash<QString, qint64> &groupChanges, const QStringList &deleted) {
+                applyGalleryTagEdits(galleryId, groupChanges, deleted);
+            });
     dialog.exec();
 }
 

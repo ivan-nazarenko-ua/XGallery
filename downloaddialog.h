@@ -44,6 +44,9 @@ public:
 
 signals:
     void filesAdded(); // the gallery got new files: the main window refreshes
+    // Saved in the tag picker: the main window writes them (groupChanges: tag → group, 0 = none;
+    // deleted: tags to delete from the whole gallery) and refreshes.
+    void galleryTagsEdited(const QHash<QString, qint64> &groupChanges, const QStringList &deleted);
 
 public slots:
     void done(int result) override;
@@ -68,6 +71,7 @@ private:
     void copySelectedTags();
     void pasteTags();
     void refreshTags();
+    void keepPendingGroups(const QHash<QString, qint64> &changes); // the ones for tags not stored yet
 
     // Downloading
     void startOrStop();
@@ -108,6 +112,8 @@ private:
     QPushButton *m_startButton;
 
     QStringList m_tags;
+    // Groups chosen for this window's tags the gallery doesn't have yet: applied once a download brings them in.
+    QHash<QString, qint64> m_pendingGroups;
     QPointer<TagPickerDialog> m_picker;
 
     // The run
