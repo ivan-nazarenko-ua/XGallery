@@ -64,9 +64,10 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
   never edit existing steps. A DB with a newer `user_version` than `latestVersion()` is refused (not opened). At start
   `Db::repairCollections` fixes what an older version (which ignores newer schemas) may have written: files without
-  vpath_hash are retagged, collections left without files are synced away. Current version: 13 (galleries; rating+name; allow_upscale; no commas in tags;
+  vpath_hash are retagged, collections left without files are synced away. Current version: 14 (galleries; rating+name; allow_upscale; no commas in tags;
   normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space;
-  collections — images.rating dropped; collections.name_key; tag groups; download profiles; gallery settings).
+  collections — images.rating dropped; collections.name_key; tag groups; download profiles; gallery settings;
+  collections.name_manual).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -137,7 +138,12 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   default name (`Collections::defaultName(vpath, groupRanks)`, owner's rule): "<word> <number>" — number = the smallest by value
   of the digits-only tags as written, else "001"; word = alphabetically (sortKey) first other tag of the last group (by
   position) that has one, ungrouped tags last, else "Collection" (not translated: stored data). Existing names are never
-  recomputed; `Db::defaultCollectionName` feeds CollectionDialog's "За замовчуванням". Groups chosen for not-yet-stored tags
+  recomputed automatically; `Db::defaultCollectionName` feeds CollectionDialog's "За замовчуванням".
+  collections.name_manual (`CollectionRecord::nameManual`): 1 = the user gave the name. CollectionDialog: `textEdited` → manual,
+  "За замовчуванням" → automatic, shown under the name; saved by `Db::updateCollection`. New rows (sync) are 0; a transfer keeps it.
+  Migration v14 guessed it: a name equal to the old (last two tags) or the v14 rule (frozen copy `v14GroupedName`) = automatic.
+  File menu "Перейменувати всі колекції…" (`MainWindow::renameAllCollections`, a question: only automatic / all / cancel) →
+  `Db::renameCollections(galleryId, onlyAutomatic)`: default names with the current groups, all marked automatic, one transaction. Groups chosen for not-yet-stored tags
   must be in the DB before the save/import that names the collection: `Db::prepareTagGroups` creates those tags with their
   group first (metadata Save, bulk edit, download import; an unused one goes with the next `deleteUnusedTags`).
   invalid covers are re-chosen (a cover is valid while its image stays in the collection). Renaming a file doesn't change

@@ -13,6 +13,8 @@
 #include <QStringList>
 #include <QVariant>
 
+#include <algorithm>
+
 namespace {
 
 // Thrown-away helper state for one step: a query plus the error sink.
@@ -568,6 +570,77 @@ bool toV13GallerySettings(Sql &s)
                   " PRIMARY KEY (gallery_id, key))");
 }
 
+// ---- v13 -> v14: names typed by the user ------------------------------------------------------
+// collections.name_manual = 1: the user gave the name (collection properties), "Перейменувати всі
+// колекції" may keep it. Existing collections can't tell, so a name counts as automatic when it is
+// what either default rule gives (the old one: the last two tags; the one of the version that adds
+// this step, frozen here: see Collections::defaultName), or empty for files without tags.
+QString v14GroupedName(const QString &virtualPath, const QHash<QString, int> &groupRank)
+{
+    QString number, word, wordKey;
+    int wordRank = 0;
+    const QStringList tags = virtualPath.split(u'/', Qt::SkipEmptyParts);
+    for (const QString &tag : tags) {
+        if (std::all_of(tag.cbegin(), tag.cend(), [](QChar c) { return c >= u'0' && c <= u'9'; })) {
+            const auto significant = [](const QString &t) {
+                qsizetype start = 0;
+                while (start < t.size() - 1 && t.at(start) == u'0')
+                    ++start;
+                return QStringView(t).mid(start);
+            };
+            const QStringView x = significant(tag), y = significant(number);
+            const bool less = x.size() != y.size() ? x.size() < y.size() : x != y ? x < y : tag < number;
+            if (number.isEmpty() || less)
+                number = tag;
+            continue;
+        }
+        const int rank = groupRank.value(tag, -1);
+        const QString key = VirtualPath::sortKey(tag);
+        if (word.isEmpty() || rank > wordRank || (rank == wordRank && key < wordKey)) {
+            word = tag;
+            wordRank = rank;
+            wordKey = key;
+        }
+    }
+    return (word.isEmpty() ? QStringLiteral("Collection") : word) + u' '
+           + (number.isEmpty() ? QStringLiteral("001") : number);
+}
+
+bool toV14ManualNames(Sql &s)
+{
+    if (!s.exec("ALTER TABLE collections ADD COLUMN name_manual INTEGER NOT NULL DEFAULT 0"))
+        return false;
+    QSqlQuery &q = s.query();
+
+    QHash<qint64, QHash<QString, int>> ranks; // gallery -> tag -> its group's position
+    if (!s.exec("SELECT t.gallery_id, t.name, g.position FROM tags t JOIN tag_groups g ON g.id = t.group_id"))
+        return false;
+    while (q.next())
+        ranks[q.value(0).toLongLong()].insert(q.value(1).toString(), q.value(2).toInt());
+    q.finish();
+
+    QList<qint64> manual;
+    if (!s.exec("SELECT c.id, c.gallery_id, c.name, (SELECT i.vpath FROM images i WHERE i.gallery_id = c.gallery_id "
+                "AND i.vpath_hash = c.vpath_hash LIMIT 1) FROM collections c"))
+        return false;
+    while (q.next()) {
+        const QString name = q.value(2).toString();
+        const QString virtualPath = q.value(3).toString();
+        const QStringList tags = virtualPath.split(u'/', Qt::SkipEmptyParts);
+        const QString oldDefault = tags.mid(qMax(qsizetype(0), tags.size() - 2)).join(u' ');
+        if (name != oldDefault && name != v14GroupedName(virtualPath, ranks.value(q.value(1).toLongLong())))
+            manual << q.value(0).toLongLong();
+    }
+    q.finish();
+    q.prepare("UPDATE collections SET name_manual = 1 WHERE id = ?");
+    for (const qint64 id : std::as_const(manual)) {
+        q.addBindValue(id);
+        if (!s.exec())
+            return false;
+    }
+    return true;
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -659,6 +732,7 @@ static const QList<Migrations::Step> &steps()
         {toV11TagGroups, false},
         {toV12DownloadProfiles, false},
         {toV13GallerySettings, false},
+        {toV14ManualNames, false},
     };
     return list;
 }

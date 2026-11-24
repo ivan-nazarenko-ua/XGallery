@@ -216,7 +216,9 @@ bool sync(const QSqlDatabase &db, qint64 galleryId, const QList<Move> &moves, QS
     QHash<QString, int> ranks;
     if (!orphans.isEmpty() && !groupRanks(db, galleryId, &ranks, error))
         return false;
-    q.prepare("INSERT INTO collections(gallery_id, vpath_hash, name, name_key, rating) VALUES(?, ?, ?, ?, ?)");
+    // name_manual = 0: the name is the default one (a transfer above keeps the flag with the name).
+    q.prepare("INSERT INTO collections(gallery_id, vpath_hash, name, name_key, name_manual, rating) "
+              "VALUES(?, ?, ?, ?, 0, ?)");
     for (auto o = orphans.constBegin(); o != orphans.constEnd(); ++o) {
         const QString name = defaultName(o.value(), ranks);
         q.addBindValue(galleryId);

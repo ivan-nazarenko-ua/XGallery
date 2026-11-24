@@ -50,6 +50,7 @@ struct CollectionRecord
     QString coverPath;   // relative path of the cover; the first file if the collection has no image
     int fileCount = 0;
     QString coverSha256; // content of coverPath
+    bool nameManual = false; // the user gave the name; false: Collections::defaultName gave it
 };
 
 namespace Db {
@@ -166,8 +167,13 @@ bool isCollectionCover(qint64 galleryId, qint64 imageId);
 // Makes the image the cover of the collection it is in now.
 bool setCollectionCover(qint64 galleryId, qint64 imageId);
 
-// Saves the user-editable properties of a collection.
-bool updateCollection(qint64 galleryId, qint64 collectionId, const QString &name, int rating);
+// Saves the user-editable properties of a collection. nameManual: the user gave the name (false: it is the
+// default name, e.g. put in by "За замовчуванням").
+bool updateCollection(qint64 galleryId, qint64 collectionId, const QString &name, bool nameManual, int rating);
+// Gives the gallery's collections their default name (Collections::defaultName with the current groups) and marks
+// the names automatic; onlyAutomatic: collections the user named keep their names. One transaction.
+// Returns how many names changed, -1 on an error (lastError()).
+int renameCollections(qint64 galleryId, bool onlyAutomatic);
 
 // Tags occurring in the images a search finds.
 QStringList tagsOfSearch(qint64 galleryId, const TagQuery &query);

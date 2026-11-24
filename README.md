@@ -101,7 +101,9 @@ photos with the same set of tags stay together, no matter which folder they are 
   if there are no such tags. So with groups "People", "Places": tags Mary, Forest (Places), 005, 2024 →
   "Forest 005"; files without tags → "Collection 001". Put the new tags into groups first (the
   "Add tags" window, right click → "Group") so a new collection gets the name you want. Existing
-  collections keep their names; "Default" in the collection properties fills in this name. You can
+  collections keep their names; "Default" in the collection properties fills in this name. Under the
+  name the properties window says whether it is automatic or given by hand: typing in the field makes
+  it hand-given, "Default" automatic again ("Rename all collections…" can spare hand-given names). You can
   change it; names may repeat. A collection whose name was cleared is shown by its tags, or `<no tags>`.
 - **Rating** — 1–100, 50 for a new collection. The rating belongs to the collection, not to single
   files. On the update from a version with file ratings, each collection got the average rating of
@@ -234,6 +236,10 @@ with it.
 - **Delete junk…** — deletes `Thumbs.db`, `desktop.ini` and empty folders in the gallery.
   The deletion is **permanent, without the Recycle Bin**, so a list and a confirmation come
   first. The program's own folder is left alone.
+- **Rename all collections…** — gives the collections of the gallery their default names (see
+  "Name" under Collections), e.g. after you rearranged the tag groups. It asks first: **"Rename only
+  automatic names"** keeps the names you typed yourself, **"Rename absolutely all collections"**
+  replaces them too, "Cancel" changes nothing. The old names can't be brought back.
 
 A single file can be deleted in the metadata window (right-click a file's thumbnail): the
 **"Delete file…"** button moves it to the Recycle Bin. In the viewer the Delete key does the same (not in a viewer opened from the metadata window: there it only explains why). Here, in "Find duplicates…" and when deleting a collection, a file that

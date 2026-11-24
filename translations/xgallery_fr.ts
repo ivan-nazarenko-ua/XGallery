@@ -74,6 +74,14 @@
         <source>Тег з останньої групи, де є теги колекції, і найменше число серед її тегів: «%1»</source>
         <translation>Un tag du dernier groupe contenant des tags de la collection, et le plus petit nombre parmi ses tags : « %1 »</translation>
     </message>
+    <message>
+        <source>Ім&apos;я задане вручну.</source>
+        <translation>Le nom a été donné à la main.</translation>
+    </message>
+    <message>
+        <source>Ім&apos;я автоматичне.</source>
+        <translation>Le nom est automatique.</translation>
+    </message>
 </context>
 <context>
     <name>DownloadDialog</name>
@@ -1764,6 +1772,40 @@ Lancez une analyse.</translation>
 %1
 
 Lancez une analyse.</translation>
+    </message>
+    <message>
+        <source>&amp;Перейменувати всі колекції…</source>
+        <translation>&amp;Renommer toutes les collections…</translation>
+    </message>
+    <message>
+        <source>Перейменувати всі колекції</source>
+        <translation>Renommer toutes les collections</translation>
+    </message>
+    <message>
+        <source>Дати колекціям галереї «%1» імена за замовчуванням (тег з останньої групи та найменше число)?
+
+Імена, задані вручну, можна зберегти або теж замінити. Повернути старі імена не вийде.</source>
+        <translation>Donner aux collections de la galerie « %1 » leur nom par défaut (un tag du dernier groupe et le plus petit nombre) ?
+
+Les noms donnés à la main peuvent être conservés ou remplacés eux aussi. Les anciens noms ne pourront pas être rétablis.</translation>
+    </message>
+    <message>
+        <source>Перейменувати лише автоматичні імена</source>
+        <translation>Renommer seulement les noms automatiques</translation>
+    </message>
+    <message>
+        <source>Перейменувати загалом всі колекції</source>
+        <translation>Renommer absolument toutes les collections</translation>
+    </message>
+    <message>
+        <source>Не вдалося перейменувати колекції:
+%1</source>
+        <translation>Impossible de renommer les collections :
+%1</translation>
+    </message>
+    <message>
+        <source>Перейменовано колекцій: %1</source>
+        <translation>Collections renommées : %1</translation>
     </message>
 </context>
 <context>

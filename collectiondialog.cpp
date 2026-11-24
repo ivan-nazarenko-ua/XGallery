@@ -32,8 +32,26 @@ CollectionDialog::CollectionDialog(const CollectionRecord &collection, const QPi
     auto *defaultButton = new QPushButton(tr("За замовчуванням"), this);
     defaultButton->setToolTip(tr("Тег з останньої групи, де є теги колекції, і найменше число серед її тегів: «%1»")
                                   .arg(defaultName));
-    connect(defaultButton, &QPushButton::clicked, this, [this, defaultName] { m_nameEdit->setText(defaultName); });
     nameRow->addWidget(defaultButton);
+
+    // Typed by the user = manual; "За замовчуванням" makes it automatic again.
+    m_nameManual = collection.nameManual;
+    auto *nameKind = new QLabel(this);
+    const auto showKind = [this, nameKind] {
+        nameKind->setText(m_nameManual ? tr("Ім'я задане вручну.") : tr("Ім'я автоматичне."));
+    };
+    showKind();
+    nameKind->setWordWrap(true);
+    nameKind->setEnabled(false); // grey: a hint, not a field
+    connect(m_nameEdit, &QLineEdit::textEdited, this, [this, showKind] {
+        m_nameManual = true;
+        showKind();
+    });
+    connect(defaultButton, &QPushButton::clicked, this, [this, defaultName, showKind] {
+        m_nameEdit->setText(defaultName); // setText: no textEdited
+        m_nameManual = false;
+        showKind();
+    });
 
     m_ratingSpin->setRange(Collections::MinRating, Collections::MaxRating);
     m_ratingSpin->setValue(collection.rating);
@@ -46,6 +64,7 @@ CollectionDialog::CollectionDialog(const CollectionRecord &collection, const QPi
     form->addRow(tr("Теги:"), tags);
     form->addRow(tr("Файлів:"), new QLabel(QString::number(collection.fileCount), this));
     form->addRow(tr("Ім'я:"), nameRow);
+    form->addRow(QString(), nameKind);
     form->addRow(tr("Оцінка:"), m_ratingSpin);
 
     auto *top = new QHBoxLayout;

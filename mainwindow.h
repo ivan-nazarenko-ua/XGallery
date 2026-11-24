@@ -63,6 +63,7 @@ private slots:
     void selectWholeCollection();
     void findDuplicates();
     void deleteJunk(); // Thumbs.db, desktop.ini and empty folders
+    void renameAllCollections(); // default names for automatic (or all) collection names, after a question
     void addFilesToGallery();
     void addFolderToGallery();
     void downloadFromInternet();
@@ -163,6 +164,7 @@ private:
     QAction *m_downloadAction = nullptr;
     QAction *m_duplicatesAction = nullptr;
     QAction *m_junkAction = nullptr;
+    QAction *m_renameCollectionsAction = nullptr;
     QAction *m_quitAction = nullptr;
     QMenu *m_settingsMenu = nullptr;
     QAction *m_keepExtensionAction = nullptr;

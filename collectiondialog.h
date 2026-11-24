@@ -25,9 +25,12 @@ public:
                      QWidget *parent = nullptr);
 
     QString name() const; // trimmed; may be empty
+    // The user typed the name (or it was so and they didn't touch it); false after "За замовчуванням".
+    bool nameManual() const { return m_nameManual; }
     int rating() const;
 
 private:
+    bool m_nameManual = false;
     QLineEdit *m_nameEdit;
     QSpinBox *m_ratingSpin;
 };

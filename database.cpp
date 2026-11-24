@@ -693,13 +693,14 @@ static const char *CollectionColumns =
     "  ORDER BY i.name COLLATE NOCASE, i.id LIMIT 1)), "
     "COALESCE((SELECT i.sha256 FROM images i WHERE i.id = c.cover_image_id), "
     " (SELECT i.sha256 FROM images i WHERE i.gallery_id = c.gallery_id AND i.vpath_hash = c.vpath_hash "
-    "  ORDER BY i.name COLLATE NOCASE, i.id LIMIT 1))";
+    "  ORDER BY i.name COLLATE NOCASE, i.id LIMIT 1)), "
+    "c.name_manual";
 
 // Columns after CollectionColumns: the file count.
 static CollectionRecord collectionFrom(const QSqlQuery &q)
 {
     return {q.value(0).toLongLong(), q.value(1).toString(), q.value(3).toString(), q.value(2).toInt(),
-            q.value(4).toString(), q.value(6).toInt(), q.value(5).toString()};
+            q.value(4).toString(), q.value(7).toInt(), q.value(5).toString(), q.value(6).toBool()};
 }
 
 QList<CollectionRecord> searchCollections(qint64 galleryId, const TagQuery &query, int offset, int limit,
@@ -778,17 +779,73 @@ bool setCollectionCover(qint64 galleryId, qint64 imageId)
     return exec(q);
 }
 
-bool updateCollection(qint64 galleryId, qint64 collectionId, const QString &name, int rating)
+bool updateCollection(qint64 galleryId, qint64 collectionId, const QString &name, bool nameManual, int rating)
 {
     const QString virtualPath = collection(galleryId, collectionId).virtualPath;
     QSqlQuery q(mainDb());
-    q.prepare("UPDATE collections SET name = ?, name_key = ?, rating = ? WHERE id = ? AND gallery_id = ?");
+    q.prepare("UPDATE collections SET name = ?, name_key = ?, name_manual = ?, rating = ? WHERE id = ? AND gallery_id = ?");
     q.addBindValue(name.isNull() ? QStringLiteral("") : name);
     q.addBindValue(Collections::nameKey(name, virtualPath));
+    q.addBindValue(nameManual ? 1 : 0);
     q.addBindValue(qBound(Collections::MinRating, rating, Collections::MaxRating));
     q.addBindValue(collectionId);
     q.addBindValue(galleryId);
     return exec(q);
+}
+
+int renameCollections(qint64 galleryId, bool onlyAutomatic)
+{
+    QSqlDatabase db = mainDb();
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return -1;
+    }
+    int renamed = 0;
+    const bool ok = [&] {
+        QHash<QString, int> ranks;
+        if (!Collections::groupRanks(db, galleryId, &ranks, &g_lastError))
+            return false;
+        struct Row
+        {
+            qint64 id;
+            QString name;
+            QString virtualPath;
+            bool manual;
+        };
+        QList<Row> rows;
+        QSqlQuery q(db);
+        q.prepare("SELECT c.id, c.name, (SELECT i.vpath FROM images i WHERE i.gallery_id = c.gallery_id "
+                  "AND i.vpath_hash = c.vpath_hash LIMIT 1), c.name_manual FROM collections c WHERE c.gallery_id = ?");
+        q.addBindValue(galleryId);
+        if (!exec(q))
+            return false;
+        while (q.next())
+            rows.append({q.value(0).toLongLong(), q.value(1).toString(), q.value(2).toString(), q.value(3).toBool()});
+        q.finish();
+
+        q.prepare("UPDATE collections SET name = ?, name_key = ?, name_manual = 0 WHERE id = ?");
+        for (const Row &row : std::as_const(rows)) {
+            if (onlyAutomatic && row.manual)
+                continue;
+            const QString name = Collections::defaultName(row.virtualPath, ranks);
+            if (name == row.name && !row.manual)
+                continue; // already so
+            q.addBindValue(name);
+            q.addBindValue(Collections::nameKey(name, row.virtualPath));
+            q.addBindValue(row.id);
+            if (!exec(q))
+                return false;
+            if (name != row.name)
+                ++renamed;
+        }
+        return true;
+    }();
+    if (ok && db.commit())
+        return renamed;
+    if (ok)
+        g_lastError = db.lastError().text();
+    db.rollback();
+    return -1;
 }
 
 bool saveImageMeta(qint64 galleryId, qint64 imageId, const QStringList &tags)

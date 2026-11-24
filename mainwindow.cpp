@@ -204,6 +204,7 @@ void MainWindow::buildUi()
     m_fileMenu->addSeparator();
     m_duplicatesAction = m_fileMenu->addAction(QString(), this, &MainWindow::findDuplicates);
     m_junkAction = m_fileMenu->addAction(QString(), this, &MainWindow::deleteJunk);
+    m_renameCollectionsAction = m_fileMenu->addAction(QString(), this, &MainWindow::renameAllCollections);
     m_fileMenu->addSeparator();
     m_quitAction = m_fileMenu->addAction(QString(), QKeySequence::Quit, this, &QWidget::close);
 
@@ -434,6 +435,7 @@ void MainWindow::retranslateUi()
     m_downloadAction->setText(tr("Завантажити з &інтернету…"));
     m_duplicatesAction->setText(tr("Знайти &дублікати…"));
     m_junkAction->setText(tr("Видалити &сміття…"));
+    m_renameCollectionsAction->setText(tr("&Перейменувати всі колекції…"));
     m_quitAction->setText(tr("&Вийти"));
 
     m_galleryLabel->setText(tr("Галерея:"));
@@ -1134,7 +1136,7 @@ void MainWindow::editCollection(int index)
     }
     if (result != QDialog::Accepted)
         return;
-    if (!Db::updateCollection(galleryId, collection.id, dialog.name(), dialog.rating())) {
+    if (!Db::updateCollection(galleryId, collection.id, dialog.name(), dialog.nameManual(), dialog.rating())) {
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти колекцію:\n%1").arg(Db::lastError()));
         return;
     }
@@ -1886,6 +1888,39 @@ void MainWindow::findDuplicates()
         reloadTags();
         loadPage(m_offset);
     }
+}
+
+void MainWindow::renameAllCollections()
+{
+    const Gallery *gallery = currentGallery();
+    if (isBusy())
+        return;
+    const QString title = tr("Перейменувати всі колекції");
+    if (!gallery) {
+        QMessageBox::information(this, title, tr("Спершу створи галерею."));
+        return;
+    }
+
+    QMessageBox box(QMessageBox::Question, title,
+                    tr("Дати колекціям галереї «%1» імена за замовчуванням (тег з останньої групи та найменше число)?\n\n"
+                       "Імена, задані вручну, можна зберегти або теж замінити. Повернути старі імена не вийде.")
+                        .arg(gallery->name),
+                    QMessageBox::NoButton, this);
+    QPushButton *automatic = box.addButton(tr("Перейменувати лише автоматичні імена"), QMessageBox::AcceptRole);
+    QPushButton *all = box.addButton(tr("Перейменувати загалом всі колекції"), QMessageBox::DestructiveRole);
+    QPushButton *cancel = box.addButton(tr("Скасувати"), QMessageBox::RejectRole);
+    box.setDefaultButton(cancel);
+    box.exec();
+    if (box.clickedButton() != automatic && box.clickedButton() != all)
+        return;
+
+    const int renamed = Db::renameCollections(gallery->id, box.clickedButton() == automatic);
+    if (renamed < 0) {
+        QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося перейменувати колекції:\n%1").arg(Db::lastError()));
+        return;
+    }
+    statusBar()->showMessage(tr("Перейменовано колекцій: %1").arg(renamed), 5000);
+    loadPage(m_offset); // the names sort the collections
 }
 
 void MainWindow::deleteJunk()

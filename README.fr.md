@@ -121,7 +121,9 @@ restent groupées, quel que soit le dossier où elles se trouvent.
   fichiers sans tags → « Collection 001 ». Pour qu'une nouvelle collection reçoive le nom voulu, mettez
   d'abord les nouveaux tags dans leurs groupes (fenêtre « Ajouter des tags », clic droit → « Groupe »).
   Les collections existantes gardent leur nom ; « Par défaut » dans les propriétés de la collection
-  remplit ce nom. Vous pouvez le changer ; les noms peuvent se répéter. Une collection dont le nom a été
+  remplit ce nom. Sous le nom, la fenêtre des propriétés indique s'il est automatique ou donné à la
+  main : saisir dans le champ le rend manuel, « Par défaut » le rend de nouveau automatique
+  (« Renommer toutes les collections… » peut épargner les noms manuels). Vous pouvez le changer ; les noms peuvent se répéter. Une collection dont le nom a été
   effacé est affichée par ses tags, ou `<sans tags>`.
 - **Note** — de 1 à 100, 50 pour une nouvelle collection. La note appartient à la collection, pas
   aux fichiers. Lors de la mise à jour depuis une version où les fichiers avaient une note, chaque
@@ -271,6 +273,11 @@ programme vous demande quoi en faire.
 - **Supprimer les fichiers inutiles…** — supprime `Thumbs.db`, `desktop.ini` et les dossiers
   vides de la galerie. La suppression est **définitive, sans passer par la Corbeille** : une liste
   et une confirmation s'affichent donc d'abord. Le dossier du programme n'est pas touché.
+- **Renommer toutes les collections…** — donne aux collections de la galerie leur nom par défaut
+  (voir « Nom » dans la partie sur les collections), par exemple après avoir réorganisé les groupes de
+  tags. Une question vient d'abord : **« Renommer seulement les noms automatiques »** garde les noms
+  que vous avez saisis vous-même, **« Renommer absolument toutes les collections »** les remplace
+  aussi, « Annuler » ne change rien. Les anciens noms ne pourront pas être rétablis.
 
 Un fichier isolé peut être supprimé dans la fenêtre des métadonnées (clic droit sur la
 vignette d'un fichier) : le bouton **« Supprimer le fichier… »** le met à la Corbeille. Dans la visionneuse, la touche Suppr fait de même (sauf dans une visionneuse ouverte depuis la fenêtre des métadonnées : elle y explique seulement pourquoi). Ici, dans « Rechercher les doublons… » et lors de la suppression
