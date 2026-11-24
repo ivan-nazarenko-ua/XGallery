@@ -780,6 +780,18 @@ puis les groupes dans cet ordre. On met un tag dans un groupe par un clic droit 
         <source>Це зображення вже є обкладинкою своєї колекції</source>
         <translation>Cette image est déjà la couverture de sa collection</translation>
     </message>
+    <message>
+        <source>Тут файл не видалити: його зараз редагує вікно метаданих.
+Закрийте переглядач і натисніть «Видалити файл…» у вікні метаданих.</source>
+        <translation>Impossible de supprimer le fichier ici : la fenêtre des métadonnées le modifie en ce moment.
+Fermez la visionneuse et cliquez sur « Supprimer le fichier… » dans la fenêtre des métadonnées.</translation>
+    </message>
+    <message>
+        <source>Тут файл не видалити: зараз відкрите групове редагування тегів цих файлів.
+Закрийте вікно метаданих і видаліть файл з переглядача колекції.</source>
+        <translation>Impossible de supprimer le fichier ici : la modification groupée des tags de ces fichiers est ouverte.
+Fermez la fenêtre des métadonnées et supprimez le fichier depuis la visionneuse de la collection.</translation>
+    </message>
 </context>
 <context>
     <name>ImageRotation</name>
@@ -843,6 +855,22 @@ PNG, BMP, TIFF, WebP : sans perte de qualité, mais leurs métadonnées peuvent 
     <message>
         <source>Це анімація або багатосторінковий файл. Після перезапису лишився б тільки перший кадр, тому поворот не збережено.</source>
         <translation>C&apos;est une animation ou un fichier à plusieurs pages. Le réécrire ne garderait que la première image, la rotation n&apos;a donc pas été enregistrée.</translation>
+    </message>
+    <message>
+        <source>Видалити файл</source>
+        <translation>Supprimer le fichier</translation>
+    </message>
+    <message>
+        <source>Перемістити файл у Кошик і прибрати його з галереї?
+
+%1</source>
+        <translation>Mettre le fichier à la Corbeille et le retirer de la galerie ?
+
+%1</translation>
+    </message>
+    <message>
+        <source>Видалити</source>
+        <translation>Supprimer</translation>
     </message>
 </context>
 <context>
@@ -1598,6 +1626,18 @@ tags (par ordre alphabétique, joints par « / ») ; le nom du fichier vient tou
 Plus récents d&apos;abord : par date d&apos;ajout à la galerie, puis comme classique.
 Plus grands d&apos;abord : par taille de fichier (les plus grands d&apos;abord), puis comme classique.
 Dans une collection ouverte, les fichiers sont toujours classés par nom.</translation>
+    </message>
+    <message>
+        <source>Зачекайте, доки завершиться поточна операція, і спробуйте ще раз.</source>
+        <translation>Attendez la fin de l&apos;opération en cours, puis réessayez.</translation>
+    </message>
+    <message>
+        <source>Відмітити всі файли відкритої колекції, на всіх сторінках</source>
+        <translation>Cocher tous les fichiers de la collection ouverte, sur toutes les pages</translation>
+    </message>
+    <message>
+        <source>Обрати сторінку</source>
+        <translation>Cocher la page</translation>
     </message>
 </context>
 <context>

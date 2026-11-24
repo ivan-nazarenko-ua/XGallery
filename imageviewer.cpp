@@ -188,6 +188,36 @@ void ImageViewer::step(int delta)
     showImage(((m_index + delta) % count + count) % count);
 }
 
+void ImageViewer::deleteCurrent()
+{
+    if (m_filePaths.isEmpty())
+        return;
+    if (!m_deleteHandler) {
+        if (!m_deleteRefusal.isEmpty())
+            QMessageBox::warning(this, tr("Видалити файл"), m_deleteRefusal);
+        return;
+    }
+    const QString path = m_filePaths.at(m_index);
+    // Same question as the metadata dialog's "delete" button: an accidental key press deletes nothing.
+    QMessageBox box(QMessageBox::Warning, tr("Видалити файл"),
+                    tr("Перемістити файл у Кошик і прибрати його з галереї?\n\n%1").arg(QDir::toNativeSeparators(path)),
+                    QMessageBox::NoButton, this);
+    QPushButton *yes = box.addButton(tr("Видалити"), QMessageBox::DestructiveRole);
+    QPushButton *no = box.addButton(tr("Скасувати"), QMessageBox::RejectRole);
+    box.setDefaultButton(no);
+    box.exec();
+    if (box.clickedButton() != yes || !m_deleteHandler(path))
+        return;
+
+    m_filePaths.removeAt(m_index);
+    m_turns = 0; // an unsaved rotation went with the file
+    if (m_filePaths.isEmpty()) {
+        close();
+        return;
+    }
+    showImage(m_index < m_filePaths.size() ? m_index : 0); // the next one, in a circle like the arrows
+}
+
 void ImageViewer::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
@@ -211,6 +241,9 @@ void ImageViewer::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Right:
     case Qt::Key_Down:
         step(+1);
+        break;
+    case Qt::Key_Delete:
+        deleteCurrent();
         break;
     default:
         QWidget::keyPressEvent(event);

@@ -266,6 +266,12 @@ void ImageMetaDialog::openFile(int index)
         }
         // A child of the dialog, so it works while the dialog is modal and closes with it.
         auto *viewer = new ImageViewer(images, current, m_allowUpscale, this);
+        // This dialog edits the very files the viewer shows: deleting one under it is not allowed.
+        viewer->setDeleteRefusal(m_filePaths.size() == 1
+            ? tr("Тут файл не видалити: його зараз редагує вікно метаданих.\n"
+                 "Закрийте переглядач і натисніть «Видалити файл…» у вікні метаданих.")
+            : tr("Тут файл не видалити: зараз відкрите групове редагування тегів цих файлів.\n"
+                 "Закрийте вікно метаданих і видаліть файл з переглядача колекції."));
         connect(viewer, &ImageViewer::fileChanged, this, [this](const QString &file) {
             if (m_filePaths.size() == 1)
                 updatePreview(); // a saved rotation shows up here too

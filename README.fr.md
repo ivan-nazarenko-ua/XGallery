@@ -82,7 +82,7 @@ simplement sans groupe.
   quelle vignette de fichier ouvre une
   fenêtre avec les tags communs à tous les fichiers sélectionnés. Les tags ajoutés et retirés
   s'appliquent à tous les fichiers sélectionnés à la fois ; un fichier qui a déjà un tag ajouté ne
-  le reçoit qu'une fois. **« Tout cocher »** coche tous les fichiers de la page courante,
+  le reçoit qu'une fois. **« Tout cocher »** coche tous les fichiers de la collection ouverte (toutes ses pages), **« Cocher la page »** seulement ceux de la page courante,
   **« Tout décocher »** retire les coches sur toutes les pages. Changer de galerie efface la
   sélection.
 - **Affichage depuis la fenêtre de modification.** Un clic sur la vignette dans la fenêtre des
@@ -186,6 +186,7 @@ Dans une collection, un clic sur la vignette d'une photo l'ouvre dans la visionn
 | ← → (↑ ↓) | photo précédente / suivante de la collection ouverte, en boucle |
 | Double-clic | plein écran / retour à la taille précédente |
 | Clic droit | rotation de 90° dans le sens inverse des aiguilles d'une montre |
+| Suppr | mettre la photo à la Corbeille et la retirer de la galerie (après confirmation) ; la photo suivante s'affiche |
 | Échap | quitter le plein écran ; un second Échap ferme la fenêtre |
 
 Après une rotation, une barre **« Enregistrer dans le fichier »** apparaît. Un JPEG n'est pas
@@ -245,7 +246,7 @@ programme vous demande quoi en faire.
   et une confirmation s'affichent donc d'abord. Le dossier du programme n'est pas touché.
 
 Un fichier isolé peut être supprimé dans la fenêtre des métadonnées (clic droit sur la
-vignette d'un fichier) : le bouton **« Supprimer le fichier… »** le met à la Corbeille.
+vignette d'un fichier) : le bouton **« Supprimer le fichier… »** le met à la Corbeille. Dans la visionneuse, la touche Suppr fait de même (sauf dans une visionneuse ouverte depuis la fenêtre des métadonnées : elle y explique seulement pourquoi).
 
 Dans la même fenêtre, le bouton **« Exporter… »** copie le fichier hors de la galerie, à
 l'emplacement de votre choix. Si cet emplacement se trouve dans la galerie actuelle, le programme

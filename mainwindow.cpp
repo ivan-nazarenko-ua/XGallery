@@ -45,6 +45,7 @@
 #include <QStyledItemDelegate>
 #include <QTextLayout>
 #include <QPainter>
+#include <algorithm>
 #include <cmath>
 #include <QTextCharFormat>
 #include <QToolButton>
@@ -395,14 +396,18 @@ void MainWindow::buildUi()
     connect(m_nextButton, &QPushButton::clicked, this, &MainWindow::showNextPage);
     pageRow->addWidget(m_nextButton);
     pageRow->addSpacing(24);
-    // Bulk selection: "select all" works on this page, "clear all" on every page.
+    // Bulk selection: "select all" takes the whole open collection, "select page" this page,
+    // "clear all" clears every page.
     m_selectAllButton = new QPushButton;
-    connect(m_selectAllButton, &QPushButton::clicked, this, [this] {
+    connect(m_selectAllButton, &QPushButton::clicked, this, &MainWindow::selectWholeCollection);
+    pageRow->addWidget(m_selectAllButton);
+    m_selectPageButton = new QPushButton;
+    connect(m_selectPageButton, &QPushButton::clicked, this, [this] {
         for (QCheckBox *box : std::as_const(m_thumbChecks))
             if (!box->isHidden())
                 box->setChecked(true);
     });
-    pageRow->addWidget(m_selectAllButton);
+    pageRow->addWidget(m_selectPageButton);
     m_clearSelectionButton = new QPushButton;
     connect(m_clearSelectionButton, &QPushButton::clicked, this, &MainWindow::clearSelection);
     pageRow->addWidget(m_clearSelectionButton);
@@ -480,7 +485,9 @@ void MainWindow::retranslateUi()
     m_prevButton->setText(tr("◀ Попередня"));
     m_nextButton->setText(tr("Наступна ▶"));
     m_selectAllButton->setText(tr("Обрати всі"));
-    m_selectAllButton->setToolTip(tr("Відмітити всі файли на цій сторінці"));
+    m_selectAllButton->setToolTip(tr("Відмітити всі файли відкритої колекції, на всіх сторінках"));
+    m_selectPageButton->setText(tr("Обрати сторінку"));
+    m_selectPageButton->setToolTip(tr("Відмітити всі файли на цій сторінці"));
     m_clearSelectionButton->setText(tr("Зняти всі"));
     m_clearSelectionButton->setToolTip(tr("Зняти позначки з усіх файлів на всіх сторінках"));
 }
@@ -1092,8 +1099,16 @@ void MainWindow::loadPage(int page)
         m_totalFiles = m_totalCount;
         for (const ImageRecord &rec : std::as_const(m_pageRecords))
             paths.append({absolutePath(rec.relativePath), rec.sha256});
+        // For "select all": the files of every page that get a checkbox.
+        m_selectableIds.clear();
+        const QList<ImageRecord> all = Db::searchImages(galleryId, collectionQuery(), 0, -1, nullptr,
+                                                        Db::SortOrder::Classic);
+        for (const ImageRecord &rec : all)
+            if (MediaFiles::kindOf(rec.relativePath) != MediaFiles::Kind::Other)
+                m_selectableIds << rec.id;
     } else {
         m_pageRecords.clear();
+        m_selectableIds.clear();
         m_pageCollections = Db::searchCollections(galleryId, m_query, page * PageSize, PageSize, &m_totalCount,
                                                   &m_totalFiles, sortOrder());
         for (const CollectionRecord &collection : std::as_const(m_pageCollections))
@@ -1230,6 +1245,7 @@ void MainWindow::openThumbnail(int index)
     const QList<ImageRecord> all = Db::searchImages(gallery->id, collectionQuery(), 0, -1, nullptr,
                                                     Db::SortOrder::Classic);
     QStringList paths;
+    QHash<QString, qint64> idOf; // path -> record, for deleting from the viewer
     paths.reserve(all.size());
     int current = 0;
     for (const ImageRecord &rec : all) {
@@ -1238,9 +1254,12 @@ void MainWindow::openThumbnail(int index)
         if (rec.id == m_pageRecords[index].id)
             current = int(paths.size());
         paths << absolutePath(rec.relativePath);
+        idOf.insert(paths.last(), rec.id);
     }
-    if (paths.isEmpty())
+    if (paths.isEmpty()) {
         paths << path;
+        idOf.insert(path, m_pageRecords[index].id);
+    }
 
     auto *viewer = new ImageViewer(paths, current, gallery->allowUpscale, this);
     // A rotated file was saved: refresh its record (size/hash) and the thumbnail.
@@ -1249,7 +1268,42 @@ void MainWindow::openThumbnail(int index)
     connect(viewer, &ImageViewer::fileChanged, this, [this, galleryId, root](const QString &file) {
         fileRewritten(galleryId, root, file);
     });
+    viewer->setDeleteHandler([this, viewer, galleryId, idOf](const QString &file) {
+        return trashImageFile(viewer, galleryId, idOf.value(file), file);
+    });
     viewer->show();
+}
+
+bool MainWindow::trashImageFile(QWidget *messageParent, qint64 galleryId, qint64 imageId, const QString &path)
+{
+    if (isBusy()) {
+        // A background job (rescan, import…) works with the same records right now.
+        QMessageBox::warning(messageParent, tr("Видалити файл"),
+                             tr("Зачекайте, доки завершиться поточна операція, і спробуйте ще раз."));
+        return false;
+    }
+    // A file already gone from disk only needs to leave the DB.
+    if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
+        QMessageBox::warning(messageParent, tr("Видалити файл"),
+                             tr("Не вдалося перемістити файл у Кошик, нічого не видалено:\n%1")
+                                 .arg(QDir::toNativeSeparators(path)));
+        return false;
+    }
+    if (imageId != 0) {
+        if (!Db::deleteImages(galleryId, {imageId}))
+            QMessageBox::warning(messageParent, tr("Помилка БД"),
+                                 tr("Файл у Кошику, але прибрати запис з бази не вдалося:\n%1\n\nЗроби рескан.")
+                                     .arg(Db::lastError()));
+        m_selectedIds.remove(imageId);
+    }
+    statusBar()->showMessage(tr("У Кошику: %1").arg(QFileInfo(path).fileName()), 5000);
+    // A viewer may outlive a gallery switch: the window shows another gallery then, nothing to refresh.
+    const Gallery *current = currentGallery();
+    if (current && current->id == galleryId) {
+        reloadTags();
+        loadPage(m_page);
+    }
+    return true;
 }
 
 void MainWindow::fileRewritten(qint64 galleryId, const QString &root, const QString &file)
@@ -1418,21 +1472,7 @@ void MainWindow::editImageMeta(int index)
     const int result = dialog.exec();
 
     if (result == ImageMetaDialog::DeleteRequested) {
-        // A file already gone from disk only needs to leave the DB.
-        if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
-            QMessageBox::warning(this, tr("Видалити файл"),
-                                 tr("Не вдалося перемістити файл у Кошик, нічого не видалено:\n%1")
-                                     .arg(QDir::toNativeSeparators(path)));
-            return;
-        }
-        if (!Db::deleteImages(galleryId, {record.id}))
-            QMessageBox::warning(this, tr("Помилка БД"),
-                                 tr("Файл у Кошику, але прибрати запис з бази не вдалося:\n%1\n\nЗроби рескан.")
-                                     .arg(Db::lastError()));
-        m_selectedIds.remove(record.id);
-        statusBar()->showMessage(tr("У Кошику: %1").arg(QFileInfo(record.relativePath).fileName()), 5000);
-        reloadTags();
-        loadPage(m_page);
+        trashImageFile(this, galleryId, record.id, path);
         return;
     }
     if (result != QDialog::Accepted)
@@ -1492,6 +1532,18 @@ void MainWindow::clearSelection()
     updateSelectionUi();
 }
 
+void MainWindow::selectWholeCollection()
+{
+    for (qint64 id : std::as_const(m_selectableIds))
+        m_selectedIds.insert(id);
+    for (int i = 0; i < m_thumbChecks.size() && i < m_pageRecords.size(); ++i) {
+        QCheckBox *box = m_thumbChecks[i];
+        const QSignalBlocker blocker(box); // the ids are in the set already
+        box->setChecked(!box->isHidden() && m_selectedIds.contains(m_pageRecords[i].id));
+    }
+    updateSelectionUi();
+}
+
 void MainWindow::updateSelectionUi()
 {
     bool anyOnPage = false;
@@ -1502,7 +1554,9 @@ void MainWindow::updateSelectionUi()
         anyOnPage = true;
         allOnPage = allOnPage && box->isChecked();
     }
-    m_selectAllButton->setEnabled(anyOnPage && !allOnPage);
+    m_selectPageButton->setEnabled(anyOnPage && !allOnPage);
+    m_selectAllButton->setEnabled(std::any_of(m_selectableIds.cbegin(), m_selectableIds.cend(),
+                                              [this](qint64 id) { return !m_selectedIds.contains(id); }));
     m_clearSelectionButton->setEnabled(!m_selectedIds.isEmpty());
     m_selectionLabel->setText(m_selectedIds.isEmpty() ? QString()
                                                       : tr("Обрано: %1").arg(m_selectedIds.size()));

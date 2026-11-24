@@ -42,7 +42,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `migrations.*` | Schema versions (`PRAGMA user_version`), one step per version |
 | `scanner.*` | Worker-thread jobs: rescan, import, junk search; sha256; folder → tag rules |
 | `mediafiles.*` | File kind by extension (image / video / other) and thumbnails (videos via `IShellItemImageFactory`, others as an extension card) |
-| `imageviewer.*` | Viewer window: fit/upscale, arrows (circular), double-click full screen, right-click rotation |
+| `imageviewer.*` | Viewer window: fit/upscale, arrows (circular), double-click full screen, right-click rotation, Delete key (only with a `DeleteHandler`, else the refusal warning) |
 | `imagerotation.*` | Saving rotations to disk (lossless for JPEG via EXIF orientation) |
 | `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating. `GalleryDialog` also edits the tag groups |
 | `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
@@ -104,7 +104,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   Any failure leaves the old name and shows why; names rescan would ignore (`.db`, `.ini`) are refused.
   Menu "Налаштування" → keep extension (setting `keep_extension_on_rename`, program-wide, on unless "0"): the field then holds the name without the extension.
 - **Deleting user files**: always ask first. Single files and duplicates go to the Recycle Bin
-  (`QFile::moveToTrash`); if that fails, nothing is deleted. "Видалити сміття" deletes
+  (`QFile::moveToTrash`); if that fails, nothing is deleted. A single file (metadata dialog's button, Delete key in the
+  main window's viewer; the metadata dialog's viewer only warns why not, `ImageViewer::setDeleteRefusal`) goes through `MainWindow::trashImageFile` (refused while busy). "Видалити сміття" deletes
   `Thumbs.db`/`desktop.ini` and empty folders permanently (as the owner asked), still behind a
   confirmation.
 - **Rotation**: JPEG only edits/adds the EXIF orientation tag (never re-encodes unless the
@@ -140,7 +141,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (grid and viewer, images only) always use Classic, i.e. file name then id (owner's decision).
 - Bulk tag edit (inside a collection only): checkboxes on file thumbnails (hidden for "other" files and for collections). The selection is a set of image ids
   (`m_selectedIds`) kept across pages/searches, cleared by "Зняти всі" or a gallery switch; "Обрати всі"
-  ticks the current page only. Right click on a file with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.
+  ticks every file of the open collection (`m_selectableIds`, filled by `loadPage`), "Обрати сторінку" the current page only;
+  each is enabled only while it would tick something. Right click on a file with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.
   Double click on a tag in the metadata dialog adds it to "Містить" without searching.
 - **Tag groups**: table `tag_groups` (gallery_id, name, position = user order; names unique per gallery only in the dialog);
   `tags.group_id` (NULL = no group, ON DELETE SET NULL; `Db::saveTagGroups` also nulls it explicitly). Edited in `GalleryDialog`

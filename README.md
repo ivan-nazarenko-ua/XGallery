@@ -70,7 +70,7 @@ just stay without a group.
   can collect as many files as you like. The number of selected files is shown under the grid
   ("Selected: N"). Right-clicking any file's thumbnail opens a window with the tags common to all selected files. Added
   and removed tags apply to all selected files at once; a file that already has an added tag gets
-  it only once. **"Check all"** ticks every file on the current page, **"Uncheck all"** clears the
+  it only once. **"Check all"** ticks every file of the open collection (all its pages), **"Check page"** only the files of the current page, **"Uncheck all"** clears the
   ticks on all pages. Switching the gallery clears the selection.
 - **Viewing from the edit window.** Clicking the thumbnail in the metadata window opens the photo
   in the viewer (without browsing) or the video in its program. In bulk editing, clicking a row of
@@ -162,6 +162,7 @@ Clicking a photo thumbnail inside a collection opens it in the viewer.
 | ← → (↑ ↓) | previous / next photo of the open collection, in a loop |
 | Double click | full screen / back to the previous size |
 | Right click | rotate 90° counter-clockwise |
+| Delete | move the photo to the Recycle Bin and remove it from the gallery (after a confirmation); the next photo is shown |
 | Esc | leave full screen; the next Esc closes the window |
 
 After a rotation a **"Save to file"** bar appears. A JPEG is not re-encoded: only the
@@ -216,7 +217,7 @@ with it.
   first. The program's own folder is left alone.
 
 A single file can be deleted in the metadata window (right-click a file's thumbnail): the
-**"Delete file…"** button moves it to the Recycle Bin.
+**"Delete file…"** button moves it to the Recycle Bin. In the viewer the Delete key does the same (not in a viewer opened from the metadata window: there it only explains why).
 
 The **"Export…"** button in the same window copies the file out of the gallery to a place you
 choose. If that place is inside the current gallery, the program first asks whether you really

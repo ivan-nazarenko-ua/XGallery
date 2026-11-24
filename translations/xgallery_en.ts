@@ -780,6 +780,18 @@ then the groups in this order. A tag is put into a group by right-clicking it in
         <source>Це зображення вже є обкладинкою своєї колекції</source>
         <translation>This image is already the cover of its collection</translation>
     </message>
+    <message>
+        <source>Тут файл не видалити: його зараз редагує вікно метаданих.
+Закрийте переглядач і натисніть «Видалити файл…» у вікні метаданих.</source>
+        <translation>This file can&apos;t be deleted here: the metadata window is editing it right now.
+Close the viewer and click &quot;Delete file…&quot; in the metadata window.</translation>
+    </message>
+    <message>
+        <source>Тут файл не видалити: зараз відкрите групове редагування тегів цих файлів.
+Закрийте вікно метаданих і видаліть файл з переглядача колекції.</source>
+        <translation>This file can&apos;t be deleted here: bulk tag editing of these files is open.
+Close the metadata window and delete the file from the collection&apos;s viewer.</translation>
+    </message>
 </context>
 <context>
     <name>ImageRotation</name>
@@ -843,6 +855,22 @@ Overwrite the original?</translation>
     <message>
         <source>Це анімація або багатосторінковий файл. Після перезапису лишився б тільки перший кадр, тому поворот не збережено.</source>
         <translation>This is an animation or a multi-page file. Rewriting it would keep only the first frame, so the rotation was not saved.</translation>
+    </message>
+    <message>
+        <source>Видалити файл</source>
+        <translation>Delete file</translation>
+    </message>
+    <message>
+        <source>Перемістити файл у Кошик і прибрати його з галереї?
+
+%1</source>
+        <translation>Move the file to the Recycle Bin and remove it from the gallery?
+
+%1</translation>
+    </message>
+    <message>
+        <source>Видалити</source>
+        <translation>Delete</translation>
     </message>
 </context>
 <context>
@@ -1598,6 +1626,18 @@ tags (in alphabetical order, joined with &quot;/&quot;); the file name always co
 Newest first: by the date added to the gallery, then as classic.
 Largest first: by file size (largest first), then as classic.
 Inside an open collection the files always go by name.</translation>
+    </message>
+    <message>
+        <source>Зачекайте, доки завершиться поточна операція, і спробуйте ще раз.</source>
+        <translation>Please wait until the current operation finishes, then try again.</translation>
+    </message>
+    <message>
+        <source>Відмітити всі файли відкритої колекції, на всіх сторінках</source>
+        <translation>Check every file of the open collection, on all pages</translation>
+    </message>
+    <message>
+        <source>Обрати сторінку</source>
+        <translation>Check page</translation>
     </message>
 </context>
 <context>

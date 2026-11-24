@@ -57,6 +57,7 @@ private slots:
     void editTagsOfSelection(); // all selected files, on any page
     void clearSelection();
     void updateSelectionUi();
+    void selectWholeCollection();
     void findDuplicates();
     void deleteJunk(); // Thumbs.db, desktop.ini and empty folders
     void addFilesToGallery();
@@ -107,6 +108,9 @@ private:
     static QString collectionDisplayName(const CollectionRecord &collection);
     // A file was rewritten by the program (saved rotation): refresh its DB record and the grid.
     void fileRewritten(qint64 galleryId, const QString &root, const QString &file);
+    // Moves one gallery file to the Recycle Bin and drops its record (imageId 0: no record known);
+    // messages go to messageParent. True = the file is gone from disk.
+    bool trashImageFile(QWidget *messageParent, qint64 galleryId, qint64 imageId, const QString &path);
     void wireMetaDialog(ImageMetaDialog &dialog);
     bool renameImageFile(qint64 galleryId, const ImageRecord &record, const QString &newName);
     void exportFile(ImageMetaDialog &dialog, qint64 galleryId, const QString &root, const QString &destination);
@@ -170,10 +174,12 @@ private:
     QList<QCheckBox *> m_thumbChecks; // one per thumbnail, for bulk tag editing
     QPushButton *m_prevButton = nullptr;
     QPushButton *m_nextButton = nullptr;
-    QPushButton *m_selectAllButton = nullptr;
+    QPushButton *m_selectAllButton = nullptr;  // every file of the open collection
+    QPushButton *m_selectPageButton = nullptr; // the files of this page
     QPushButton *m_clearSelectionButton = nullptr;
     QLabel *m_selectionLabel = nullptr;
     QSet<qint64> m_selectedIds; // bulk-edit selection, kept across pages and searches
+    QList<qint64> m_selectableIds; // files of the open collection that can be ticked (not "other" files)
     QLabel *m_pageLabel = nullptr;
 
     Db::TagQuery m_query; // the last applied search
