@@ -2,13 +2,16 @@
 
 #include <QCloseEvent>
 #include <QLabel>
+#include <QHBoxLayout>
 #include <QProgressBar>
+#include <QPushButton>
 #include <QVBoxLayout>
 
 BusyDialog::BusyDialog(QWidget *parent)
     : QDialog(parent, Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint)
     , m_label(new QLabel(this))
     , m_bar(new QProgressBar(this))
+    , m_stopButton(new QPushButton(this))
 {
     setWindowTitle(tr("Зачекай…"));
     setModal(true);
@@ -18,9 +21,31 @@ BusyDialog::BusyDialog(QWidget *parent)
     m_label->setTextInteractionFlags(Qt::NoTextInteraction);
     m_bar->setRange(0, 0);
 
+    m_stopButton->setAutoDefault(false);
+    m_stopButton->hide();
+    connect(m_stopButton, &QPushButton::clicked, this, [this] {
+        m_stopButton->setEnabled(false);
+        m_stopButton->setText(tr("Зупиняю…"));
+        if (m_onStop)
+            m_onStop();
+    });
+    auto *buttonRow = new QHBoxLayout;
+    buttonRow->addStretch(1);
+    buttonRow->addWidget(m_stopButton);
+    buttonRow->addStretch(1);
+
     auto *layout = new QVBoxLayout(this);
     layout->addWidget(m_label);
     layout->addWidget(m_bar);
+    layout->addLayout(buttonRow);
+}
+
+void BusyDialog::setStopHandler(std::function<void()> onStop)
+{
+    m_onStop = std::move(onStop);
+    m_stopButton->setText(tr("Перервати"));
+    m_stopButton->setEnabled(true);
+    m_stopButton->setVisible(bool(m_onStop));
 }
 
 void BusyDialog::setText(const QString &text)

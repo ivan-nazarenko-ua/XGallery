@@ -12,6 +12,7 @@
 #include "mediafiles.h"
 #include "scanner.h"
 #include "thumbcache.h"
+#include "trashprompt.h"
 #include "wrappedtext.h"
 
 #include <QActionGroup>
@@ -60,6 +61,7 @@ const char *CurrentGalleryKey = "current_gallery";
 const char *SortOrderKey = "sort_order";
 const char *KeepExtensionKey = "keep_extension_on_rename"; // "0" = off; not set = on
 const char *FollowFolderLinksKey = "follow_folder_links";    // "1" = on; not set = off
+const char *ImportRootFolderKey = "import_root_folder";      // per gallery: the folder last chosen for an import
 
 // Tag list entries as wide as the list, long names wrapped onto more lines instead of a
 // horizontal scroll bar. Background, selection and colours (grey group headers) come from the style.
@@ -342,41 +344,25 @@ void MainWindow::buildUi()
     tagsLayout->addWidget(m_tagList);
     splitter->addWidget(m_tagsBox);
 
-    auto *gridHost = new QWidget;
-    auto *gridLayout = new QGridLayout(gridHost);
-    gridLayout->setSpacing(6);
-    for (int i = 0; i < PageSize; ++i) {
-        auto *button = new QToolButton;
-        button->setIconSize(QSize(ThumbnailSize, ThumbnailSize));
-        button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        button->setAutoRaise(true);
-        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-        button->setMinimumSize(ThumbnailSize + 16, ThumbnailSize + 32);
-        button->setEnabled(false);
-        connect(button, &QToolButton::clicked, this, [this, i] { openThumbnail(i); });
-        button->setContextMenuPolicy(Qt::CustomContextMenu);
-        connect(button, &QWidget::customContextMenuRequested, this, [this, i] { editImageMeta(i); });
-        gridLayout->addWidget(button, i / GridColumns, i % GridColumns);
-        m_thumbButtons << button;
-
-        // Selection for bulk tag editing; it is kept by image id across pages and searches.
-        auto *check = new QCheckBox(button);
-        check->setStyleSheet("QCheckBox { background-color: rgba(255, 255, 255, 200); border-radius: 3px;"
-                             " padding: 2px; }");
-        check->move(4, 4);
-        check->hide();
-        connect(check, &QCheckBox::toggled, this, [this, i](bool on) {
-            if (!inCollection() || i >= m_pageRecords.size())
-                return;
-            if (on)
-                m_selectedIds.insert(m_pageRecords[i].id);
-            else
-                m_selectedIds.remove(m_pageRecords[i].id);
-            updateSelectionUi();
-        });
-        m_thumbChecks << check;
+    m_gridHost = new QWidget;
+    m_gridLayout = new QGridLayout(m_gridHost);
+    m_gridLayout->setSpacing(GridSpacing);
+    // The grid follows the window (fitGridToSize): its thumbnails never hold the window at their size.
+    m_gridLayout->setSizeConstraint(QLayout::SetNoConstraint);
+    for (int i = 0; i < pageSize(); ++i)
+        addThumbButton();
+    placeThumbButtons();
+    {
+        const QMargins margins = m_gridLayout->contentsMargins();
+        const QSize cell = m_thumbButtons.first()->minimumSize();
+        m_gridHost->setMinimumSize(cell.width() + margins.left() + margins.right(),
+                                   cell.height() + margins.top() + margins.bottom());
     }
-    splitter->addWidget(gridHost);
+    m_gridHost->installEventFilter(this);
+    m_gridReloadTimer.setSingleShot(true);
+    m_gridReloadTimer.setInterval(200); // dragging the window edge reloads once, at the end
+    connect(&m_gridReloadTimer, &QTimer::timeout, this, [this] { loadPage(m_offset); });
+    splitter->addWidget(m_gridHost);
     splitter->setStretchFactor(0, 0);
     splitter->setStretchFactor(1, 1);
     splitter->setSizes({200, 800});
@@ -418,7 +404,9 @@ void MainWindow::buildUi()
     mainLayout->addLayout(pageRow);
 
     retranslateUi();
-    resize(1150, 900);
+    // Start size and the smallest the window can be made (owner's decision).
+    setMinimumSize(800, 400);
+    resize(800, 600);
 }
 
 // Every fixed text of the main window. Called once from buildUi() and again on every
@@ -891,7 +879,7 @@ void MainWindow::renameTag(const QString &oldName)
 
         statusBar()->showMessage(tr("Тег «%1» перейменовано на «%2»").arg(oldName, newName), 5000);
         reloadTags();
-        loadPage(m_page);
+        loadPage(m_offset);
         return;
     }
 }
@@ -987,14 +975,95 @@ QString MainWindow::absolutePath(const QString &relativePath) const
 
 void MainWindow::showPreviousPage()
 {
-    if (m_page > 0)
-        loadPage(m_page - 1);
+    if (m_offset > 0)
+        loadPage(qMax(0, m_offset - pageSize()));
 }
 
 void MainWindow::showNextPage()
 {
-    if ((m_page + 1) * PageSize < m_totalCount)
-        loadPage(m_page + 1);
+    if (m_offset + pageSize() < m_totalCount)
+        loadPage(m_offset + pageSize());
+}
+
+void MainWindow::addThumbButton()
+{
+    const int i = int(m_thumbButtons.size());
+    auto *button = new QToolButton(m_gridHost);
+    button->setIconSize(QSize(ThumbnailSize, ThumbnailSize));
+    button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    button->setAutoRaise(true);
+    button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    button->setMinimumSize(ThumbnailSize + 16, ThumbnailSize + 32);
+    button->setEnabled(false);
+    connect(button, &QToolButton::clicked, this, [this, i] { openThumbnail(i); });
+    button->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(button, &QWidget::customContextMenuRequested, this, [this, i] { editImageMeta(i); });
+    m_thumbButtons << button;
+
+    // Selection for bulk tag editing; it is kept by image id across pages and searches.
+    auto *check = new QCheckBox(button);
+    check->setStyleSheet("QCheckBox { background-color: rgba(255, 255, 255, 200); border-radius: 3px;"
+                         " padding: 2px; }");
+    check->move(4, 4);
+    check->hide();
+    connect(check, &QCheckBox::toggled, this, [this, i](bool on) {
+        if (!inCollection() || i >= m_pageRecords.size())
+            return;
+        if (on)
+            m_selectedIds.insert(m_pageRecords[i].id);
+        else
+            m_selectedIds.remove(m_pageRecords[i].id);
+        updateSelectionUi();
+    });
+    m_thumbChecks << check;
+}
+
+// Puts the first pageSize() thumbnails into the grid; the rest (made for a bigger window) wait hidden.
+void MainWindow::placeThumbButtons()
+{
+    for (QToolButton *button : std::as_const(m_thumbButtons))
+        m_gridLayout->removeWidget(button);
+    for (int i = 0; i < m_thumbButtons.size(); ++i) {
+        QToolButton *button = m_thumbButtons[i];
+        if (i < pageSize()) {
+            m_gridLayout->addWidget(button, i / m_gridColumns, i % m_gridColumns);
+            button->show();
+        } else {
+            // Empty, so that it shows nothing stale when the grid grows again before the reload.
+            button->hide();
+            button->setEnabled(false);
+            button->setIcon(QIcon());
+            button->setText(QString());
+            button->setToolTip(QString());
+            m_thumbChecks[i]->hide();
+        }
+    }
+}
+
+void MainWindow::fitGridToSize()
+{
+    const QMargins margins = m_gridLayout->contentsMargins();
+    const QSize cell = m_thumbButtons.first()->minimumSize();
+    const int width = m_gridHost->width() - margins.left() - margins.right();
+    const int height = m_gridHost->height() - margins.top() - margins.bottom();
+    const int columns = qMax(1, (width + GridSpacing) / (cell.width() + GridSpacing));
+    const int rows = qMax(1, (height + GridSpacing) / (cell.height() + GridSpacing));
+    if (columns == m_gridColumns && rows == m_gridRows)
+        return;
+    m_gridColumns = columns;
+    m_gridRows = rows;
+    while (m_thumbButtons.size() < pageSize())
+        addThumbButton();
+    placeThumbButtons();
+    // The top-left item stays where it is: the page now starts at it, whatever its number.
+    m_gridReloadTimer.start();
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_gridHost && event->type() == QEvent::Resize)
+        fitGridToSize();
+    return QMainWindow::eventFilter(watched, event);
 }
 
 Db::TagQuery MainWindow::collectionQuery() const
@@ -1025,7 +1094,7 @@ void MainWindow::openCollection(int index)
 {
     if (isBusy() || index < 0 || index >= m_pageCollections.size())
         return;
-    m_collectionsPage = m_page;
+    m_collectionsOffset = m_offset;
     m_openCollectionId = m_pageCollections[index].id;
     updateCollectionModeUi();
     loadPage(0);
@@ -1037,7 +1106,7 @@ void MainWindow::closeCollection()
         return;
     m_openCollectionId = 0;
     updateCollectionModeUi();
-    loadPage(m_collectionsPage);
+    loadPage(m_collectionsOffset);
 }
 
 void MainWindow::editCollection(int index)
@@ -1048,12 +1117,17 @@ void MainWindow::editCollection(int index)
     const qint64 galleryId = gallery->id;
     const CollectionRecord collection = Db::collection(galleryId, m_pageCollections[index].id);
     if (collection.id == 0) {
-        loadPage(m_page); // gone meanwhile
+        loadPage(m_offset); // gone meanwhile
         return;
     }
 
     CollectionDialog dialog(collection, m_thumbButtons[index]->icon().pixmap(ThumbnailSize), this);
-    if (dialog.exec() != QDialog::Accepted)
+    const int result = dialog.exec();
+    if (result == CollectionDialog::DeleteRequested) {
+        deleteCollectionFiles(galleryId, collection);
+        return;
+    }
+    if (result != QDialog::Accepted)
         return;
     if (!Db::updateCollection(galleryId, collection.id, dialog.name(), dialog.rating())) {
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти колекцію:\n%1").arg(Db::lastError()));
@@ -1062,10 +1136,96 @@ void MainWindow::editCollection(int index)
     CollectionRecord saved = collection;
     saved.name = dialog.name();
     statusBar()->showMessage(tr("Збережено колекцію: %1").arg(collectionDisplayName(saved)), 5000);
-    loadPage(m_page);
+    loadPage(m_offset);
 }
 
-void MainWindow::loadPage(int page)
+void MainWindow::deleteCollectionFiles(qint64 galleryId, const CollectionRecord &collection)
+{
+    if (isBusy())
+        return;
+    Db::TagQuery query;
+    query.collectionId = collection.id;
+    const QList<ImageRecord> records = Db::searchImages(galleryId, query, 0, -1, nullptr, Db::SortOrder::Classic);
+    const QString root = currentGallery() ? currentGallery()->rootFolder : QString();
+    QStringList paths;
+    QHash<QString, qint64> idOf;
+    for (const ImageRecord &record : records) {
+        const QString path = QDir(root).filePath(record.relativePath);
+        paths << path;
+        idOf.insert(path, record.id);
+    }
+    if (paths.isEmpty()) {
+        loadPage(m_offset);
+        return;
+    }
+
+    auto *watcher = new QFutureWatcher<Scanner::TrashResult>(this);
+    runBusy(watcher, tr("Переміщую файли колекції в Кошик…"));
+    auto stop = std::make_shared<std::atomic_bool>(false);
+    m_busyDialog->setStopHandler([stop] { *stop = true; });
+    const QString name = collectionDisplayName(collection);
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, galleryId, idOf, name] {
+        const Scanner::TrashResult result = watcher->future().resultCount() > 0 ? watcher->result()
+                                                                                : Scanner::TrashResult{};
+        QList<qint64> ids;
+        for (const QString &path : result.trashed + result.deleted)
+            ids << idOf.value(path);
+        bool dbOk = true;
+        if (!ids.isEmpty()) {
+            dbOk = Db::deleteImages(galleryId, ids);
+            for (qint64 id : std::as_const(ids))
+                m_selectedIds.remove(id);
+        }
+        reloadTags();
+        loadPage(m_offset);
+
+        QString message;
+        if (result.stopped)
+            message = tr("Видалення перервано. У Кошику: %1 з %2 файлів, решта залишилась у колекції.")
+                          .arg(result.trashed.size()).arg(idOf.size());
+        if (!result.deleted.isEmpty())
+            message += (message.isEmpty() ? QString() : "\n\n")
+                       + tr("Видалено остаточно, без Кошика (з вашої згоди): %1.").arg(result.deleted.size());
+        if (!result.failed.isEmpty()) {
+            QStringList shown = result.failed.mid(0, 20);
+            for (QString &path : shown)
+                path = QDir::toNativeSeparators(path);
+            if (result.failed.size() > shown.size())
+                shown << tr("… і ще %1").arg(result.failed.size() - shown.size());
+            message += (message.isEmpty() ? QString() : "\n\n")
+                       + tr("Ці файли не вдалося перемістити в Кошик, вони залишились на місці й у базі:\n\n%1")
+                             .arg(shown.join('\n'));
+        }
+        if (!dbOk)
+            message += (message.isEmpty() ? QString() : "\n\n")
+                       + tr("Файли в Кошику, але прибрати записи з бази не вдалося:\n%1\n\nЗроби рескан.")
+                             .arg(Db::lastError());
+        if (!message.isEmpty())
+            QMessageBox::warning(this, tr("Видалити колекцію"), message);
+        else
+            statusBar()->showMessage(tr("Колекцію «%1» видалено, у Кошику файлів: %2").arg(name).arg(ids.size()), 8000);
+    });
+    // Asked from the worker; it waits for the answer. Nothing is deleted permanently without a "yes".
+    const Scanner::TrashQuestion ask = [this](const QString &path, Scanner::TrashProblem problem,
+                                              const QString &error) {
+        Scanner::TrashChoice choice = Scanner::TrashChoice::Stop;
+        QMetaObject::invokeMethod(this, [&] { choice = askAboutTrashProblem(path, problem, error); },
+                                  Qt::BlockingQueuedConnection);
+        return choice;
+    };
+    watcher->setFuture(QtConcurrent::run([paths, stop, ask](QPromise<Scanner::TrashResult> &promise) {
+        Scanner::moveFilesToTrash(promise, paths, stop.get(), ask);
+    }));
+}
+
+Scanner::TrashChoice MainWindow::askAboutTrashProblem(const QString &path, Scanner::TrashProblem problem,
+                                                      const QString &error)
+{
+    // Over the progress window when it is shown (it is modal).
+    QWidget *parent = m_busyDialog->isVisible() ? static_cast<QWidget *>(m_busyDialog) : this;
+    return TrashPrompt::ask(parent, tr("Видалити колекцію"), path, problem, error, true);
+}
+void MainWindow::loadPage(int offset)
 {
     if (isBusy()) {
         // E.g. a viewer saved a rotation while the metadata dialog was closing, and the thumbnails
@@ -1085,16 +1245,16 @@ void MainWindow::loadPage(int page)
                                      8000);
             m_openCollectionId = 0;
             updateCollectionModeUi();
-            page = m_collectionsPage;
+            offset = m_collectionsOffset;
         }
     }
 
-    m_page = page;
+    m_offset = qMax(0, offset);
     QList<QPair<QString, QString>> paths; // what the thumbnails show: absolute path, sha256
     if (inCollection()) {
         m_pageCollections.clear();
         // Inside a collection files always go by name: Classic, whose collection keys are equal here.
-        m_pageRecords = Db::searchImages(galleryId, collectionQuery(), page * PageSize, PageSize, &m_totalCount,
+        m_pageRecords = Db::searchImages(galleryId, collectionQuery(), m_offset, pageSize(), &m_totalCount,
                                          Db::SortOrder::Classic);
         m_totalFiles = m_totalCount;
         for (const ImageRecord &rec : std::as_const(m_pageRecords))
@@ -1109,20 +1269,19 @@ void MainWindow::loadPage(int page)
     } else {
         m_pageRecords.clear();
         m_selectableIds.clear();
-        m_pageCollections = Db::searchCollections(galleryId, m_query, page * PageSize, PageSize, &m_totalCount,
+        m_pageCollections = Db::searchCollections(galleryId, m_query, m_offset, pageSize(), &m_totalCount,
                                                   &m_totalFiles, sortOrder());
         for (const CollectionRecord &collection : std::as_const(m_pageCollections))
             paths.append({absolutePath(collection.coverPath), collection.coverSha256});
     }
-    if (paths.isEmpty() && page > 0 && m_totalCount > 0) {
-        // The page shrank (e.g. after editing tags): show the last one that exists.
-        loadPage((m_totalCount - 1) / PageSize);
+    if (paths.isEmpty() && m_offset > 0 && m_totalCount > 0) {
+        // The list got shorter (e.g. after editing tags): show its last page.
+        loadPage((m_totalCount - 1) / pageSize() * pageSize());
         return;
     }
 
-    const int pageCount = qMax(1, (m_totalCount + PageSize - 1) / PageSize);
-    m_prevButton->setEnabled(m_page > 0);
-    m_nextButton->setEnabled(m_page + 1 < pageCount);
+    m_prevButton->setEnabled(m_offset > 0);
+    m_nextButton->setEnabled(m_offset + pageSize() < m_totalCount);
 
     for (int i = 0; i < m_thumbButtons.size(); ++i) {
         QToolButton *button = m_thumbButtons[i];
@@ -1154,28 +1313,49 @@ void MainWindow::loadPage(int page)
                 m_thumbButtons[i]->setText(tr("(не читається)"));
         }
         if (m_reloadPending) // asked for while these were loading: the page may be out of date
-            loadPage(m_page);
+            loadPage(m_offset);
     });
     watcher->setFuture(QtConcurrent::mapped(std::move(paths), [](const QPair<QString, QString> &file) {
         return ThumbCache::thumbnail(file.first, file.second, ThumbnailSize);
     }));
 }
 
+void MainWindow::updatePageLabel()
+{
+    const bool compact = width() < CompactWidth;
+    m_pageLabel->setText(compact ? m_pageTextShort : m_pageTextFull);
+    m_pageLabel->setToolTip(compact ? m_pageCounts : QString());
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    updatePageLabel();
+}
+
 // Page label and the name/tooltip of every thumbnail (no reloading of the pictures).
 void MainWindow::refreshPageTexts()
 {
-    const int pageCount = qMax(1, (m_totalCount + PageSize - 1) / PageSize);
+    // Pages run both ways from the top-left item, so the first one may be shorter.
+    const int size = pageSize();
+    const int pagesBefore = (m_offset + size - 1) / size;
+    const int pageCount = qMax(pagesBefore + 1, pagesBefore + (m_totalCount - m_offset + size - 1) / size);
+    const int pageNumber = pagesBefore + 1;
+    m_pageTextShort = tr("Сторінка %1 з %2").arg(pageNumber).arg(pageCount);
     if (inCollection()) {
-        m_pageLabel->setText(tr("Сторінка %1 з %2 (%3 зобр.)").arg(m_page + 1).arg(pageCount).arg(m_totalCount));
+        m_pageTextFull = tr("Сторінка %1 з %2 (%3 зобр.)").arg(pageNumber).arg(pageCount).arg(m_totalCount);
+        m_pageCounts = tr("%1 зобр.").arg(m_totalCount);
         m_collectionLabel->setText(tr("Колекція «%1» · оцінка %2 · файлів: %3")
                                        .arg(collectionDisplayName(m_openCollection),
                                             QString::number(m_openCollection.rating),
                                             QString::number(m_openCollection.fileCount)));
         m_collectionLabel->setToolTip(m_openCollection.virtualPath);
     } else {
-        m_pageLabel->setText(tr("Сторінка %1 з %2 (колекцій: %3, файлів: %4)")
-                                 .arg(m_page + 1).arg(pageCount).arg(m_totalCount).arg(m_totalFiles));
+        m_pageTextFull = tr("Сторінка %1 з %2 (колекцій: %3, файлів: %4)")
+                             .arg(pageNumber).arg(pageCount).arg(m_totalCount).arg(m_totalFiles);
+        m_pageCounts = tr("колекцій: %1, файлів: %2").arg(m_totalCount).arg(m_totalFiles);
     }
+    updatePageLabel();
     for (int i = 0; i < m_thumbButtons.size(); ++i) {
         QToolButton *button = m_thumbButtons[i];
         if (i < m_pageCollections.size()) {
@@ -1282,12 +1462,28 @@ bool MainWindow::trashImageFile(QWidget *messageParent, qint64 galleryId, qint64
                              tr("Зачекайте, доки завершиться поточна операція, і спробуйте ще раз."));
         return false;
     }
-    // A file already gone from disk only needs to leave the DB.
-    if (QFileInfo::exists(path) && !QFile::moveToTrash(path)) {
-        QMessageBox::warning(messageParent, tr("Видалити файл"),
-                             tr("Не вдалося перемістити файл у Кошик, нічого не видалено:\n%1")
-                                 .arg(QDir::toNativeSeparators(path)));
-        return false;
+    // A file already gone from disk only needs to leave the DB. Never deleted permanently without a "yes".
+    bool permanently = false;
+    if (QFileInfo::exists(path)) {
+        QString error;
+        const Scanner::RecycleOutcome outcome = Scanner::recycleFile(path, &error);
+        if (outcome == Scanner::RecycleOutcome::NotRecyclable) {
+            if (TrashPrompt::ask(messageParent, tr("Видалити файл"), path, Scanner::TrashProblem::NotRecyclable,
+                                 QString(), false)
+                != Scanner::TrashChoice::DeletePermanently)
+                return false;
+            QFile file(path);
+            if (!file.remove()) {
+                QMessageBox::warning(messageParent, tr("Видалити файл"),
+                                     tr("Не вдалося видалити файл:\n%1\n\n%2")
+                                         .arg(QDir::toNativeSeparators(path), file.errorString()));
+                return false;
+            }
+            permanently = true;
+        } else if (outcome == Scanner::RecycleOutcome::Failed) {
+            TrashPrompt::ask(messageParent, tr("Видалити файл"), path, Scanner::TrashProblem::Failed, error, false);
+            return false;
+        }
     }
     if (imageId != 0) {
         if (!Db::deleteImages(galleryId, {imageId}))
@@ -1296,12 +1492,14 @@ bool MainWindow::trashImageFile(QWidget *messageParent, qint64 galleryId, qint64
                                      .arg(Db::lastError()));
         m_selectedIds.remove(imageId);
     }
-    statusBar()->showMessage(tr("У Кошику: %1").arg(QFileInfo(path).fileName()), 5000);
+    statusBar()->showMessage((permanently ? tr("Видалено остаточно: %1") : tr("У Кошику: %1"))
+                                 .arg(QFileInfo(path).fileName()),
+                             5000);
     // A viewer may outlive a gallery switch: the window shows another gallery then, nothing to refresh.
     const Gallery *current = currentGallery();
     if (current && current->id == galleryId) {
         reloadTags();
-        loadPage(m_page);
+        loadPage(m_offset);
     }
     return true;
 }
@@ -1318,7 +1516,7 @@ void MainWindow::fileRewritten(qint64 galleryId, const QString &root, const QStr
                             fi.lastModified(QTimeZone::UTC).toMSecsSinceEpoch(), sha256);
     const Gallery *current = currentGallery();
     if (current && current->id == galleryId && !isBusy())
-        loadPage(m_page);
+        loadPage(m_offset);
 }
 
 // Connects what a metadata dialog needs from the main window.
@@ -1392,7 +1590,7 @@ void MainWindow::exportFile(ImageMetaDialog &dialog, qint64 galleryId, const QSt
         const Scanner::ImportStats stats = watcher->result();
         reloadTags();
         if (!isBusy())
-            loadPage(m_page);
+            loadPage(m_offset);
         if (stats.copied > 0 && stats.error.isEmpty())
             QMessageBox::information(&dialog, title, tr("Дублікат створено й додано в галерею."));
         else
@@ -1495,7 +1693,7 @@ void MainWindow::editImageMeta(int index)
     deleteTagsFromGallery(galleryId, dialog.deletedTags());
     statusBar()->showMessage(tr("Збережено: %1").arg(fileName), 5000);
     reloadTags();
-    loadPage(m_page); // new tags may have moved the file to another collection
+    loadPage(m_offset); // new tags may have moved the file to another collection
 }
 
 void MainWindow::deleteTagsFromGallery(qint64 galleryId, const QStringList &tags)
@@ -1576,7 +1774,7 @@ void MainWindow::editTagsOfSelection()
         m_selectedIds.insert(rec.id);
     updateSelectionUi();
     if (records.size() < 2) {
-        loadPage(m_page);
+        loadPage(m_offset);
         return;
     }
 
@@ -1624,7 +1822,7 @@ void MainWindow::editTagsOfSelection()
     deleteTagsFromGallery(galleryId, deleted);
     statusBar()->showMessage(tr("Теги оновлено у файлів: %1").arg(ids.size()), 5000);
     reloadTags();
-    loadPage(m_page);
+    loadPage(m_offset);
 }
 
 Db::SortOrder MainWindow::sortOrder() const
@@ -1646,7 +1844,7 @@ void MainWindow::findDuplicates()
     dialog.exec();
     if (dialog.changed()) {
         reloadTags();
-        loadPage(m_page);
+        loadPage(m_offset);
     }
 }
 
@@ -1764,6 +1962,17 @@ QString MainWindow::chooseRootTag(const QString &title, const QString &suggestio
             current = 0;
         }
     }
+    // The folder chosen last time for this gallery wins, while it still exists (the suggestion stays in the list).
+    const QString remembered = Db::gallerySetting(gallery->id, ImportRootFolderKey);
+    if (!remembered.isEmpty()) {
+        for (int i = 0; i < folders.size(); ++i) {
+            if (folders[i].compare(remembered, Qt::CaseInsensitive) == 0
+                && QFileInfo(QDir(gallery->rootFolder).filePath(folders[i])).isDir()) {
+                current = i;
+                break;
+            }
+        }
+    }
 
     for (;;) {
         bool ok = false;
@@ -1780,6 +1989,7 @@ QString MainWindow::chooseRootTag(const QString &title, const QString &suggestio
                                  tr("Недопустима назва папки. Не можна використовувати символи \\ / : * ? \" < > |"));
             continue;
         }
+        Db::setGallerySetting(gallery->id, ImportRootFolderKey, name);
         return name;
     }
 }
@@ -1910,15 +2120,19 @@ void MainWindow::runImport(std::function<QList<Scanner::ImportItem>()> collect)
             return;
         }
 
-        // Step 2: copy + register.
+        // Step 2: copy + register. "Перервати" stops after the current file; what is copied stays.
         auto *importer = new QFutureWatcher<Scanner::ImportStats>(this);
         runBusy(importer, tr("Додаю файли в галерею…"));
+        auto stop = std::make_shared<std::atomic_bool>(false);
+        m_busyDialog->setStopHandler([stop] { *stop = true; });
         connect(importer, &QFutureWatcherBase::finished, this, [this, importer] {
             const Scanner::ImportStats stats = importer->future().resultCount() > 0 ? importer->result()
                                                                                      : Scanner::ImportStats{};
             reloadTags();
             loadPage(0);
             QString message = tr("Скопійовано — %1, дублікатів — %2.").arg(stats.copied).arg(stats.duplicates);
+            if (stats.stopped)
+                message.prepend(tr("Додавання перервано. Скопійовані файли залишились у галереї.") + "\n\n");
             if (stats.ignored > 0)
                 message += "\n" + tr("Пропущено службових файлів (Thumbs.db, desktop.ini тощо) — %1.").arg(stats.ignored);
             if (!stats.failed.isEmpty())
@@ -1930,8 +2144,8 @@ void MainWindow::runImport(std::function<QList<Scanner::ImportItem>()> collect)
             else
                 QMessageBox::warning(this, tr("Додавання в галерею"), message);
         });
-        importer->setFuture(QtConcurrent::run([galleryId, root, items](QPromise<Scanner::ImportStats> &promise) {
-            Scanner::importFiles(promise, galleryId, root, items);
+        importer->setFuture(QtConcurrent::run([galleryId, root, items, stop](QPromise<Scanner::ImportStats> &promise) {
+            Scanner::importFiles(promise, galleryId, root, items, stop.get());
         }));
     });
     collector->setFuture(QtConcurrent::run(std::move(collect)));
@@ -1955,6 +2169,7 @@ void MainWindow::beginBusy(const QString &text)
         return;
     m_busyDialog->setText(text);
     m_busyDialog->setRange(0, 0);
+    m_busyDialog->setStopHandler({}); // a job that can stop says so after runBusy
     ui->centralwidget->setEnabled(false);
     menuBar()->setEnabled(false);
     QApplication::setOverrideCursor(Qt::WaitCursor);

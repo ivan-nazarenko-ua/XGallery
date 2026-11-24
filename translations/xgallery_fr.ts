@@ -7,6 +7,14 @@
         <source>Зачекай…</source>
         <translation>Veuillez patienter…</translation>
     </message>
+    <message>
+        <source>Зупиняю…</source>
+        <translation>Arrêt…</translation>
+    </message>
+    <message>
+        <source>Перервати</source>
+        <translation>Interrompre</translation>
+    </message>
 </context>
 <context>
     <name>CollectionDialog</name>
@@ -49,6 +57,22 @@
     <message>
         <source>Скасувати</source>
         <translation>Annuler</translation>
+    </message>
+    <message>
+        <source>Видалити колекцію…</source>
+        <translation>Supprimer la collection…</translation>
+    </message>
+    <message>
+        <source>Видалити колекцію</source>
+        <translation>Supprimer la collection</translation>
+    </message>
+    <message>
+        <source>Перемістити в Кошик усі файли колекції «%1» (%2) і прибрати їх з галереї?</source>
+        <translation>Mettre à la Corbeille tous les fichiers de la collection « %1 » (%2) et les retirer de la galerie ?</translation>
+    </message>
+    <message>
+        <source>Видалити</source>
+        <translation>Supprimer</translation>
     </message>
 </context>
 <context>
@@ -421,6 +445,14 @@ Vous pouvez saisir un nouveau nom — le dossier sera créé.</translation>
         <source>Зупинити завантаження</source>
         <translation>Arrêter le téléchargement</translation>
     </message>
+    <message>
+        <source>Профіль</source>
+        <translation>Profil</translation>
+    </message>
+    <message>
+        <source>Завантаження</source>
+        <translation>Téléchargement</translation>
+    </message>
 </context>
 <context>
     <name>DownloadProfiles</name>
@@ -498,6 +530,18 @@ Lancez une analyse pour retirer les enregistrements.</translation>
         <translation>Ces fichiers n&apos;ont pas pu être mis à la Corbeille ; ils restent sur le disque et dans la base :
 
 %1</translation>
+    </message>
+    <message>
+        <source>Віртуальний шлях: %1</source>
+        <translation>Chemin virtuel : %1</translation>
+    </message>
+    <message>
+        <source>Видалення перервано. Прибрано файлів: %1 з %2.</source>
+        <translation>Suppression interrompue. Fichiers retirés : %1 sur %2.</translation>
+    </message>
+    <message>
+        <source>З них видалено остаточно, без Кошика: %1.</source>
+        <translation>Dont supprimés définitivement, sans la Corbeille : %1.</translation>
     </message>
 </context>
 <context>
@@ -1230,12 +1274,6 @@ Windows n&apos;a peut-être aucun programme pour ce type de fichier.</translatio
         <translation>Supprimer le fichier</translation>
     </message>
     <message>
-        <source>Не вдалося перемістити файл у Кошик, нічого не видалено:
-%1</source>
-        <translation>Impossible de mettre le fichier à la Corbeille, rien n&apos;a été supprimé :
-%1</translation>
-    </message>
-    <message>
         <source>Файл у Кошику, але прибрати запис з бази не вдалося:
 %1
 
@@ -1639,6 +1677,78 @@ Dans une collection ouverte, les fichiers sont toujours classés par nom.</trans
         <source>Обрати сторінку</source>
         <translation>Cocher la page</translation>
     </message>
+    <message>
+        <source>Сторінка %1 з %2</source>
+        <translation>Page %1 sur %2</translation>
+    </message>
+    <message>
+        <source>%1 зобр.</source>
+        <translation>%1 fichiers</translation>
+    </message>
+    <message>
+        <source>колекцій: %1, файлів: %2</source>
+        <translation>collections : %1, fichiers : %2</translation>
+    </message>
+    <message>
+        <source>Переміщую файли колекції в Кошик…</source>
+        <translation>Mise à la Corbeille des fichiers de la collection…</translation>
+    </message>
+    <message>
+        <source>Видалення перервано. У Кошику: %1 з %2 файлів, решта залишилась у колекції.</source>
+        <translation>Suppression interrompue. Dans la Corbeille : %1 fichiers sur %2 ; les autres restent dans la collection.</translation>
+    </message>
+    <message>
+        <source>… і ще %1</source>
+        <translation>… et %1 de plus</translation>
+    </message>
+    <message>
+        <source>Ці файли не вдалося перемістити в Кошик, вони залишились на місці й у базі:
+
+%1</source>
+        <translation>Ces fichiers n&apos;ont pas pu être mis à la Corbeille ; ils restent sur le disque et dans la base :
+
+%1</translation>
+    </message>
+    <message>
+        <source>Файли в Кошику, але прибрати записи з бази не вдалося:
+%1
+
+Зроби рескан.</source>
+        <translation>Les fichiers sont dans la Corbeille, mais leurs enregistrements n&apos;ont pas pu être retirés de la base :
+%1
+
+Lancez une analyse.</translation>
+    </message>
+    <message>
+        <source>Видалити колекцію</source>
+        <translation>Supprimer la collection</translation>
+    </message>
+    <message>
+        <source>Колекцію «%1» видалено, у Кошику файлів: %2</source>
+        <translation>Collection « %1 » supprimée, fichiers dans la Corbeille : %2</translation>
+    </message>
+    <message>
+        <source>Додавання перервано. Скопійовані файли залишились у галереї.</source>
+        <translation>Ajout interrompu. Les fichiers déjà copiés restent dans la galerie.</translation>
+    </message>
+    <message>
+        <source>Видалено остаточно, без Кошика (з вашої згоди): %1.</source>
+        <translation>Supprimés définitivement, sans la Corbeille (avec votre accord) : %1.</translation>
+    </message>
+    <message>
+        <source>Не вдалося видалити файл:
+%1
+
+%2</source>
+        <translation>Impossible de supprimer le fichier :
+%1
+
+%2</translation>
+    </message>
+    <message>
+        <source>Видалено остаточно: %1</source>
+        <translation>Supprimé définitivement : %1</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>
@@ -1683,6 +1793,74 @@ Dans une collection ouverte, les fichiers sont toujours classés par nom.</trans
 %1</source>
         <translation>Les fichiers ont été copiés mais n&apos;ont pas pu être enregistrés dans la base (lancez une analyse) :
 %1</translation>
+    </message>
+    <message>
+        <source>Переміщую в Кошик %1 з %2
+%3</source>
+        <translation>Mise à la Corbeille %1 sur %2
+%3</translation>
+    </message>
+    <message>
+        <source>Не вдалося стежити за операцією Кошика.</source>
+        <translation>Impossible de suivre l&apos;opération de la Corbeille.</translation>
+    </message>
+    <message>
+        <source>Не вдалося перемістити в Кошик.</source>
+        <translation>Impossible de mettre à la Corbeille.</translation>
+    </message>
+    <message>
+        <source>Цей файл не можна перемістити в Кошик (завеликий для Кошика, або на диску немає Кошика):
+%1
+
+Видалити його остаточно, без можливості відновлення?</source>
+        <translation>Ce fichier ne peut pas être mis à la Corbeille (trop gros pour elle, ou le disque n&apos;a pas de Corbeille) :
+%1
+
+Le supprimer définitivement, sans possibilité de le récupérer ?</translation>
+    </message>
+    <message>
+        <source>Видалити остаточно</source>
+        <translation>Supprimer définitivement</translation>
+    </message>
+    <message>
+        <source>Видалити остаточно всі такі</source>
+        <translation>Supprimer définitivement tous ceux-là</translation>
+    </message>
+    <message>
+        <source>Перервати</source>
+        <translation>Interrompre</translation>
+    </message>
+    <message>
+        <source>Скасувати</source>
+        <translation>Annuler</translation>
+    </message>
+    <message>
+        <source>Не вдалося перемістити файл у Кошик, нічого не видалено:
+%1
+
+%2</source>
+        <translation>Impossible de mettre le fichier à la Corbeille ; rien n&apos;a été supprimé :
+%1
+
+%2</translation>
+    </message>
+    <message>
+        <source>Не вдалося перемістити файл у Кошик, він залишиться на місці:
+%1
+
+%2
+
+Продовжити видалення інших файлів?</source>
+        <translation>Impossible de mettre le fichier à la Corbeille ; il reste à sa place :
+%1
+
+%2
+
+Continuer la suppression des autres fichiers ?</translation>
+    </message>
+    <message>
+        <source>Продовжити</source>
+        <translation>Continuer</translation>
     </message>
 </context>
 <context>

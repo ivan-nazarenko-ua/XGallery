@@ -28,6 +28,7 @@
 #include <QSaveFile>
 #include <QShortcut>
 #include <QStandardPaths>
+#include <QTabWidget>
 #include <QTableWidget>
 #include <QTemporaryDir>
 #include <QVBoxLayout>
@@ -39,6 +40,7 @@
 namespace {
 
 const char ProfilesFolderKey[] = "download_profiles_folder"; // last folder of profile export/import
+const char RootFolderKey[] = "download_root_folder";         // per gallery: the root folder last chosen
 constexpr qint64 MaxPageBytes = 64LL * 1024 * 1024;          // a page to search for links
 constexpr int MinPauseMs = 100;
 constexpr int MaxPauseMs = 3000;
@@ -71,6 +73,7 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
     , m_tagList(new QListWidget(this))
     , m_removeTagButton(new QPushButton(tr("Видалити тег"), this))
     , m_folderCombo(new QComboBox(this))
+    , m_profileTab(new QWidget(this))
     , m_form(new QWidget(this))
     , m_progress(new QProgressBar(this))
     , m_statusLabel(new QLabel(this))
@@ -81,7 +84,7 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
     setMinimumWidth(680);
 
     // --- Profiles (as PuTTY's saved sessions) ---
-    auto *profilesBox = new QGroupBox(tr("Профілі"), m_form);
+    auto *profilesBox = new QGroupBox(tr("Профілі"), m_profileTab);
     m_profileNameEdit->setPlaceholderText(tr("назва профілю"));
     m_profileList->setMaximumHeight(90);
     // Selection, not the current item: on focus-in the list makes its first row current without selecting it,
@@ -121,7 +124,7 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
     profilesLayout->addLayout(profileButtons);
 
     // --- Profile fields ---
-    auto *settingsBox = new QGroupBox(tr("Налаштування профілю"), m_form);
+    auto *settingsBox = new QGroupBox(tr("Налаштування профілю"), m_profileTab);
     m_userAgentEdit->setPlaceholderText(tr("порожньо — стандартний"));
     m_filesModeRadio->setChecked(true);
     connect(m_pageModeRadio, &QRadioButton::toggled, this, &DownloadDialog::updateModeUi);
@@ -201,7 +204,7 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
     // --- Tags for every downloaded file (as in the metadata dialog) ---
     auto *tagsBox = new QGroupBox(tr("Теги завантажених файлів"), m_form);
     m_tagList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_tagList->setMaximumHeight(90);
+
     auto *copyAction = new QAction(tr("Копіювати теги"), m_tagList);
     copyAction->setShortcut(QKeySequence::Copy);
     copyAction->setShortcutContext(Qt::WidgetShortcut);
@@ -234,18 +237,33 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
     m_folderCombo->setEditable(true);
     m_folderCombo->setInsertPolicy(QComboBox::NoInsert);
     m_folderCombo->addItems(Scanner::realSubfolders(gallery.rootFolder));
+    // The folder chosen last time for this gallery; gone meanwhile: the first one, as before.
+    const int remembered = m_folderCombo->findText(Db::gallerySetting(gallery.id, RootFolderKey), Qt::MatchFixedString);
+    if (remembered >= 0)
+        m_folderCombo->setCurrentIndex(remembered);
+    // Remembered as soon as it changes: picked from the list, or a typed name once the field is left.
+    const auto rememberFolder = [this] {
+        const QString folder = m_folderCombo->currentText().trimmed();
+        if (!folder.isEmpty() && Scanner::isValidFolderName(folder))
+            Db::setGallerySetting(m_gallery.id, RootFolderKey, folder);
+    };
+    connect(m_folderCombo, &QComboBox::currentIndexChanged, this, rememberFolder);
+    connect(m_folderCombo->lineEdit(), &QLineEdit::editingFinished, this, rememberFolder);
     m_folderCombo->setToolTip(tr("Перша папка галереї. Файли ляжуть у нову папку в ній: «006-collection» тощо.\n"
                                  "Можна вписати нову назву — папку буде створено."));
     auto *folderForm = new QFormLayout;
     folderForm->setContentsMargins(0, 0, 0, 0);
     folderForm->addRow(tr("Коренева папка:"), m_folderCombo);
 
+    auto *profileLayout = new QVBoxLayout(m_profileTab);
+    profileLayout->addWidget(profilesBox);
+    profileLayout->addWidget(settingsBox);
+    profileLayout->addStretch(1);
+
     auto *formLayout = new QVBoxLayout(m_form);
     formLayout->setContentsMargins(0, 0, 0, 0);
-    formLayout->addWidget(profilesBox);
-    formLayout->addWidget(settingsBox);
     formLayout->addWidget(accessBox);
-    formLayout->addWidget(tagsBox);
+    formLayout->addWidget(tagsBox, 1); // the tag list takes the free height of the tab
     formLayout->addLayout(folderForm);
 
     // --- Progress + start/stop ---
@@ -261,11 +279,20 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
     startRow->addWidget(m_startButton);
     startRow->addStretch(1);
 
+    auto *downloadTab = new QWidget(this);
+    auto *downloadLayout = new QVBoxLayout(downloadTab);
+    downloadLayout->addWidget(m_form, 1);
+    downloadLayout->addWidget(m_progress);
+    downloadLayout->addWidget(m_statusLabel);
+    downloadLayout->addLayout(startRow);
+
+    auto *tabs = new QTabWidget(this);
+    tabs->addTab(m_profileTab, tr("Профіль"));
+    tabs->addTab(downloadTab, tr("Завантаження"));
+    tabs->setCurrentWidget(m_profileTab); // a profile is chosen first, then the page and the tags
+
     auto *layout = new QVBoxLayout(this);
-    layout->addWidget(m_form);
-    layout->addWidget(m_progress);
-    layout->addWidget(m_statusLabel);
-    layout->addLayout(startRow);
+    layout->addWidget(tabs);
 
     // Enter in a text field must not start a download.
     for (QPushButton *button : findChildren<QPushButton *>())
@@ -830,6 +857,7 @@ void DownloadDialog::setRunning(bool running)
 {
     m_running = running;
     m_importing = false;
+    m_profileTab->setEnabled(!running);
     m_form->setEnabled(!running);
     m_progress->setVisible(running);
     m_statusLabel->setVisible(running);

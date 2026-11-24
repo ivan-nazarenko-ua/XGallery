@@ -53,7 +53,7 @@ just stay without a group.
   one is ticked. A tag that is no longer used anywhere is deleted together with its group membership.
 - **Adding tags.** The "Add tags" button in the metadata window opens a window with a "New tags:"
   field (several tags separated by commas) and a table of all the gallery's tags, grouped as in the
-  main window's list: each group starts a new row with its name (in bold) before its tags. Long names wrap onto more lines. The number in brackets after a tag is how many collections have it (collections, not files). The file's tags
+  main window's list: each group starts a new row with its name (in bold) before its tags. Long names wrap onto more lines; the wider the window, the more columns. The number in brackets after a tag is how many collections have it (collections, not files). The file's tags
   are ticked: tick the ones to add, clear the ones to remove and click "Save". In bulk editing, tags
   that only some of the selected files have are greyed out and can't be changed; typing such a tag
   into "New tags:" gives it to all the files. While it is open you can still open the photo from
@@ -91,7 +91,7 @@ joined with "/", digits after letters, make the collection's path, for example "
 photos with the same set of tags stay together, no matter which folder they are in.
 
 - The main window shows the **collections** of the found files: a cover and a name each. They come
-  in the order of their first file in the search results (see "Sorting"), 16 per page.
+  in the order of their first file in the search results (see "Sorting"), as many per page as fit in the window.
 - **Name** — by default the last two tags of the path, separated by a space ("Sea 2024"). You can
   change it; names may repeat. Files without tags form a collection without a name; it is shown as
   `<no tags>`.
@@ -104,8 +104,13 @@ photos with the same set of tags stay together, no matter which folder they are 
   the cover leaves the collection, the first photo becomes the cover again. A collection of videos
   or other files only shows its first file.
 - **Right click** on a collection opens the "Collection properties" window: name (the "Default"
-  button brings back the default name) and rating.
-- **Left click** opens the collection: the grid shows its files, 16 per page. Search, sorting and
+  button brings back the default name) and rating. **"Delete collection…"** moves all its files to
+  the Recycle Bin and removes them from the gallery, after one confirmation; the progress window has
+  a **"Stop"** button (files already moved stay deleted, the rest stay in the collection). A file
+  that can't go to the Recycle Bin (too big for it, or a drive without one) is never deleted silently:
+  the program asks whether to delete it permanently (this file, or all such files) or to stop. If a
+  file can't be moved for another reason, you choose between continuing (it stays) and stopping.
+- **Left click** opens the collection: the grid shows its files, page by page. Search, sorting and
   the tag list are locked meanwhile; **"◀ Close collection"** (or Esc) goes back to the list of
   collections, to the page you came from. Inside a collection a click on a file opens it, a right
   click opens its metadata window, and bulk editing works as usual.
@@ -141,8 +146,11 @@ photos with the same set of tags stay together, no matter which folder they are 
   together with "Hide other tags", and the text stays until you clear it yourself (the cross in
   the field or the keyboard) or close the program.
 
-Results are shown in pages of 16 collections (inside a collection, 16 files); use the buttons
-under the grid to page through. The tooltip of a collection shows its name, tags, rating and number
+Results are shown in pages; use the buttons under the grid to page through. A page holds as many
+thumbnails as fit in the window: making the window bigger adds columns and rows, making it smaller
+removes them. The thumbnail at the top left stays where it is, so the page number and the number of
+pages may change (the first page may then be shorter than the others). In a window narrower than 900 pixels
+the line under the grid shows only "Page N of M"; the numbers of collections and files are in its tooltip. The tooltip of a collection shows its name, tags, rating and number
 of files; the tooltip of a file shows its path, size and tags.
 
 ## Interface language
@@ -196,7 +204,8 @@ with it.
   content, so your own tags are kept.
 - **Add files to gallery…** — choose files (several at once if you like), then the first-level
   gallery folder to copy them into. You can type a new name and the folder is created. The
-  folder name becomes a tag.
+  folder name becomes a tag. The folder chosen last (for "Add files" and "Add folder" alike) is
+  remembered for each gallery and offered first, while it exists.
 - **Add folder to gallery…**
   - if the chosen folder contains files, the program asks which gallery folder (tag) to copy all
     of its content into, subfolders included;
@@ -205,11 +214,13 @@ with it.
   In both cases the files are **copied**, the originals stay where they are. Duplicates are
   skipped. If a file with the same name already exists but its content differs, the new copy gets
   the suffix `(1)`, `(2)`… At the end you see how many files were copied and how many duplicates
-  were skipped. Names that Windows reserves for devices (`CON`, `NUL`, `COM1`…) get a `_` in the
+  were skipped. **"Stop"** in the progress window ends the copying after the current file; the files
+  copied so far stay in the gallery. Names that Windows reserves for devices (`CON`, `NUL`, `COM1`…) get a `_` in the
   folder name (`CON_`), while the tag stays without it ("Con").
 - **Download from the Internet…** — the download manager, see
   [Downloading from the Internet](#downloading-from-the-internet).
-- **Find duplicates…** — groups of files with identical content. Tick the extra ones and click
+- **Find duplicates…** — groups of files with identical content. After each file's path its
+  collection is shown in brackets; its tooltip shows the whole virtual path (its tags). Tick the extra ones and click
   "Delete": the files go to the **Recycle Bin**. If you tick all the files of a group, the first
   one is kept.
 - **Delete junk…** — deletes `Thumbs.db`, `desktop.ini` and empty folders in the gallery.
@@ -217,7 +228,9 @@ with it.
   first. The program's own folder is left alone.
 
 A single file can be deleted in the metadata window (right-click a file's thumbnail): the
-**"Delete file…"** button moves it to the Recycle Bin. In the viewer the Delete key does the same (not in a viewer opened from the metadata window: there it only explains why).
+**"Delete file…"** button moves it to the Recycle Bin. In the viewer the Delete key does the same (not in a viewer opened from the metadata window: there it only explains why). Here, in "Find duplicates…" and when deleting a collection, a file that
+can't go to the Recycle Bin (too big for it, or a drive without one) is never deleted silently: the
+program asks first whether to delete it permanently.
 
 The **"Export…"** button in the same window copies the file out of the gallery to a place you
 choose. If that place is inside the current gallery, the program first asks whether you really
@@ -237,7 +250,9 @@ and the field shows the full name, so the extension can be changed too.
 
 **File → Download from the Internet…** opens the download manager. It downloads a web page, or
 the files the page links to, into the current gallery. It sends only GET requests, one at a
-time.
+time. The window has two tabs: **"Profile"** (the profile list and the profile's settings, shown
+first) and **"Download"** (the page address and access, the tags, the root folder and the start
+button).
 
 **Profiles** describe how to find the files on a page. They work like saved sessions in PuTTY:
 type a name and click **"Save"** (a profile with that name is replaced after a question); select
@@ -276,7 +291,8 @@ Below the profile:
   site (or from `https` to plain `http`), they are not sent there.
 - **Tags of the downloaded files** — these tags (and only these) are given to every downloaded
   file. "Add tags" works as in the metadata window. The list is cleared when the window closes.
-- **Root folder** — a first-level folder of the gallery (or a new name). Each download goes into a
+- **Root folder** — a first-level folder of the gallery (or a new name). The folder chosen last is
+  remembered for each gallery and offered next time (the first one if it no longer exists). Each download goes into a
   new numbered folder inside it: the program finds the folders whose names start with a number
   (`1-sea`, `004 - village - 2`, `05 - summer`), takes the largest number, adds 1 and appends
   `-collection`: here `006-collection`. Below 1000 the number has leading zeros.

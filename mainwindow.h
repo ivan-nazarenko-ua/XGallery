@@ -16,6 +16,8 @@ class MainWindow;
 }
 class QAction;
 class QCheckBox;
+class QGridLayout;
+class QResizeEvent;
 class QGroupBox;
 class QMenu;
 class QComboBox;
@@ -41,6 +43,7 @@ public:
 protected:
     void closeEvent(QCloseEvent *event) override;
     void changeEvent(QEvent *event) override; // language switch on the fly
+    void resizeEvent(QResizeEvent *event) override; // short page label in a narrow window
 
 private slots:
     void createGallery();
@@ -69,10 +72,8 @@ private slots:
     void deleteTagsFromGallery(qint64 galleryId, const QStringList &tags);
 
 private:
-    static constexpr int GridColumns = 4;
-    static constexpr int GridRows = 4;
-    static constexpr int PageSize = GridColumns * GridRows;
     static constexpr int ThumbnailSize = 160;
+    static constexpr int GridSpacing = 6;
     // Tag list item data. Qt::UserRole (bool) marks the "<без тегів>" service entry.
     static constexpr int GroupHeaderRole = Qt::UserRole + 1; // bool: a group's name, not a tag
     static constexpr int TagGroupRole = Qt::UserRole + 2;    // qint64: the tag's group, 0 = none
@@ -80,6 +81,9 @@ private:
     void buildUi();
     void retranslateUi();
     void refreshPageTexts();
+    // Below CompactWidth only "Сторінка N з M" is shown, the counts go to its tooltip.
+    void updatePageLabel();
+    static constexpr int CompactWidth = 900;
     void reloadGalleries(qint64 selectId);
     void askForRescan(const QString &question);
     const Gallery *currentGallery() const;
@@ -94,13 +98,25 @@ private:
     void runImport(std::function<QList<Scanner::ImportItem>()> collect);
     void reloadTags();
     void applyTagFilter();
-    // The page of the collection list, or of the open collection's files.
-    void loadPage(int page);
+    // A page of the collection list, or of the open collection's files, starting at the offset-th
+    // item (top left). Pages follow each other from there: the offset need not be a multiple of the page size.
+    void loadPage(int offset);
+    // The grid shows as many thumbnails as fit (m_gridColumns × m_gridRows, at least 1 × 1).
+    int pageSize() const { return m_gridColumns * m_gridRows; }
+    void addThumbButton();
+    void placeThumbButtons();
+    void fitGridToSize(); // on a resize of the grid area; reloads the page (delayed) when the count changed
+    bool eventFilter(QObject *watched, QEvent *event) override;
     // Collection mode: the grid shows the files of one collection; search, sorting and the tag
     // list are locked until "Закрити колекцію".
     bool inCollection() const { return m_openCollectionId != 0; }
     void openCollection(int index);
     void editCollection(int index);
+    // Moves every file of the collection to the Recycle Bin (worker, with progress and "Перервати")
+    // and drops the records of the ones that went. Already confirmed by the user.
+    void deleteCollectionFiles(qint64 galleryId, const CollectionRecord &collection);
+    // A file of that job can't go to the Recycle Bin: the user decides (GUI thread).
+    Scanner::TrashChoice askAboutTrashProblem(const QString &path, Scanner::TrashProblem problem, const QString &error);
     void updateCollectionModeUi();
     // What the grid of the open collection shows: all its files, whatever the search.
     Db::TagQuery collectionQuery() const;
@@ -181,14 +197,22 @@ private:
     QSet<qint64> m_selectedIds; // bulk-edit selection, kept across pages and searches
     QList<qint64> m_selectableIds; // files of the open collection that can be ticked (not "other" files)
     QLabel *m_pageLabel = nullptr;
+    QString m_pageTextFull;  // "Сторінка N з M (counts)"
+    QString m_pageTextShort; // "Сторінка N з M"
+    QString m_pageCounts;    // the counts alone, the short label's tooltip
 
     Db::TagQuery m_query; // the last applied search
     QList<ImageRecord> m_pageRecords;          // collection mode: the files on the page
     QList<CollectionRecord> m_pageCollections; // otherwise: the collections on the page
     qint64 m_openCollectionId = 0;             // 0 = the collection list is shown
     CollectionRecord m_openCollection;
-    int m_collectionsPage = 0; // page of the collection list to return to
-    int m_page = 0;
+    int m_collectionsOffset = 0; // top-left item of the collection list to return to
+    int m_offset = 0;            // the top-left thumbnail's position in the whole list
+    int m_gridColumns = 4;
+    int m_gridRows = 4;
+    QWidget *m_gridHost = nullptr;
+    QGridLayout *m_gridLayout = nullptr;
+    QTimer m_gridReloadTimer; // the grid size changed: reload once the resizing stops
     int m_totalCount = 0; // collections, or files of the open collection
     int m_totalFiles = 0; // files found by the search
 

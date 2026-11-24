@@ -60,7 +60,7 @@ simplement sans groupe.
 - **Ajouter des tags.** Le bouton « Ajouter des tags » de la fenêtre des métadonnées ouvre une
   fenêtre avec un champ « Nouveaux tags : » (plusieurs tags séparés par des virgules) et un tableau
   de tous les tags de la galerie, groupés comme dans la liste de la fenêtre principale : chaque
-  groupe commence une nouvelle ligne, son nom (en gras) précédant ses tags. Les noms longs passent à la ligne. Le nombre entre parenthèses après un tag indique combien de collections l'ont (des collections, pas des fichiers). Les tags du fichier sont cochés : cochez ceux à
+  groupe commence une nouvelle ligne, son nom (en gras) précédant ses tags. Les noms longs passent à la ligne ; plus la fenêtre est large, plus il y a de colonnes. Le nombre entre parenthèses après un tag indique combien de collections l'ont (des collections, pas des fichiers). Les tags du fichier sont cochés : cochez ceux à
   ajouter, décochez ceux à retirer, puis cliquez sur
   « Enregistrer ». En modification groupée, les tags que seuls certains des fichiers sélectionnés
   ont sont grisés et ne peuvent pas être modifiés ; saisir un tel tag dans « Nouveaux tags : » le donne
@@ -108,7 +108,7 @@ restent groupées, quel que soit le dossier où elles se trouvent.
 
 - La fenêtre principale affiche les **collections** des fichiers trouvés : une couverture et un nom
   pour chacune. Elles viennent dans l'ordre de leur premier fichier dans les résultats de recherche
-  (voir « Tri »), 16 par page.
+  (voir « Tri »), autant par page que la fenêtre peut en contenir.
 - **Nom** — par défaut, les deux derniers tags du chemin séparés par une espace (« Mer 2024 »).
   Vous pouvez le changer ; les noms peuvent se répéter. Les fichiers sans tags forment une
   collection sans nom, affichée comme `<sans tags>`.
@@ -122,8 +122,15 @@ restent groupées, quel que soit le dossier où elles se trouvent.
   collection, la première photo redevient la couverture. Une collection qui ne contient que des
   vidéos ou d'autres fichiers montre son premier fichier.
 - Un **clic droit** sur une collection ouvre la fenêtre « Propriétés de la collection » : le nom
-  (le bouton « Par défaut » rétablit le nom par défaut) et la note.
-- Un **clic gauche** ouvre la collection : la grille affiche ses fichiers, 16 par page. La
+  (le bouton « Par défaut » rétablit le nom par défaut) et la note. **« Supprimer la collection… »**
+  met tous ses fichiers à la Corbeille et les retire de la galerie, après une seule confirmation ; la
+  fenêtre de progression a un bouton **« Interrompre »** (les fichiers déjà déplacés restent
+  supprimés, les autres restent dans la collection). Un fichier qui ne peut pas aller à la Corbeille
+  (trop gros pour elle, ou un disque sans Corbeille) n'est jamais supprimé en silence : le programme
+  demande s'il faut le supprimer définitivement (ce fichier ou tous ceux-là) ou interrompre. Si un
+  fichier ne peut pas être déplacé pour une autre raison, vous choisissez de continuer (il reste) ou
+  d'interrompre.
+- Un **clic gauche** ouvre la collection : la grille affiche ses fichiers, page par page. La
   recherche, le tri et la liste des tags sont alors verrouillés ; **« ◀ Fermer la collection »**
   (ou Échap) revient à la liste des collections, à la même page. Dans une collection, un clic sur
   un fichier l'ouvre, un clic droit ouvre sa fenêtre des métadonnées, et la modification groupée
@@ -165,8 +172,12 @@ restent groupées, quel que soit le dossier où elles se trouvent.
   s'applique toujours, y compris avec « Masquer les autres tags », et le texte reste jusqu'à ce que
   vous l'effaciez vous-même (la croix du champ ou le clavier) ou que vous fermiez le programme.
 
-Les résultats s'affichent par pages de 16 collections (dans une collection, 16 fichiers) ; les
-boutons sous la grille permettent de les parcourir. L'info-bulle d'une collection montre son nom,
+Les résultats s'affichent par pages ; les boutons sous la grille permettent de les parcourir. Une
+page contient autant de vignettes que la fenêtre peut en afficher : agrandir la fenêtre ajoute des
+colonnes et des lignes, la réduire en retire. La vignette en haut à gauche reste à sa place, si bien
+que le numéro de page et le nombre de pages peuvent changer (la première page peut alors être plus
+courte que les autres). Dans une fenêtre de moins de 900 pixels de large, la ligne sous la grille
+n'affiche que « Page N sur M » ; le nombre de collections et de fichiers est dans son info-bulle. L'info-bulle d'une collection montre son nom,
 ses tags, sa note et son nombre de fichiers ; celle d'un fichier, son chemin, sa taille et ses tags.
 
 ## Langue de l'interface
@@ -223,7 +234,9 @@ programme vous demande quoi en faire.
   fichier, le programme le reconnaît à son contenu : vos propres tags sont conservés.
 - **Ajouter des fichiers à la galerie…** — choisissez des fichiers (plusieurs à la fois si vous
   voulez), puis le dossier de premier niveau de la galerie où les copier. Vous pouvez saisir un
-  nouveau nom, le dossier sera créé. Le nom du dossier devient un tag.
+  nouveau nom, le dossier sera créé. Le nom du dossier devient un tag. Le dernier dossier choisi
+  (le même pour « Ajouter des fichiers » et « Ajouter un dossier ») est retenu pour chaque galerie
+  et proposé en premier tant qu''il existe.
 - **Ajouter un dossier à la galerie…**
   - si le dossier choisi contient des fichiers, le programme demande dans quel dossier de la
     galerie (tag) copier tout son contenu, sous-dossiers compris ;
@@ -233,12 +246,15 @@ programme vous demande quoi en faire.
   Dans les deux cas, les fichiers sont **copiés**, les originaux restent en place. Les doublons
   sont ignorés. Si un fichier du même nom existe déjà avec un contenu différent, la nouvelle copie
   reçoit le suffixe `(1)`, `(2)`… À la fin, vous voyez combien de fichiers ont été copiés et
-  combien de doublons ont été ignorés. Les noms que Windows réserve aux périphériques (`CON`,
+  combien de doublons ont été ignorés. **« Interrompre »** dans la fenêtre de progression arrête la
+  copie après le fichier en cours ; les fichiers déjà copiés restent dans la galerie. Les noms que Windows réserve aux périphériques (`CON`,
   `NUL`, `COM1`…) reçoivent un `_` dans le nom du dossier (`CON_`), tandis que le tag reste sans
   lui (« Con »).
 - **Télécharger depuis Internet…** — le gestionnaire de téléchargement, voir
   [Téléchargement depuis Internet](#téléchargement-depuis-internet).
-- **Rechercher les doublons…** — des groupes de fichiers au contenu identique. Cochez ceux qui
+- **Rechercher les doublons…** — des groupes de fichiers au contenu identique. Après le chemin de
+  chaque fichier, sa collection est indiquée entre parenthèses ; son info-bulle montre le chemin
+  virtuel complet (ses tags). Cochez ceux qui
   sont en trop et cliquez sur « Supprimer » : les fichiers vont dans la **Corbeille**. Si vous
   cochez tous les fichiers d'un groupe, le premier est conservé.
 - **Supprimer les fichiers inutiles…** — supprime `Thumbs.db`, `desktop.ini` et les dossiers
@@ -246,7 +262,10 @@ programme vous demande quoi en faire.
   et une confirmation s'affichent donc d'abord. Le dossier du programme n'est pas touché.
 
 Un fichier isolé peut être supprimé dans la fenêtre des métadonnées (clic droit sur la
-vignette d'un fichier) : le bouton **« Supprimer le fichier… »** le met à la Corbeille. Dans la visionneuse, la touche Suppr fait de même (sauf dans une visionneuse ouverte depuis la fenêtre des métadonnées : elle y explique seulement pourquoi).
+vignette d'un fichier) : le bouton **« Supprimer le fichier… »** le met à la Corbeille. Dans la visionneuse, la touche Suppr fait de même (sauf dans une visionneuse ouverte depuis la fenêtre des métadonnées : elle y explique seulement pourquoi). Ici, dans « Rechercher les doublons… » et lors de la suppression
+d'une collection, un fichier qui ne peut pas aller à la Corbeille (trop gros pour elle, ou un disque
+sans Corbeille) n'est jamais supprimé en silence : le programme demande d'abord s'il faut le
+supprimer définitivement.
 
 Dans la même fenêtre, le bouton **« Exporter… »** copie le fichier hors de la galerie, à
 l'emplacement de votre choix. Si cet emplacement se trouve dans la galerie actuelle, le programme
@@ -267,7 +286,9 @@ modifiable.
 
 **Fichier → Télécharger depuis Internet…** ouvre le gestionnaire de téléchargement. Il télécharge
 une page web, ou les fichiers vers lesquels elle pointe, dans la galerie actuelle. Il n'envoie que
-des requêtes GET, une à la fois.
+des requêtes GET, une à la fois. La fenêtre a deux onglets : **« Profil »** (la liste des profils et
+leurs réglages, affiché en premier) et **« Téléchargement »** (l'adresse de la page et l'accès, les
+tags, le dossier racine et le bouton de lancement).
 
 Les **profils** décrivent comment trouver les fichiers sur une page. Ils fonctionnent comme les
 sessions enregistrées de PuTTY : saisissez un nom et cliquez sur **« Enregistrer »** (un profil de
@@ -312,7 +333,9 @@ Sous le profil :
 - **Tags des fichiers téléchargés** — ces tags (et eux seuls) sont donnés à chaque fichier
   téléchargé. « Ajouter des tags » fonctionne comme dans la fenêtre des métadonnées. La liste est
   effacée à la fermeture de la fenêtre.
-- **Dossier racine** — un dossier de premier niveau de la galerie (ou un nouveau nom). Chaque
+- **Dossier racine** — un dossier de premier niveau de la galerie (ou un nouveau nom). Le dossier
+  choisi est retenu pour chaque galerie et proposé la fois suivante (le premier de la liste s'il
+  n'existe plus). Chaque
   téléchargement va dans un nouveau dossier numéroté à l'intérieur : le programme trouve les
   dossiers dont le nom commence par un nombre (`1-mer`, `004 - village - 2`, `05 - été`), prend le
   plus grand, ajoute 1 et ajoute `-collection` : ici `006-collection`. En dessous de 1000, le

@@ -22,7 +22,7 @@
 
 namespace {
 
-constexpr int ColumnCount = 6;
+constexpr int MinColumnWidth = 150; // as many columns as fit, each at least this wide
 
 // The height of text wrapped in lines of the given width (as the main window's tag list does it).
 qreal wrappedHeight(const QString &text, const QFont &font, int width)
@@ -165,7 +165,7 @@ TagPickerDialog::TagPickerDialog(const QList<TagSection> &sections, const QStrin
     , m_grid(new QGridLayout)
 {
     setWindowTitle(tr("Додати теги"));
-    resize(1100, 720);
+    resize(800, 600); // as the main window starts
 
     auto *newRow = new QHBoxLayout;
     newRow->addWidget(new QLabel(tr("Нові теги:"), this));
@@ -180,11 +180,11 @@ TagPickerDialog::TagPickerDialog(const QList<TagSection> &sections, const QStrin
     auto *contentLayout = new QVBoxLayout(content);
     contentLayout->addLayout(m_grid);
     contentLayout->addStretch(1); // few tags stay at the top instead of spreading over the height
-    for (int column = 0; column < ColumnCount; ++column)
-        m_grid->setColumnStretch(column, 1);
+
     m_scrollArea->setWidget(content);
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_scrollArea->installEventFilter(this); // its width sets the number of columns
 
     for (const TagSection &section : sections) {
         if (section.groupId != 0)
@@ -401,8 +401,26 @@ void TagPickerDialog::confirmDelete(QCheckBox *box)
     layoutEntries();
 }
 
+bool TagPickerDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_scrollArea && event->type() == QEvent::Resize) {
+        // Counted as if the vertical scroll bar were always there: its coming and going can't flip the count.
+        const int width = m_scrollArea->contentsRect().width()
+                          - m_scrollArea->verticalScrollBar()->sizeHint().width();
+        const int columns = qMax(1, width / MinColumnWidth);
+        if (columns != m_columns) {
+            m_columns = columns;
+            layoutEntries();
+        }
+    }
+    return QDialog::eventFilter(watched, event);
+}
+
 void TagPickerDialog::layoutEntries()
 {
+    // Equal columns: only the ones in use stretch (an empty stretching column would still take space).
+    for (int column = 0; column < qMax(m_columns, m_grid->columnCount()); ++column)
+        m_grid->setColumnStretch(column, column < m_columns ? 1 : 0);
     while (QLayoutItem *item = m_grid->takeAt(0))
         delete item; // the widget stays, only its place in the grid goes
     int cell = 0;
@@ -415,10 +433,10 @@ void TagPickerDialog::layoutEntries()
             if (!hasTags)
                 continue;
             // Every group starts a new row.
-            if (cell % ColumnCount != 0)
-                cell += ColumnCount - cell % ColumnCount;
+            if (cell % m_columns != 0)
+                cell += m_columns - cell % m_columns;
         }
-        m_grid->addWidget(entry.widget, cell / ColumnCount, cell % ColumnCount);
+        m_grid->addWidget(entry.widget, cell / m_columns, cell % m_columns);
         ++cell;
     }
 }

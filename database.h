@@ -90,6 +90,10 @@ QString lastError();
 QString setting(const QString &key, const QString &defaultValue = {});
 bool setSetting(const QString &key, const QString &value);
 
+// Values remembered per gallery (table gallery_settings; deleted with the gallery).
+QString gallerySetting(qint64 galleryId, const QString &key, const QString &defaultValue = {});
+bool setGallerySetting(qint64 galleryId, const QString &key, const QString &value);
+
 QList<Gallery> galleries();
 // Returns the new gallery id, or 0 on failure.
 qint64 createGallery(const Gallery &gallery);
@@ -182,11 +186,18 @@ bool updateImageFile(qint64 galleryId, const QString &relativePath, qint64 size,
 // The file of this record got a new name on disk: relativePath is its new path, name the file name.
 bool renameImage(qint64 galleryId, qint64 imageId, const QString &relativePath, const QString &name);
 
+// A duplicate and where it sits among the collections.
+struct DuplicateFile : ImageRecord
+{
+    QString virtualPath;    // empty = no tags
+    QString collectionName; // the stored name, may be empty
+};
+
 struct DuplicateGroup
 {
     QString sha256;
     qint64 size = 0;
-    QList<ImageRecord> files; // at least two
+    QList<DuplicateFile> files; // at least two
 };
 
 // Files of the gallery that share a sha256, one group per hash.

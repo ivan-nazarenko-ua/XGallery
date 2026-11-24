@@ -556,6 +556,18 @@ bool toV12DownloadProfiles(Sql &s)
                   " attributes TEXT NOT NULL DEFAULT '[]')");
 }
 
+// ---- v12 -> v13: per-gallery settings ---------------------------------------------------------
+// Values remembered for one gallery (e.g. the root folder last chosen for downloads and imports);
+// they go with the gallery.
+bool toV13GallerySettings(Sql &s)
+{
+    return s.exec("CREATE TABLE gallery_settings ("
+                  " gallery_id INTEGER NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,"
+                  " key TEXT NOT NULL,"
+                  " value TEXT NOT NULL,"
+                  " PRIMARY KEY (gallery_id, key))");
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -636,6 +648,7 @@ static const QList<Migrations::Step> &steps()
         {toV10CollectionNameKey, false},
         {toV11TagGroups, false},
         {toV12DownloadProfiles, false},
+        {toV13GallerySettings, false},
     };
     return list;
 }

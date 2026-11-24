@@ -5,6 +5,7 @@
 #include <QString>
 #include <QStringList>
 
+#include <atomic>
 #include <functional>
 #include <optional>
 
@@ -58,13 +59,54 @@ struct ImportStats
     int ignored = 0;      // Thumbs.db, desktop.ini, ...
     QStringList failed;   // files that could not be read or copied
     QString error;        // fatal error; empty on success
+    bool stopped = false; // the user stopped it: the files copied so far are in the gallery
 };
 
 // Copies the files into the gallery and registers them in the DB, with the target folders
 // as tags. Duplicates (by sha256 + size) are skipped; a name already taken by a different
 // file gets " (1)", " (2)", ... like Windows does. Worker-thread safe (own DB connection).
+// stop (may be null): set from the GUI thread to stop after the current file; unlike cancelling the
+// future, the stats still arrive.
 void importFiles(QPromise<ImportStats> &promise, qint64 galleryId, const QString &rootFolder,
-                 const QList<ImportItem> &items);
+                 const QList<ImportItem> &items, const std::atomic_bool *stop = nullptr);
+
+enum class RecycleOutcome
+{
+    Recycled,      // in the Recycle Bin
+    NotRecyclable, // Windows would delete it permanently (too big for the bin, a drive without one): nothing done
+    Failed,        // not moved (locked, no access, …): nothing done
+};
+
+// Moves one file to the Recycle Bin, never deleting it permanently instead (QFile::moveToTrash can't
+// promise that: the shell silently "nukes" what doesn't fit). *error: the reason when Failed.
+// Any thread (initializes COM for the call).
+RecycleOutcome recycleFile(const QString &path, QString *error);
+
+// What a trash job does with a file that can't go to the Recycle Bin.
+enum class TrashProblem { NotRecyclable, Failed };
+enum class TrashChoice
+{
+    DeletePermanently,    // NotRecyclable only: this file
+    DeleteAllPermanently, // NotRecyclable only: this and every later such file, without asking again
+    Continue,             // Failed only: leave the file, go on with the others
+    Stop,                 // leave the file and stop
+};
+// Called on the worker thread; must block until the user has answered.
+using TrashQuestion = std::function<TrashChoice(const QString &path, TrashProblem problem, const QString &error)>;
+
+struct TrashResult
+{
+    QStringList trashed;  // absolute paths now in the Recycle Bin (or already gone from disk)
+    QStringList deleted;  // deleted permanently, as the user agreed
+    QStringList failed;   // left where they are
+    bool stopped = false; // the user stopped it
+};
+
+// Moves the files to the Recycle Bin one by one, with progress (a worker job; the DB is not touched).
+// A file already missing counts as trashed. A file that can't go there is never deleted silently:
+// ask() decides. stop (may be null) stops after the current file.
+void moveFilesToTrash(QPromise<TrashResult> &promise, const QStringList &paths, const std::atomic_bool *stop,
+                      const TrashQuestion &ask);
 
 // The existing folder's path relative to the gallery root, '/'-separated, empty for the root
 // itself; nullopt if the folder is outside the gallery. Links are resolved first.

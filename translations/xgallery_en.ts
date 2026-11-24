@@ -7,6 +7,14 @@
         <source>Зачекай…</source>
         <translation>Please wait…</translation>
     </message>
+    <message>
+        <source>Зупиняю…</source>
+        <translation>Stopping…</translation>
+    </message>
+    <message>
+        <source>Перервати</source>
+        <translation>Stop</translation>
+    </message>
 </context>
 <context>
     <name>CollectionDialog</name>
@@ -49,6 +57,22 @@
     <message>
         <source>Скасувати</source>
         <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Видалити колекцію…</source>
+        <translation>Delete collection…</translation>
+    </message>
+    <message>
+        <source>Видалити колекцію</source>
+        <translation>Delete collection</translation>
+    </message>
+    <message>
+        <source>Перемістити в Кошик усі файли колекції «%1» (%2) і прибрати їх з галереї?</source>
+        <translation>Move all files of the collection &quot;%1&quot; (%2) to the Recycle Bin and remove them from the gallery?</translation>
+    </message>
+    <message>
+        <source>Видалити</source>
+        <translation>Delete</translation>
     </message>
 </context>
 <context>
@@ -421,6 +445,14 @@ You can type a new name — the folder will be created.</translation>
         <source>Зупинити завантаження</source>
         <translation>Stop download</translation>
     </message>
+    <message>
+        <source>Профіль</source>
+        <translation>Profile</translation>
+    </message>
+    <message>
+        <source>Завантаження</source>
+        <translation>Download</translation>
+    </message>
 </context>
 <context>
     <name>DownloadProfiles</name>
@@ -498,6 +530,18 @@ Rescan to remove the records.</translation>
         <translation>These files could not be moved to the Recycle Bin; they stay on disk and in the database:
 
 %1</translation>
+    </message>
+    <message>
+        <source>Віртуальний шлях: %1</source>
+        <translation>Virtual path: %1</translation>
+    </message>
+    <message>
+        <source>Видалення перервано. Прибрано файлів: %1 з %2.</source>
+        <translation>Deletion stopped. Files removed: %1 of %2.</translation>
+    </message>
+    <message>
+        <source>З них видалено остаточно, без Кошика: %1.</source>
+        <translation>Of these, deleted permanently, without the Recycle Bin: %1.</translation>
     </message>
 </context>
 <context>
@@ -1230,12 +1274,6 @@ Windows may have no program for this file type.</translation>
         <translation>Delete file</translation>
     </message>
     <message>
-        <source>Не вдалося перемістити файл у Кошик, нічого не видалено:
-%1</source>
-        <translation>Could not move the file to the Recycle Bin, nothing was deleted:
-%1</translation>
-    </message>
-    <message>
         <source>Файл у Кошику, але прибрати запис з бази не вдалося:
 %1
 
@@ -1639,6 +1677,78 @@ Inside an open collection the files always go by name.</translation>
         <source>Обрати сторінку</source>
         <translation>Check page</translation>
     </message>
+    <message>
+        <source>Сторінка %1 з %2</source>
+        <translation>Page %1 of %2</translation>
+    </message>
+    <message>
+        <source>%1 зобр.</source>
+        <translation>%1 files</translation>
+    </message>
+    <message>
+        <source>колекцій: %1, файлів: %2</source>
+        <translation>collections: %1, files: %2</translation>
+    </message>
+    <message>
+        <source>Переміщую файли колекції в Кошик…</source>
+        <translation>Moving the collection&apos;s files to the Recycle Bin…</translation>
+    </message>
+    <message>
+        <source>Видалення перервано. У Кошику: %1 з %2 файлів, решта залишилась у колекції.</source>
+        <translation>Deletion stopped. In the Recycle Bin: %1 of %2 files; the rest stay in the collection.</translation>
+    </message>
+    <message>
+        <source>… і ще %1</source>
+        <translation>… and %1 more</translation>
+    </message>
+    <message>
+        <source>Ці файли не вдалося перемістити в Кошик, вони залишились на місці й у базі:
+
+%1</source>
+        <translation>These files could not be moved to the Recycle Bin; they stay on disk and in the database:
+
+%1</translation>
+    </message>
+    <message>
+        <source>Файли в Кошику, але прибрати записи з бази не вдалося:
+%1
+
+Зроби рескан.</source>
+        <translation>The files are in the Recycle Bin, but their records could not be removed from the database:
+%1
+
+Run a rescan.</translation>
+    </message>
+    <message>
+        <source>Видалити колекцію</source>
+        <translation>Delete collection</translation>
+    </message>
+    <message>
+        <source>Колекцію «%1» видалено, у Кошику файлів: %2</source>
+        <translation>Collection &quot;%1&quot; deleted, files in the Recycle Bin: %2</translation>
+    </message>
+    <message>
+        <source>Додавання перервано. Скопійовані файли залишились у галереї.</source>
+        <translation>Adding stopped. The files copied so far stay in the gallery.</translation>
+    </message>
+    <message>
+        <source>Видалено остаточно, без Кошика (з вашої згоди): %1.</source>
+        <translation>Deleted permanently, without the Recycle Bin (with your consent): %1.</translation>
+    </message>
+    <message>
+        <source>Не вдалося видалити файл:
+%1
+
+%2</source>
+        <translation>Couldn&apos;t delete the file:
+%1
+
+%2</translation>
+    </message>
+    <message>
+        <source>Видалено остаточно: %1</source>
+        <translation>Deleted permanently: %1</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>
@@ -1683,6 +1793,74 @@ Inside an open collection the files always go by name.</translation>
 %1</source>
         <translation>The files were copied but could not be written to the database (please rescan):
 %1</translation>
+    </message>
+    <message>
+        <source>Переміщую в Кошик %1 з %2
+%3</source>
+        <translation>Moving to the Recycle Bin %1 of %2
+%3</translation>
+    </message>
+    <message>
+        <source>Не вдалося стежити за операцією Кошика.</source>
+        <translation>Couldn&apos;t watch the Recycle Bin operation.</translation>
+    </message>
+    <message>
+        <source>Не вдалося перемістити в Кошик.</source>
+        <translation>Couldn&apos;t move to the Recycle Bin.</translation>
+    </message>
+    <message>
+        <source>Цей файл не можна перемістити в Кошик (завеликий для Кошика, або на диску немає Кошика):
+%1
+
+Видалити його остаточно, без можливості відновлення?</source>
+        <translation>This file can&apos;t be moved to the Recycle Bin (too big for it, or the drive has no Recycle Bin):
+%1
+
+Delete it permanently, with no way to restore it?</translation>
+    </message>
+    <message>
+        <source>Видалити остаточно</source>
+        <translation>Delete permanently</translation>
+    </message>
+    <message>
+        <source>Видалити остаточно всі такі</source>
+        <translation>Delete all such files permanently</translation>
+    </message>
+    <message>
+        <source>Перервати</source>
+        <translation>Stop</translation>
+    </message>
+    <message>
+        <source>Скасувати</source>
+        <translation>Cancel</translation>
+    </message>
+    <message>
+        <source>Не вдалося перемістити файл у Кошик, нічого не видалено:
+%1
+
+%2</source>
+        <translation>Couldn&apos;t move the file to the Recycle Bin; nothing was deleted:
+%1
+
+%2</translation>
+    </message>
+    <message>
+        <source>Не вдалося перемістити файл у Кошик, він залишиться на місці:
+%1
+
+%2
+
+Продовжити видалення інших файлів?</source>
+        <translation>Couldn&apos;t move the file to the Recycle Bin; it stays where it is:
+%1
+
+%2
+
+Go on deleting the other files?</translation>
+    </message>
+    <message>
+        <source>Продовжити</source>
+        <translation>Continue</translation>
     </message>
 </context>
 <context>

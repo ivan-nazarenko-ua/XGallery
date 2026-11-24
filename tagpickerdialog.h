@@ -60,6 +60,7 @@ private:
     bool addTagsFromField(); // false: the text has a forbidden character, nothing was added
     void confirmDelete(QCheckBox *box);
     void layoutEntries();
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
     QStringList m_assignedTags;
     QStringList m_partialTags;
@@ -70,6 +71,7 @@ private:
     QLineEdit *m_newTagsEdit;
     QScrollArea *m_scrollArea;
     QGridLayout *m_grid;
+    int m_columns = 6; // follows the window width (eventFilter)
 };
 
 #endif // TAGPICKERDIALOG_H

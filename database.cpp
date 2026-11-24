@@ -208,6 +208,28 @@ bool setSetting(const QString &key, const QString &value)
     return exec(q);
 }
 
+QString gallerySetting(qint64 galleryId, const QString &key, const QString &defaultValue)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("SELECT value FROM gallery_settings WHERE gallery_id = ? AND key = ?");
+    q.addBindValue(galleryId);
+    q.addBindValue(key);
+    if (q.exec() && q.next())
+        return q.value(0).toString();
+    return defaultValue;
+}
+
+bool setGallerySetting(qint64 galleryId, const QString &key, const QString &value)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("INSERT INTO gallery_settings(gallery_id, key, value) VALUES(?, ?, ?) "
+              "ON CONFLICT(gallery_id, key) DO UPDATE SET value = excluded.value");
+    q.addBindValue(galleryId);
+    q.addBindValue(key);
+    q.addBindValue(value);
+    return exec(q);
+}
+
 // In portable mode the root is stored relative to the exe folder, so the gallery survives the
 // USB stick getting another drive letter. In memory Gallery::rootFolder is always absolute.
 static QString storedRoot(const QString &absoluteRoot)
@@ -928,10 +950,11 @@ QList<DuplicateGroup> findDuplicates(qint64 galleryId)
 {
     QList<DuplicateGroup> groups;
     QSqlQuery q(mainDb());
-    q.prepare("SELECT sha256, size, id, path FROM images "
-              "WHERE gallery_id = ? AND sha256 IN ("
+    q.prepare("SELECT i.sha256, i.size, i.id, i.path, i.vpath, c.name FROM images i "
+              "LEFT JOIN collections c ON c.gallery_id = i.gallery_id AND c.vpath_hash = i.vpath_hash "
+              "WHERE i.gallery_id = ? AND i.sha256 IN ("
               " SELECT sha256 FROM images WHERE gallery_id = ? GROUP BY sha256 HAVING COUNT(*) > 1) "
-              "ORDER BY sha256");
+              "ORDER BY i.sha256");
     q.addBindValue(galleryId);
     q.addBindValue(galleryId);
     if (!exec(q))
@@ -940,7 +963,9 @@ QList<DuplicateGroup> findDuplicates(qint64 galleryId)
         const QString hash = q.value(0).toString();
         if (groups.isEmpty() || groups.last().sha256 != hash)
             groups.append({hash, q.value(1).toLongLong(), {}});
-        groups.last().files.append({q.value(2).toLongLong(), q.value(3).toString(), groups.last().size, hash});
+        groups.last().files.append({{q.value(2).toLongLong(), q.value(3).toString(), groups.last().size, hash},
+                                    q.value(4).toString(),
+                                    q.value(5).toString()});
     }
     return groups;
 }

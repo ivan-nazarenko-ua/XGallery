@@ -33,6 +33,8 @@ set(PROJECT_SOURCES
         tagpickerdialog.cpp
         wrappedtext.h
         wrappedtext.cpp
+        trashprompt.h
+        trashprompt.cpp
         migrations.h
         migrations.cpp
         mediafiles.h

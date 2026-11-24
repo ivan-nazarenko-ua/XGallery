@@ -37,22 +37,23 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | File | Role |
 |---|---|
 | `main.cpp` | App/organization name (`Nova30`/`XGallery`) → AppData location |
-| `mainwindow.*` | Everything in the main window: gallery combo, search, sort, tag list, 4×4 grid (collections, or the files of the open collection), File menu actions, busy handling |
+| `mainwindow.*` | Everything in the main window: gallery combo, search, sort, tag list, grid (collections, or the files of the open collection), File menu actions, busy handling |
 | `database.*` | `Db::` — connection handling, settings, galleries, search (files and collections), metadata, duplicates. GUI thread uses `Db::MainConnection` |
 | `migrations.*` | Schema versions (`PRAGMA user_version`), one step per version |
 | `scanner.*` | Worker-thread jobs: rescan, import, junk search; sha256; folder → tag rules |
 | `mediafiles.*` | File kind by extension (image / video / other) and thumbnails (videos via `IShellItemImageFactory`, others as an extension card) |
 | `imageviewer.*` | Viewer window: fit/upscale, arrows (circular), double-click full screen, right-click rotation, Delete key (only with a `DeleteHandler`, else the refusal warning) |
 | `imagerotation.*` | Saving rotations to disk (lossless for JPEG via EXIF orientation) |
-| `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating. `GalleryDialog` also edits the tag groups |
+| `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `DuplicatesDialog`: path + " (collection)" per file, tooltip = virtual path (`Db::DuplicateFile`). `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating. `GalleryDialog` also edits the tag groups |
 | `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
 | `collections.*` | Collections: xxh128 of the virtual path (`hashOf`), default name, `retag` (vpath/vpath_key/vpath_hash of files) and `sync` (collection rows: transfer, create, delete, covers) |
-| `downloaddialog.*` | "Завантажити з інтернету" window: profiles (PuTTY-like), never-saved login/password/token, tags, root folder, the run (page → links → files one by one → `Scanner::importFiles`) |
+| `downloaddialog.*` | "Завантажити з інтернету" window, two tabs ("Профіль" first: profiles + profile fields; "Завантаження": the rest + start): profiles (PuTTY-like), never-saved login/password/token, tags, root folder, the run (page → links → files one by one → `Scanner::importFiles`) |
 | `downloadprofile.*` | `DownloadProfile` (mode, tag, source attribute, classes, attributes) + JSON of one profile and of the export file |
 | `htmllinks.*` | Regex tag tokenizer (no WebKit): profile → strings → links; entities; page charset (Windows code pages when Qt has no ICU) |
 | `downloadnames.*` | Next `NNN-collection` folder, file name from a link, `file_NNN.ext`, `page_N.html/bin`, extension from Content-Type |
 | `httpfetcher.*` | One GET at a time over `QNetworkAccessManager`: manual redirects, credentials only for the page's host, 60 s transfer timeout |
 | `wrappedtext.*` | `WrappedText::layout`: text wrapped at word boundaries, else anywhere (main tag list, tag picker) |
+| `trashprompt.*` | `TrashPrompt::ask`: the question when a file can't go to the Recycle Bin (delete permanently / all such / continue / stop) |
 | `thumbcache.*` | Grid thumbnails cached as `thumbs/<first 2 hex>/<sha256>.png` next to the DB (256 subfolders: FAT32 per-folder limit) (`ThumbCache::thumbnail` = load or make+store; stores only real previews of images and videos, never extension cards — a video Windows can't preview is tried again; "other" files skip the cache). All errors ignored |
 | `third_party/xxhash/` | Vendored xxHash 0.8.3 single header (BSD-2, used header-only via `XXH_INLINE_ALL` in `collections.cpp`) |
 | `i18n.*`, `languagedialog.*`, `translations/*.ts`, `flags/` | UI language (uk source, en/fr translations), first-start flag dialog, flag SVGs + rendered PNGs (48x32 and @2x) |
@@ -61,9 +62,9 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 ## Rules that must keep holding
 
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
-  never edit existing steps. Current version: 12 (galleries; rating+name; allow_upscale; no commas in tags;
+  never edit existing steps. Current version: 13 (galleries; rating+name; allow_upscale; no commas in tags;
   normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space;
-  collections — images.rating dropped; collections.name_key; tag groups; download profiles).
+  collections — images.rating dropped; collections.name_key; tag groups; download profiles; gallery settings).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -93,7 +94,9 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   Moves/renames: a missing record + one new file with the same sha256+size (1:1 only) keep
   id and manual tags; old-folder tags are swapped for new ones.
   All files of one scan/import get the same `added_at` (for "newest first").
-- **Import** (add files/folder): copy, never move; skip duplicates (DB, same batch, or same
+- **Import** (add files/folder): copy, never move; "Перервати" in the busy dialog (`BusyDialog::setStopHandler`, an
+  `std::atomic_bool` passed to `Scanner::importFiles` — not `QFuture::cancel`, which would drop the stats) stops after the
+  current file and commits what was copied; skip duplicates (DB, same batch, or same
   name+content already in the target); name clash → `name (1).ext`; records are written
   immediately (no rescan needed). The target folder is checked to stay inside the gallery; a
   Windows device name (CON, NUL, COM1…) gets `_` (`CON_`, `con_.old`), its tag stays `Con`.
@@ -107,7 +110,13 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (`QFile::moveToTrash`); if that fails, nothing is deleted. A single file (metadata dialog's button, Delete key in the
   main window's viewer; the metadata dialog's viewer only warns why not, `ImageViewer::setDeleteRefusal`) goes through `MainWindow::trashImageFile` (refused while busy). "Видалити сміття" deletes
   `Thumbs.db`/`desktop.ini` and empty folders permanently (as the owner asked), still behind a
-  confirmation.
+  confirmation. "Видалити колекцію…" (`CollectionDialog::DeleteRequested`, one confirmation) trashes all the collection's
+  files in a worker (`Scanner::moveFilesToTrash`, COM initialized there, progress + "Перервати"), then `Db::deleteImages` for
+  the ones that went. It recycles via `Scanner::recycleFile` (IFileOperation + a sink that aborts when `PreDeleteItem` lacks
+  `TSF_DELETE_RECYCLE_IF_POSSIBLE`, i.e. the shell would destroy the file): such a file, or any failure, is asked about on the GUI
+  thread (`MainWindow::askAboutTrashProblem`, blocking queued call): delete permanently / all such / continue / stop.
+  Single-file deletion (`MainWindow::trashImageFile`) and duplicates use `recycleFile` too, on the GUI thread; all three ask
+  through `TrashPrompt::ask` (several = batch). `QFile::moveToTrash` is only the non-Windows fallback.
 - **Rotation**: JPEG only edits/adds the EXIF orientation tag (never re-encodes unless the
   file is malformed; then quality 100 with the EXIF block copied). Other formats are
   re-encoded losslessly. Pending turns are counted mod 4; 0 = nothing to save.
@@ -133,8 +142,13 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - Main window: the grid shows collections of the search result (`Db::searchCollections`: ordered by the position of
   their first file in the file order, paged by collection). Left click opens the collection (`m_openCollectionId`,
   row id — it survives transfers): grid = all its files (`TagQuery::collectionId`, ignores the search), search/sort/tag
-  list locked, "◀ Закрити колекцію" (Esc) returns to the saved page. Right click on a collection → `CollectionDialog`.
+  list locked, "◀ Закрити колекцію" (Esc) returns to the saved position. Right click on a collection → `CollectionDialog`.
   If the open collection's row is gone, `loadPage` falls back to the collection list.
+- Grid size: as many cells (min. `ThumbnailSize`+16 × +32) as fit the grid area (`fitGridToSize` on its resize, buttons are
+  made on demand and never deleted, extras hidden; reload 200 ms after the last change). Paging is by offset (`m_offset` = the
+  top-left item, `m_collectionsOffset` to return to), not by page number: a resize keeps the top-left item in place, prev/next
+  move by `pageSize()` (prev stops at 0, so the first page may be shorter); the label counts pages both ways from the offset.
+  Window narrower than `CompactWidth` (900): the label is only "Сторінка N з M", the counts in its tooltip (`updatePageLabel`).
 - Sorting (files joined to their collection row as `ic`): Classic = ic.rating DESC, ic.name_key, vpath_key,
   file name NOCASE, id (file name and id always last); NewestFirst = added_at DESC then classic;
   LargestFirst = size DESC then classic. These order the collections; the files of an open collection
@@ -152,7 +166,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   filter when no tag of its group is shown; tag items carry `TagGroupRole`. Changing a tag's group keeps the list's scroll position.
   The tag list has no horizontal scroll: `WrappingItemDelegate` (mainwindow.cpp) wraps long names (`WrappedText::layout`: word boundary, else anywhere),
   entries are as wide as the viewport, `ResizeMode::Adjust` re-lays them out on resize.
-- Tag picker (`TagPickerDialog`, from the metadata dialog): new tags (comma list) + 6 equal columns of checkboxes for all gallery tags
+- Tag picker (`TagPickerDialog`, from the metadata dialog): new tags (comma list) + equal columns (as many as fit, min. 150 px each; start size 800×600) of checkboxes for all gallery tags
   (long names and group names wrap like the main tag list: `WrappingCheckBox`/`WrappingLabel`, height for width;
   each tag shown as "tag (N)", N = collections having it, `Db::tagCollectionCounts`, read when the dialog opening it opens, 0 for new tags)
   (each group starts a new row, its name a bold label taking a cell before its tags; the file's tags ticked, unticking removes them; bulk mode: tags
@@ -182,8 +196,12 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   after an https→http redirect; Qt's auth cache is cleared per run. Target: `<root folder>/<NNN>-collection` (NNN = max leading
   number of the root folder's subfolders + 1, 3 digits below 1000). File name = last link segment (decoded, made valid), no
   extension → `file_NNN.<ext from Content-Type or bin>`. Files are imported with `ImportItem::keepDuplicate`, `folderTags = false`
-  and `tags` = the window's tags (owner's decision: no folder tags, the user picks the tags in the window). While it runs only "Зупинити завантаження" works and the window can't close; stopping
+  and `tags` = the window's tags (owner's decision: no folder tags, the user picks the tags in the window). While it runs only "Зупинити завантаження" works (both tabs' fields disabled) and the window can't close; stopping
   still imports what was downloaded.
+- Per-gallery settings: table `gallery_settings` (gallery_id, key, value; cascade with the gallery), `Db::gallerySetting`/`setGallerySetting`.
+  The root folder last chosen is remembered per gallery: downloads (`download_root_folder`, saved on a list pick or when the typed
+  name is left) and imports (`import_root_folder`, shared by add files/folder, saved when `chooseRootTag` is accepted; it wins
+  over the add-folder suggestion, which stays in the list). A remembered folder that no longer exists is ignored (first one as before).
 - "Сховати чужі теги": the tag list shows `Db::tagsOfSearch` (tags of the last search's results).
 - Tag filter field (`m_tagFilterEdit`, under that checkbox): always hides list entries not containing its text
   (case-insensitive); the `<без тегів>` service entry always stays. Only the user changes the text; it is not saved between runs.

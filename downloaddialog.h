@@ -101,7 +101,8 @@ private:
     QListWidget *m_tagList;
     QPushButton *m_removeTagButton;
     QComboBox *m_folderCombo;
-    QWidget *m_form;          // everything but the progress and the start/stop button
+    QWidget *m_profileTab;    // tab "Профіль": profiles and the profile fields
+    QWidget *m_form;          // tab "Завантаження" without the progress and the start/stop button
     QProgressBar *m_progress;
     QLabel *m_statusLabel;
     QPushButton *m_startButton;

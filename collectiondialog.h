@@ -10,12 +10,15 @@ class QLineEdit;
 class QSpinBox;
 
 // Properties of a collection: name and rating. Nothing is written to the DB here: the caller
-// reads name() and rating() after exec() == Accepted.
+// reads name() and rating() after exec() == Accepted, or deletes the collection's files after
+// exec() == DeleteRequested (the user has confirmed it here).
 class CollectionDialog : public QDialog
 {
     Q_OBJECT
 
 public:
+    static constexpr int DeleteRequested = 2;
+
     // cover: its thumbnail as the main window shows it (may be null).
     CollectionDialog(const CollectionRecord &collection, const QPixmap &cover, QWidget *parent = nullptr);
 

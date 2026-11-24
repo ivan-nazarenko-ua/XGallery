@@ -1,5 +1,7 @@
 #include "duplicatesdialog.h"
 
+#include "trashprompt.h"
+
 #include <QApplication>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -12,6 +14,8 @@
 #include <QPushButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+
+#include <algorithm>
 
 namespace {
 
@@ -28,7 +32,7 @@ DuplicatesDialog::DuplicatesDialog(const Gallery &gallery, QWidget *parent)
     , m_deleteButton(new QPushButton(tr("Видалити"), this))
 {
     setWindowTitle(tr("Дублікати — %1").arg(gallery.name));
-    resize(900, 600);
+    resize(800, 600); // as the main window starts
 
     m_tree->setColumnCount(1);
     m_tree->header()->hide();
@@ -66,33 +70,37 @@ void DuplicatesDialog::reload()
     QFont bold = m_tree->font();
     bold.setBold(true);
 
+    // "<без тегів>" as the main window shows it (same translation).
+    const QString noTags = QCoreApplication::translate("MainWindow", "<без тегів>");
+
     int groupNo = 0;
     for (const Db::DuplicateGroup &group : groups) {
-        QStringList paths;
-        QHash<QString, qint64> idByPath;
-        for (const ImageRecord &file : group.files) {
-            const QString path = QDir::toNativeSeparators(root.filePath(file.relativePath));
-            paths << path;
-            idByPath.insert(path, file.id);
-        }
-        std::sort(paths.begin(), paths.end(), [](const QString &a, const QString &b) {
-            return QString::compare(a, b, Qt::CaseInsensitive) < 0;
+        QList<Db::DuplicateFile> files = group.files;
+        std::sort(files.begin(), files.end(), [](const Db::DuplicateFile &a, const Db::DuplicateFile &b) {
+            return QString::compare(a.relativePath, b.relativePath, Qt::CaseInsensitive) < 0;
         });
 
         auto *groupItem = new QTreeWidgetItem(m_tree);
         groupItem->setText(0, tr("Група %1 · файлів: %2 · розмір кожного: %3 · sha256 %4…")
                                   .arg(++groupNo)
-                                  .arg(paths.size())
+                                  .arg(files.size())
                                   .arg(QLocale().formattedDataSize(group.size))
                                   .arg(group.sha256.left(12)));
         groupItem->setFont(0, bold);
         groupItem->setFlags(Qt::ItemIsEnabled);
 
-        for (const QString &path : std::as_const(paths)) {
+        for (const Db::DuplicateFile &file : std::as_const(files)) {
+            const QString path = QDir::toNativeSeparators(root.filePath(file.relativePath));
+            const QString virtualPath = file.virtualPath.isEmpty() ? noTags : file.virtualPath;
+            // The collection, as the main window names it: its name, else its tags.
+            const QString collection = file.collectionName.isEmpty() ? virtualPath : file.collectionName;
+            QString text = path + " (" + collection + ")";
+            if (!QFileInfo::exists(path))
+                text += tr("   (файлу вже немає на диску)");
             auto *item = new QTreeWidgetItem(groupItem);
-            const bool exists = QFileInfo::exists(path);
-            item->setText(0, exists ? path : path + tr("   (файлу вже немає на диску)"));
-            item->setData(0, ImageIdRole, idByPath.value(path));
+            item->setText(0, text);
+            item->setToolTip(0, tr("Віртуальний шлях: %1").arg(virtualPath));
+            item->setData(0, ImageIdRole, file.id);
             item->setData(0, PathRole, path);
             item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
             item->setCheckState(0, Qt::Unchecked);
@@ -162,16 +170,63 @@ void DuplicatesDialog::deleteChecked()
 
     QList<qint64> removedIds;
     QStringList failed;
+    int deletedPermanently = 0;
+    bool deleteAllPermanently = false;
+    bool stopped = false;
     QApplication::setOverrideCursor(Qt::WaitCursor);
+    // A question for the user, without the wait cursor over it.
+    const auto ask = [this](const QString &path, Scanner::TrashProblem problem, const QString &error) {
+        QApplication::restoreOverrideCursor();
+        const Scanner::TrashChoice choice = TrashPrompt::ask(this, windowTitle(), path, problem, error, true);
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        return choice;
+    };
     for (const Target &target : std::as_const(targets)) {
         // A file already gone from disk only needs to leave the DB.
-        if (!QFileInfo::exists(target.path) || QFile::moveToTrash(target.path))
+        if (!QFileInfo::exists(target.path)) {
             removedIds << target.id;
-        else
+            continue;
+        }
+        QString error;
+        Scanner::RecycleOutcome outcome = Scanner::recycleFile(target.path, &error);
+        if (outcome == Scanner::RecycleOutcome::NotRecyclable) {
+            // Never deleted permanently without a "yes".
+            const Scanner::TrashChoice choice = deleteAllPermanently
+                ? Scanner::TrashChoice::DeleteAllPermanently
+                : ask(target.path, Scanner::TrashProblem::NotRecyclable, QString());
+            if (choice == Scanner::TrashChoice::Stop) {
+                stopped = true;
+                break;
+            }
+            deleteAllPermanently = choice == Scanner::TrashChoice::DeleteAllPermanently;
+            QFile file(target.path);
+            if (file.remove()) {
+                removedIds << target.id;
+                ++deletedPermanently;
+                continue;
+            }
+            outcome = Scanner::RecycleOutcome::Failed;
+            error = file.errorString();
+        }
+        if (outcome == Scanner::RecycleOutcome::Failed) {
             failed << target.path;
+            if (ask(target.path, Scanner::TrashProblem::Failed, error) != Scanner::TrashChoice::Continue) {
+                stopped = true;
+                break;
+            }
+            continue;
+        }
+        removedIds << target.id;
     }
     const bool dbOk = removedIds.isEmpty() || Db::deleteImages(m_gallery.id, removedIds);
     QApplication::restoreOverrideCursor();
+    if (stopped || deletedPermanently > 0) {
+        QString text = stopped ? tr("Видалення перервано. Прибрано файлів: %1 з %2.").arg(removedIds.size()).arg(targets.size())
+                               : QString();
+        if (deletedPermanently > 0)
+            text += (text.isEmpty() ? QString() : "\n") + tr("З них видалено остаточно, без Кошика: %1.").arg(deletedPermanently);
+        QMessageBox::information(this, windowTitle(), text);
+    }
 
     m_changed = m_changed || !removedIds.isEmpty();
     if (!dbOk)

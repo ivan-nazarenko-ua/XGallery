@@ -22,6 +22,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <shobjidl.h>
 #else
 #include <sys/stat.h>
 #endif
@@ -575,7 +576,7 @@ QString freeFileName(const QDir &dir, const QString &fileName)
 }
 
 ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 galleryId,
-                     const QString &rootFolder, const QList<ImportItem> &items)
+                     const QString &rootFolder, const QList<ImportItem> &items, const std::atomic_bool *stop)
 {
     ImportStats stats;
     const QDir root(rootFolder);
@@ -614,6 +615,10 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
     for (int i = 0; i < items.size(); ++i) {
         if (promise.isCanceled())
             break;
+        if (stop && *stop) {
+            stats.stopped = true; // what was copied so far is committed below
+            break;
+        }
         const ImportItem &item = items.at(i);
         const QFileInfo source(item.source);
         promise.setProgressValueAndText(
@@ -719,7 +724,7 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
 } // namespace
 
 void importFiles(QPromise<ImportStats> &promise, qint64 galleryId, const QString &rootFolder,
-                 const QList<ImportItem> &items)
+                 const QList<ImportItem> &items, const std::atomic_bool *stop)
 {
     const QString connection = QStringLiteral("xgallery_import_%1")
                                    .arg(quintptr(QThread::currentThreadId()));
@@ -729,7 +734,7 @@ void importFiles(QPromise<ImportStats> &promise, qint64 galleryId, const QString
         if (!db.isOpen())
             stats.error = Db::lastError();
         else
-            stats = doImport(promise, db, galleryId, rootFolder, items);
+            stats = doImport(promise, db, galleryId, rootFolder, items, stop);
     }
     Db::close(connection);
     promise.addResult(stats);
@@ -852,4 +857,210 @@ JunkRemoval removeJunk(const JunkScan &junk)
     return result;
 }
 
+#ifdef Q_OS_WIN
+namespace {
+
+// Watches one delete of an IFileOperation: aborts it when the shell would delete the file permanently
+// instead of recycling it, and keeps the result.
+class RecycleSink final : public IFileOperationProgressSink
+{
+public:
+    bool notRecyclable = false;
+    HRESULT result = S_OK;
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **object) override
+    {
+        if (riid == IID_IUnknown || riid == IID_IFileOperationProgressSink) {
+            *object = static_cast<IFileOperationProgressSink *>(this);
+            return S_OK;
+        }
+        *object = nullptr;
+        return E_NOINTERFACE;
+    }
+    // Lives on the stack for one operation only.
+    ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
+    ULONG STDMETHODCALLTYPE Release() override { return 1; }
+
+    HRESULT STDMETHODCALLTYPE PreDeleteItem(DWORD flags, IShellItem *) override
+    {
+        // Without this flag the item would be destroyed, not recycled.
+        if (!(flags & TSF_DELETE_RECYCLE_IF_POSSIBLE)) {
+            notRecyclable = true;
+            return E_ABORT;
+        }
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE PostDeleteItem(DWORD, IShellItem *, HRESULT hrDelete, IShellItem *) override
+    {
+        result = hrDelete;
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE StartOperations() override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE FinishOperations(HRESULT) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE PreRenameItem(DWORD, IShellItem *, LPCWSTR) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE PostRenameItem(DWORD, IShellItem *, LPCWSTR, HRESULT, IShellItem *) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE PreMoveItem(DWORD, IShellItem *, IShellItem *, LPCWSTR) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE PostMoveItem(DWORD, IShellItem *, IShellItem *, LPCWSTR, HRESULT, IShellItem *) override
+    {
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE PreCopyItem(DWORD, IShellItem *, IShellItem *, LPCWSTR) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE PostCopyItem(DWORD, IShellItem *, IShellItem *, LPCWSTR, HRESULT, IShellItem *) override
+    {
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE PreNewItem(DWORD, IShellItem *, LPCWSTR) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE PostNewItem(DWORD, IShellItem *, LPCWSTR, LPCWSTR, DWORD, HRESULT, IShellItem *) override
+    {
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE UpdateProgress(UINT, UINT) override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE ResetTimer() override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE PauseTimer() override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE ResumeTimer() override { return S_OK; }
+};
+
+QString comErrorText(HRESULT hr)
+{
+    const QString text = qt_error_string(int(hr)).trimmed();
+    return text.isEmpty() ? QStringLiteral("0x%1").arg(quint32(hr), 8, 16, QLatin1Char('0')) : text;
+}
+
+} // namespace
+#endif
+
+#ifdef Q_OS_WIN
+namespace {
+
+// recycleFile with COM ready on this thread.
+RecycleOutcome recycleWithCom(const QString &path, QString *error)
+{
+    IFileOperation *operation = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_FileOperation, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&operation));
+    if (FAILED(hr)) {
+        *error = comErrorText(hr);
+        return RecycleOutcome::Failed;
+    }
+    // No shell dialogs at all; FOF_NOCONFIRMATION alone would let it destroy what doesn't fit the bin,
+    // which the sink prevents.
+    operation->SetOperationFlags(FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI
+                                 | FOFX_EARLYFAILURE | FOFX_RECYCLEONDELETE);
+    IShellItem *item = nullptr;
+    const QString native = QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath());
+    hr = SHCreateItemFromParsingName(reinterpret_cast<const wchar_t *>(native.utf16()), nullptr, IID_PPV_ARGS(&item));
+    if (FAILED(hr)) {
+        operation->Release();
+        *error = comErrorText(hr);
+        return RecycleOutcome::Failed;
+    }
+    RecycleSink sink;
+    DWORD cookie = 0;
+    const bool advised = SUCCEEDED(operation->Advise(&sink, &cookie));
+    hr = operation->DeleteItem(item, nullptr);
+    if (SUCCEEDED(hr))
+        hr = operation->PerformOperations();
+    BOOL aborted = FALSE;
+    operation->GetAnyOperationsAborted(&aborted);
+    if (advised)
+        operation->Unadvise(cookie);
+    item->Release();
+    operation->Release();
+
+    if (!advised) {
+        // Without the sink there is no way to know it was recycled: don't claim it.
+        *error = QCoreApplication::translate("Scanner", "Не вдалося стежити за операцією Кошика.");
+        return QFileInfo::exists(path) ? RecycleOutcome::Failed : RecycleOutcome::Recycled;
+    }
+    if (sink.notRecyclable && QFileInfo::exists(path))
+        return RecycleOutcome::NotRecyclable;
+    if (FAILED(hr) || FAILED(sink.result) || aborted || QFileInfo::exists(path)) {
+        *error = comErrorText(FAILED(sink.result) ? sink.result : FAILED(hr) ? hr : E_FAIL);
+        return RecycleOutcome::Failed;
+    }
+    return RecycleOutcome::Recycled;
+}
+
+} // namespace
+#endif
+
+RecycleOutcome recycleFile(const QString &path, QString *error)
+{
+#ifdef Q_OS_WIN
+    // Any thread may call it: COM is initialized here (already initialized: just counted, balanced below).
+    const HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    const RecycleOutcome outcome = recycleWithCom(path, error);
+    if (SUCCEEDED(init))
+        CoUninitialize();
+    return outcome;
+#else
+    if (QFile::moveToTrash(path))
+        return RecycleOutcome::Recycled;
+    *error = QCoreApplication::translate("Scanner", "Не вдалося перемістити в Кошик.");
+    return RecycleOutcome::Failed;
+#endif
+}
+void moveFilesToTrash(QPromise<TrashResult> &promise, const QStringList &paths, const std::atomic_bool *stop,
+                      const TrashQuestion &ask)
+{
+#ifdef Q_OS_WIN
+    // The Recycle Bin is a shell operation (COM) and this is a pool thread.
+    const HRESULT init = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+#endif
+    TrashResult result;
+    bool deleteAllPermanently = false;
+    promise.setProgressRange(0, int(paths.size()));
+    for (int i = 0; i < paths.size(); ++i) {
+        if (promise.isCanceled() || (stop && *stop)) {
+            result.stopped = true;
+            break;
+        }
+        const QString &path = paths.at(i);
+        promise.setProgressValueAndText(
+            i, QCoreApplication::translate("Scanner", "Переміщую в Кошик %1 з %2\n%3")
+                   .arg(i + 1).arg(paths.size()).arg(QFileInfo(path).fileName()));
+        // A file already gone from disk only needs to leave the DB.
+        if (!QFileInfo::exists(path)) {
+            result.trashed << path;
+            continue;
+        }
+
+        QString error;
+        RecycleOutcome outcome = recycleFile(path, &error);
+        if (outcome == RecycleOutcome::NotRecyclable) {
+            const TrashChoice choice = deleteAllPermanently ? TrashChoice::DeleteAllPermanently
+                                                            : ask(path, TrashProblem::NotRecyclable, QString());
+            if (choice == TrashChoice::DeleteAllPermanently)
+                deleteAllPermanently = true;
+            if (choice == TrashChoice::DeletePermanently || choice == TrashChoice::DeleteAllPermanently) {
+                QFile file(path);
+                if (file.remove()) {
+                    result.deleted << path;
+                    continue;
+                }
+                outcome = RecycleOutcome::Failed;
+                error = file.errorString();
+            } else {
+                result.failed << path;
+                result.stopped = true;
+                break;
+            }
+        }
+        if (outcome == RecycleOutcome::Failed) {
+            result.failed << path;
+            if (ask(path, TrashProblem::Failed, error) != TrashChoice::Continue) {
+                result.stopped = true;
+                break;
+            }
+            continue;
+        }
+        result.trashed << path;
+    }
+    promise.setProgressValue(int(paths.size()));
+#ifdef Q_OS_WIN
+    if (SUCCEEDED(init))
+        CoUninitialize();
+#endif
+    promise.addResult(result);
+}
 } // namespace Scanner

@@ -7,6 +7,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
@@ -55,6 +56,22 @@ CollectionDialog::CollectionDialog(const CollectionRecord &collection, const QPi
     buttons->button(QDialogButtonBox::Cancel)->setText(tr("Скасувати"));
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    // All its files at once, after one question (the caller moves them to the Recycle Bin).
+    QPushButton *deleteButton = buttons->addButton(tr("Видалити колекцію…"), QDialogButtonBox::DestructiveRole);
+    connect(deleteButton, &QPushButton::clicked, this, [this, collection] {
+        const QString shown = collection.name.isEmpty() ? collection.virtualPath : collection.name;
+        QMessageBox box(QMessageBox::Warning, tr("Видалити колекцію"),
+                        tr("Перемістити в Кошик усі файли колекції «%1» (%2) і прибрати їх з галереї?")
+                            .arg(shown.isEmpty() ? tr("(файли без тегів)") : shown)
+                            .arg(collection.fileCount),
+                        QMessageBox::NoButton, this);
+        QPushButton *yes = box.addButton(tr("Видалити"), QMessageBox::DestructiveRole);
+        QPushButton *no = box.addButton(tr("Скасувати"), QMessageBox::RejectRole);
+        box.setDefaultButton(no);
+        box.exec();
+        if (box.clickedButton() == yes)
+            done(DeleteRequested);
+    });
 
     auto *layout = new QVBoxLayout(this);
     layout->addLayout(top, 1);
