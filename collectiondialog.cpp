@@ -12,7 +12,8 @@
 #include <QSpinBox>
 #include <QVBoxLayout>
 
-CollectionDialog::CollectionDialog(const CollectionRecord &collection, const QPixmap &cover, QWidget *parent)
+CollectionDialog::CollectionDialog(const CollectionRecord &collection, const QPixmap &cover, const QString &defaultName,
+                                   QWidget *parent)
     : QDialog(parent)
     , m_nameEdit(new QLineEdit(collection.name, this))
     , m_ratingSpin(new QSpinBox(this))
@@ -26,11 +27,11 @@ CollectionDialog::CollectionDialog(const CollectionRecord &collection, const QPi
     if (!cover.isNull())
         preview->setPixmap(cover);
 
-    const QString defaultName = Collections::defaultName(collection.virtualPath);
     auto *nameRow = new QHBoxLayout;
     nameRow->addWidget(m_nameEdit, 1);
     auto *defaultButton = new QPushButton(tr("За замовчуванням"), this);
-    defaultButton->setToolTip(tr("Два останні теги колекції через пробіл: «%1»").arg(defaultName));
+    defaultButton->setToolTip(tr("Тег з останньої групи, де є теги колекції, і найменше число серед її тегів: «%1»")
+                                  .arg(defaultName));
     connect(defaultButton, &QPushButton::clicked, this, [this, defaultName] { m_nameEdit->setText(defaultName); });
     nameRow->addWidget(defaultButton);
 

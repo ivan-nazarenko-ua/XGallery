@@ -134,6 +134,12 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (meta save, bulk edit, tag rename/delete, rescan new/moved files, import) call `Collections::retag` then `sync` in the
   same transaction; after deleting records `sync` alone. `sync`: a collection left without files moves (same row id, new
   hash) to the row-less collection most of its files went to; otherwise it's deleted; row-less hashes get default rows;
+  default name (`Collections::defaultName(vpath, groupRanks)`, owner's rule): "<word> <number>" — number = the smallest by value
+  of the digits-only tags as written, else "001"; word = alphabetically (sortKey) first other tag of the last group (by
+  position) that has one, ungrouped tags last, else "Collection" (not translated: stored data). Existing names are never
+  recomputed; `Db::defaultCollectionName` feeds CollectionDialog's "За замовчуванням". Groups chosen for not-yet-stored tags
+  must be in the DB before the save/import that names the collection: `Db::prepareTagGroups` creates those tags with their
+  group first (metadata Save, bulk edit, download import; an unused one goes with the next `deleteUnusedTags`).
   invalid covers are re-chosen (a cover is valid while its image stays in the collection). Renaming a file doesn't change
   the cover. "Встановити обкладинкою" in the single-image metadata dialog (disabled if already the cover, absent in bulk
   mode) is applied after Save via `Db::setCollectionCover` (the collection the file is in after the tag save).

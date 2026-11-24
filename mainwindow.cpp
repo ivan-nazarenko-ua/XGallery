@@ -1125,7 +1125,8 @@ void MainWindow::editCollection(int index)
         return;
     }
 
-    CollectionDialog dialog(collection, m_thumbButtons[index]->icon().pixmap(ThumbnailSize), this);
+    CollectionDialog dialog(collection, m_thumbButtons[index]->icon().pixmap(ThumbnailSize),
+                            Db::defaultCollectionName(galleryId, collection.virtualPath), this);
     const int result = dialog.exec();
     if (result == CollectionDialog::DeleteRequested) {
         deleteCollectionFiles(galleryId, collection);
@@ -1689,6 +1690,7 @@ void MainWindow::editImageMeta(int index)
     if (result != QDialog::Accepted)
         return;
 
+    prepareTagGroups(galleryId, dialog.groupChanges());
     if (!Db::saveImageMeta(galleryId, record.id, dialog.tags())) {
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти зміни:\n%1").arg(Db::lastError()));
         return;
@@ -1703,7 +1705,6 @@ void MainWindow::editImageMeta(int index)
         if (newName != fileName && renameImageFile(galleryId, record, newName))
             fileName = newName;
     }
-    setTagGroups(galleryId, dialog.groupChanges()); // of tags that exist only now
     statusBar()->showMessage(tr("Збережено: %1").arg(fileName), 5000);
     reloadTags();
     loadPage(m_offset); // new tags may have moved the file to another collection
@@ -1716,6 +1717,13 @@ void MainWindow::applyGalleryTagEdits(qint64 galleryId, const QHash<QString, qin
     deleteTagsFromGallery(galleryId, deleted);
     reloadTags();
     loadPage(m_offset); // a deleted tag may have moved files to other collections
+}
+
+void MainWindow::prepareTagGroups(qint64 galleryId, const QHash<QString, qint64> &groups)
+{
+    // Not fatal: the tags are still saved, only their collection is named without the group.
+    if (!Db::prepareTagGroups(galleryId, groups))
+        QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося змінити групу тегу:\n%1").arg(Db::lastError()));
 }
 
 void MainWindow::setTagGroups(qint64 galleryId, const QHash<QString, qint64> &changes)
@@ -1847,11 +1855,11 @@ void MainWindow::editTagsOfSelection()
     if (added.isEmpty() && removed.isEmpty())
         return;
 
+    prepareTagGroups(galleryId, dialog.groupChanges());
     if (!Db::applyTagChanges(galleryId, ids, added, removed)) {
         QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти зміни:\n%1").arg(Db::lastError()));
         return;
     }
-    setTagGroups(galleryId, dialog.groupChanges()); // of tags that exist only now
     statusBar()->showMessage(tr("Теги оновлено у файлів: %1").arg(ids.size()), 5000);
     reloadTags();
     loadPage(m_offset);

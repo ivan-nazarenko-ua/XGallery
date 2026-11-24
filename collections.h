@@ -2,6 +2,7 @@
 #define COLLECTIONS_H
 
 #include <QByteArray>
+#include <QHash>
 #include <QList>
 #include <QSqlDatabase>
 #include <QString>
@@ -29,9 +30,17 @@ inline constexpr int MaxRating = 100;
 // migration step that recomputes images.vpath_hash and collections.vpath_hash.
 QByteArray hashOf(const QString &virtualPath);
 
-// The last two tags of the virtual path joined by a space: "Маша/Море/2024" -> "Море 2024".
-// Empty for files without tags.
-QString defaultName(const QString &virtualPath);
+// The name a new collection gets: "<word> <number>" (owner's rule).
+// - number: the smallest by value of the tags made of digits only, written as the tag is ("001");
+//   "001" when there is none;
+// - word: among the other tags, the alphabetically first one of the last group (by the groups'
+//   order); none there: of the group before it, and so on; tags without a group come last;
+//   "Collection" when there is none.
+// groupRank: tag -> position of its group (groupRanks()); a tag missing from it has no group.
+// "Маша/Море/2024", Маша in a group: "Маша 2024"; no tags: "Collection 001".
+QString defaultName(const QString &virtualPath, const QHash<QString, int> &groupRank);
+// Tag -> position of its group, for the gallery's tags that are in a group.
+bool groupRanks(const QSqlDatabase &db, qint64 galleryId, QHash<QString, int> *ranks, QString *error);
 
 // Sort key of the shown name: the name, or the virtual path if the name is empty (that is what the
 // main window shows), in VirtualPath::sortKey form (alphabet-aware, case-insensitive). Never null.

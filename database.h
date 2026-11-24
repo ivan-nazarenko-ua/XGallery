@@ -120,6 +120,12 @@ QList<TagGroup> tagGroups(qint64 galleryId);
 bool saveTagGroups(qint64 galleryId, const QList<TagGroup> &groups);
 // Puts the tag into the group (0: no group).
 bool setTagGroup(qint64 galleryId, const QString &tag, qint64 groupId);
+// Before files get new tags: puts the tags (tag → group, 0 = none) into their groups, creating the ones the DB
+// doesn't know yet, so the collections the files land in are named with those groups. A created tag no file
+// gets is deleted by the next deleteUnusedTags (every tag save and import does it). One transaction.
+bool prepareTagGroups(qint64 galleryId, const QHash<QString, qint64> &groups);
+// The name Collections::defaultName gives a collection with this virtual path, with the current groups.
+QString defaultCollectionName(qint64 galleryId, const QString &virtualPath);
 // Splits tags (their order kept inside each part) by group: tags without a group (also names the
 // DB doesn't know) first, then the groups in the user's order. Empty parts are left out.
 QList<TagSection> tagSections(qint64 galleryId, const QStringList &tags);

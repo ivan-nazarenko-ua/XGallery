@@ -94,9 +94,15 @@ photos with the same set of tags stay together, no matter which folder they are 
 
 - The main window shows the **collections** of the found files: a cover and a name each. They come
   in the order of their first file in the search results (see "Sorting"), as many per page as fit in the window.
-- **Name** — by default the last two tags of the path, separated by a space ("Sea 2024"). You can
-  change it; names may repeat. Files without tags form a collection without a name; it is shown as
-  `<no tags>`.
+- **Name** — a new collection is named "<word> <number>". The number is the smallest (by value) of
+  its tags made of digits only, written as the tag is ("005"), or "001" if there is none. The word is
+  the alphabetically first of its other tags in the **last** tag group (by the groups' order) that has
+  any of them; if none, the group before it, and so on; tags without a group come last; "Collection"
+  if there are no such tags. So with groups "People", "Places": tags Mary, Forest (Places), 005, 2024 →
+  "Forest 005"; files without tags → "Collection 001". Put the new tags into groups first (the
+  "Add tags" window, right click → "Group") so a new collection gets the name you want. Existing
+  collections keep their names; "Default" in the collection properties fills in this name. You can
+  change it; names may repeat. A collection whose name was cleared is shown by its tags, or `<no tags>`.
 - **Rating** — 1–100, 50 for a new collection. The rating belongs to the collection, not to single
   files. On the update from a version with file ratings, each collection got the average rating of
   its files, rounded up.

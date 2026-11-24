@@ -71,6 +71,8 @@ private slots:
     void setTagGroup(const QString &tag, qint64 groupId); // 0: no group
     void deleteTagsFromGallery(qint64 galleryId, const QStringList &tags);
     void setTagGroups(qint64 galleryId, const QHash<QString, qint64> &changes); // tag → group, 0 = none
+    // Before new tags are saved: their groups go in first (Db::prepareTagGroups), so the new collection is named with them.
+    void prepareTagGroups(qint64 galleryId, const QHash<QString, qint64> &groups);
     // Saved in a tag picker (metadata or download window): written at once, then the list and grid refresh.
     void applyGalleryTagEdits(qint64 galleryId, const QHash<QString, qint64> &groupChanges, const QStringList &deleted);
 

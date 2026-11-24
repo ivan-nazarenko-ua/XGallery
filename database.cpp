@@ -496,6 +496,50 @@ bool setTagGroup(qint64 galleryId, const QString &tag, qint64 groupId)
     return exec(q);
 }
 
+bool prepareTagGroups(qint64 galleryId, const QHash<QString, qint64> &groups)
+{
+    if (groups.isEmpty())
+        return true;
+    QSqlDatabase db = mainDb();
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return false;
+    }
+    const bool ok = [&] {
+        QSqlQuery insert(db), update(db);
+        insert.prepare("INSERT OR IGNORE INTO tags(gallery_id, name) VALUES(?, ?)");
+        update.prepare("UPDATE tags SET group_id = ? WHERE gallery_id = ? AND name = ?");
+        for (auto it = groups.cbegin(); it != groups.cend(); ++it) {
+            const QString tag = normalizeTag(it.key());
+            if (tag.isEmpty())
+                continue;
+            insert.addBindValue(galleryId);
+            insert.addBindValue(tag);
+            if (!exec(insert))
+                return false;
+            update.addBindValue(it.value() != 0 ? QVariant(it.value()) : QVariant(QMetaType::fromType<qint64>()));
+            update.addBindValue(galleryId);
+            update.addBindValue(tag);
+            if (!exec(update))
+                return false;
+        }
+        return true;
+    }();
+    if (ok && db.commit())
+        return true;
+    if (ok)
+        g_lastError = db.lastError().text();
+    db.rollback();
+    return false;
+}
+
+QString defaultCollectionName(qint64 galleryId, const QString &virtualPath)
+{
+    QHash<QString, int> ranks;
+    Collections::groupRanks(mainDb(), galleryId, &ranks, &g_lastError); // on an error: as if no groups
+    return Collections::defaultName(virtualPath, ranks);
+}
+
 QList<TagSection> tagSections(qint64 galleryId, const QStringList &tags)
 {
     QHash<QString, qint64> groupOf;

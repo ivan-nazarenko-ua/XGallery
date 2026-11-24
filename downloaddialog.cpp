@@ -808,6 +808,14 @@ void DownloadDialog::importDownloads()
     m_progress->setRange(0, 0);
     m_statusLabel->setText(tr("Додаю файли в галерею…"));
 
+    // The groups chosen for new tags go in first: the collection the files make is named with them.
+    QHash<QString, qint64> groups;
+    for (auto it = m_pendingGroups.cbegin(); it != m_pendingGroups.cend(); ++it)
+        if (m_runTags.contains(it.key()))
+            groups.insert(it.key(), it.value());
+    if (!Db::prepareTagGroups(m_gallery.id, groups))
+        QMessageBox::warning(this, windowTitle(), tr("Не вдалося змінити групу тегу:\n%1").arg(Db::lastError()));
+
     auto *watcher = new QFutureWatcher<Scanner::ImportStats>(this);
     connect(watcher, &QFutureWatcherBase::progressRangeChanged, m_progress, &QProgressBar::setRange);
     connect(watcher, &QFutureWatcherBase::progressValueChanged, m_progress, &QProgressBar::setValue);
@@ -816,11 +824,12 @@ void DownloadDialog::importDownloads()
         watcher->deleteLater();
         const Scanner::ImportStats stats = watcher->future().resultCount() > 0 ? watcher->result()
                                                                                 : Scanner::ImportStats{};
-        // The new tags exist now: they get the groups chosen for them.
         if (!m_pendingGroups.isEmpty()) {
+            // Tags made in advance for their groups that no file got (nothing imported): gone again, still pending.
+            QString error;
+            Db::deleteUnusedTags(QSqlDatabase::database(Db::MainConnection), m_gallery.id, &error);
             const QHash<QString, qint64> pending = m_pendingGroups; // keepPendingGroups clears the member
-            emit galleryTagsEdited(pending, {});
-            keepPendingGroups(pending); // what a stopped run didn't bring in stays pending
+            keepPendingGroups(pending);
         }
         emit filesAdded();
         QString message = downloadSummary();

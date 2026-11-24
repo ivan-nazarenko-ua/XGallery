@@ -112,9 +112,17 @@ restent groupées, quel que soit le dossier où elles se trouvent.
 - La fenêtre principale affiche les **collections** des fichiers trouvés : une couverture et un nom
   pour chacune. Elles viennent dans l'ordre de leur premier fichier dans les résultats de recherche
   (voir « Tri »), autant par page que la fenêtre peut en contenir.
-- **Nom** — par défaut, les deux derniers tags du chemin séparés par une espace (« Mer 2024 »).
-  Vous pouvez le changer ; les noms peuvent se répéter. Les fichiers sans tags forment une
-  collection sans nom, affichée comme `<sans tags>`.
+- **Nom** — une nouvelle collection est nommée « <mot> <nombre> ». Le nombre est le plus petit (en
+  valeur) de ses tags composés uniquement de chiffres, écrit comme le tag (« 005 »), ou « 001 » s'il
+  n'y en a pas. Le mot est le premier dans l'ordre alphabétique de ses autres tags dans le **dernier**
+  groupe de tags (selon l'ordre des groupes) qui en contient ; sinon le groupe précédent, et ainsi de
+  suite ; les tags sans groupe viennent en dernier ; « Collection » s'il n'y a pas de tels tags. Ainsi,
+  avec les groupes « Personnes », « Lieux » : tags Marie, Forêt (Lieux), 005, 2024 → « Forêt 005 » ;
+  fichiers sans tags → « Collection 001 ». Pour qu'une nouvelle collection reçoive le nom voulu, mettez
+  d'abord les nouveaux tags dans leurs groupes (fenêtre « Ajouter des tags », clic droit → « Groupe »).
+  Les collections existantes gardent leur nom ; « Par défaut » dans les propriétés de la collection
+  remplit ce nom. Vous pouvez le changer ; les noms peuvent se répéter. Une collection dont le nom a été
+  effacé est affichée par ses tags, ou `<sans tags>`.
 - **Note** — de 1 à 100, 50 pour une nouvelle collection. La note appartient à la collection, pas
   aux fichiers. Lors de la mise à jour depuis une version où les fichiers avaient une note, chaque
   collection a reçu la note moyenne de ses fichiers, arrondie au supérieur.

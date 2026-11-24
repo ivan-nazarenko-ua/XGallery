@@ -27,10 +27,6 @@
         <translation>Par défaut</translation>
     </message>
     <message>
-        <source>Два останні теги колекції через пробіл: «%1»</source>
-        <translation>Les deux derniers tags de la collection, séparés par une espace : « %1 »</translation>
-    </message>
-    <message>
         <source>(файли без тегів)</source>
         <translation>(fichiers sans tags)</translation>
     </message>
@@ -73,6 +69,10 @@
     <message>
         <source>Видалити</source>
         <translation>Supprimer</translation>
+    </message>
+    <message>
+        <source>Тег з останньої групи, де є теги колекції, і найменше число серед її тегів: «%1»</source>
+        <translation>Un tag du dernier groupe contenant des tags de la collection, et le plus petit nombre parmi ses tags : « %1 »</translation>
     </message>
 </context>
 <context>
@@ -452,6 +452,12 @@ Vous pouvez saisir un nouveau nom — le dossier sera créé.</translation>
     <message>
         <source>Завантаження</source>
         <translation>Téléchargement</translation>
+    </message>
+    <message>
+        <source>Не вдалося змінити групу тегу:
+%1</source>
+        <translation>Impossible de changer le groupe du tag :
+%1</translation>
     </message>
 </context>
 <context>

@@ -19,8 +19,10 @@ class CollectionDialog : public QDialog
 public:
     static constexpr int DeleteRequested = 2;
 
-    // cover: its thumbnail as the main window shows it (may be null).
-    CollectionDialog(const CollectionRecord &collection, const QPixmap &cover, QWidget *parent = nullptr);
+    // cover: its thumbnail as the main window shows it (may be null); defaultName: what the
+    // "За замовчуванням" button puts into the name (Db::defaultCollectionName).
+    CollectionDialog(const CollectionRecord &collection, const QPixmap &cover, const QString &defaultName,
+                     QWidget *parent = nullptr);
 
     QString name() const; // trimmed; may be empty
     int rating() const;

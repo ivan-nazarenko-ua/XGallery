@@ -9,6 +9,8 @@
 #include <QStringList>
 #include <QVariant>
 
+#include <algorithm>
+
 #define XXH_INLINE_ALL
 #include "third_party/xxhash/xxhash.h"
 
@@ -57,10 +59,61 @@ QString nameKey(const QString &name, const QString &virtualPath)
     return key.isNull() ? QStringLiteral("") : key;
 }
 
-QString defaultName(const QString &virtualPath)
+QString defaultName(const QString &virtualPath, const QHash<QString, int> &groupRank)
 {
+    const auto digitsOnly = [](const QString &tag) {
+        return std::all_of(tag.cbegin(), tag.cend(), [](QChar c) { return c >= u'0' && c <= u'9'; });
+    };
+    // Compared by value without converting (any length): fewer significant digits = smaller.
+    const auto lessByValue = [](const QString &a, const QString &b) {
+        const auto significant = [](const QString &tag) {
+            qsizetype start = 0;
+            while (start < tag.size() - 1 && tag.at(start) == u'0')
+                ++start;
+            return QStringView(tag).mid(start);
+        };
+        const QStringView x = significant(a), y = significant(b);
+        if (x.size() != y.size())
+            return x.size() < y.size();
+        if (x != y)
+            return x < y;
+        return a < b; // "001" and "1": the same value, one fixed choice
+    };
+
+    QString number;
+    QString word;
+    int wordRank = 0;
+    QString wordKey;
     const QStringList tags = virtualPath.split(u'/', Qt::SkipEmptyParts);
-    return tags.mid(qMax(qsizetype(0), tags.size() - 2)).join(u' ');
+    for (const QString &tag : tags) {
+        if (digitsOnly(tag)) {
+            if (number.isEmpty() || lessByValue(tag, number))
+                number = tag;
+            continue;
+        }
+        const int rank = groupRank.value(tag, -1); // no group: after every group
+        const QString key = VirtualPath::sortKey(tag);
+        if (word.isEmpty() || rank > wordRank || (rank == wordRank && key < wordKey)) {
+            word = tag;
+            wordRank = rank;
+            wordKey = key;
+        }
+    }
+    return (word.isEmpty() ? QStringLiteral("Collection") : word) + u' '
+           + (number.isEmpty() ? QStringLiteral("001") : number);
+}
+
+bool groupRanks(const QSqlDatabase &db, qint64 galleryId, QHash<QString, int> *ranks, QString *error)
+{
+    QSqlQuery q(db);
+    q.prepare("SELECT t.name, g.position FROM tags t JOIN tag_groups g ON g.id = t.group_id WHERE t.gallery_id = ?");
+    q.addBindValue(galleryId);
+    if (!q.exec())
+        return fail(q, error);
+    ranks->clear();
+    while (q.next())
+        ranks->insert(q.value(0).toString(), q.value(1).toInt());
+    return true;
 }
 
 bool retag(const QSqlDatabase &db, const QList<qint64> &imageIds, QList<Move> *moves, QString *error)
@@ -160,12 +213,15 @@ bool sync(const QSqlDatabase &db, qint64 galleryId, const QList<Move> &moves, QS
     }
 
     // New collections: default properties.
+    QHash<QString, int> ranks;
+    if (!orphans.isEmpty() && !groupRanks(db, galleryId, &ranks, error))
+        return false;
     q.prepare("INSERT INTO collections(gallery_id, vpath_hash, name, name_key, rating) VALUES(?, ?, ?, ?, ?)");
     for (auto o = orphans.constBegin(); o != orphans.constEnd(); ++o) {
-        const QString name = defaultName(o.value());
+        const QString name = defaultName(o.value(), ranks);
         q.addBindValue(galleryId);
         q.addBindValue(o.key());
-        q.addBindValue(name.isNull() ? QStringLiteral("") : name); // a null QString would be NULL
+        q.addBindValue(name);
         q.addBindValue(nameKey(name, o.value()));
         q.addBindValue(DefaultRating);
         if (!q.exec())
