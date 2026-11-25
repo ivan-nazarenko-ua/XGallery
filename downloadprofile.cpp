@@ -46,6 +46,7 @@ void DownloadProfile::normalize()
         kept.append({key, attribute.second.trimmed()});
     }
     attributes = kept;
+    attempts = qBound(1, attempts, MaxAttempts);
 }
 
 QJsonObject DownloadProfile::toJson() const
@@ -61,6 +62,7 @@ QJsonObject DownloadProfile::toJson() const
         {"source", source},
         {"classes", classes},
         {"attributes", attributeArray},
+        {"attempts", attempts},
     };
 }
 
@@ -95,6 +97,7 @@ bool DownloadProfile::fromJson(const QJsonObject &object, DownloadProfile *profi
         const QJsonObject attribute = value.toObject();
         result.attributes.append({attribute.value("name").toString(), attribute.value("value").toString()});
     }
+    result.attempts = object.value("attempts").toInt(DefaultAttempts); // files of older versions have none
     result.normalize();
     if (result.name.isEmpty())
         return false;

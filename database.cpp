@@ -1215,7 +1215,7 @@ QList<DownloadProfile> downloadProfiles()
 {
     QList<DownloadProfile> profiles;
     QSqlQuery q(mainDb());
-    if (!exec(q, "SELECT name, user_agent, mode, tag, source, classes, attributes FROM download_profiles"))
+    if (!exec(q, "SELECT name, user_agent, mode, tag, source, classes, attributes, attempts FROM download_profiles"))
         return profiles;
     while (q.next()) {
         DownloadProfile profile;
@@ -1239,6 +1239,8 @@ QList<DownloadProfile> downloadProfiles()
             const QJsonObject attribute = value.toObject();
             profile.attributes.append({attribute.value("name").toString(), attribute.value("value").toString()});
         }
+        profile.attempts = q.value(7).toInt();
+        profile.normalize();
         profiles << profile;
     }
     std::sort(profiles.begin(), profiles.end(), [](const DownloadProfile &a, const DownloadProfile &b) {
@@ -1252,11 +1254,11 @@ static bool storeDownloadProfile(const QSqlDatabase &db, const DownloadProfile &
     // A null QString would be bound as NULL; the columns are NOT NULL.
     const auto text = [](const QString &value) { return value.isNull() ? QStringLiteral("") : value; };
     QSqlQuery q(db);
-    q.prepare("INSERT INTO download_profiles(name, user_agent, mode, tag, source, classes, attributes) "
-              "VALUES(?, ?, ?, ?, ?, ?, ?) "
+    q.prepare("INSERT INTO download_profiles(name, user_agent, mode, tag, source, classes, attributes, attempts) "
+              "VALUES(?, ?, ?, ?, ?, ?, ?, ?) "
               "ON CONFLICT(name) DO UPDATE SET user_agent = excluded.user_agent, mode = excluded.mode, "
               "tag = excluded.tag, source = excluded.source, classes = excluded.classes, "
-              "attributes = excluded.attributes");
+              "attributes = excluded.attributes, attempts = excluded.attempts");
     q.addBindValue(profile.name);
     q.addBindValue(text(profile.userAgent));
     q.addBindValue(profile.mode == DownloadProfile::Mode::Page ? 0 : 1);
@@ -1264,6 +1266,7 @@ static bool storeDownloadProfile(const QSqlDatabase &db, const DownloadProfile &
     q.addBindValue(text(profile.source));
     q.addBindValue(text(profile.classes));
     q.addBindValue(attributesJson(profile));
+    q.addBindValue(profile.attempts);
     return exec(q);
 }
 

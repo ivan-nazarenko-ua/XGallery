@@ -392,16 +392,6 @@ Vous pouvez saisir un nouveau nom — le dossier sera créé.</translation>
         <translation>Aucun lien correspondant au profil n&apos;a été trouvé sur la page.</translation>
     </message>
     <message>
-        <source>Файл %1 з %2: пауза %3 с
-%4</source>
-        <translation>Fichier %1 sur %2 : pause de %3 s
-%4</translation>
-    </message>
-    <message>
-        <source>%1 — не вдалося створити тимчасову папку</source>
-        <translation>%1 — impossible de créer un dossier temporaire</translation>
-    </message>
-    <message>
         <source>%1 — %2</source>
         <translation>%1 — %2</translation>
     </message>
@@ -466,6 +456,64 @@ Vous pouvez saisir un nouveau nom — le dossier sera créé.</translation>
 %1</source>
         <translation>Impossible de changer le groupe du tag :
 %1</translation>
+    </message>
+    <message>
+        <source>Скільки разів пробувати завантажити кожен файл (перша спроба теж рахується).
+Файли з помилкою пробуються знову після всього списку, у ту саму папку,
+після паузи, яку просить сервер (Retry-After), інакше 10 с.</source>
+        <translation>Combien de fois essayer de télécharger chaque fichier (le premier essai compte aussi).
+Les fichiers en erreur sont réessayés après toute la liste, dans le même dossier,
+après la pause demandée par le serveur (Retry-After), sinon 10 s.</translation>
+    </message>
+    <message>
+        <source>Кількість спроб:</source>
+        <translation>Nombre d&apos;essais :</translation>
+    </message>
+    <message>
+        <source>Спроба %1 з %2 · файл %3 з %4</source>
+        <translation>Essai %1 sur %2 · fichier %3 sur %4</translation>
+    </message>
+    <message>
+        <source>%1: пауза %2 с
+%3</source>
+        <translation>%1 : pause %2 s
+%3</translation>
+    </message>
+    <message>
+        <source>%1 год %2 хв</source>
+        <translation>%1 h %2 min</translation>
+    </message>
+    <message>
+        <source>%1 хв %2 с</source>
+        <translation>%1 min %2 s</translation>
+    </message>
+    <message>
+        <source>Не вдалося завантажити файлів: %1.
+Сервер просить почекати %2 перед наступною спробою (спроба %3 з %4).
+
+Чекати? «Ні» — завершити з тим, що вже завантажено.</source>
+        <translation>Fichiers non téléchargés : %1.
+Le serveur demande d&apos;attendre %2 avant le prochain essai (essai %3 sur %4).
+
+Attendre ? « Non » — terminer avec ce qui est déjà téléchargé.</translation>
+    </message>
+    <message>
+        <source>Не вдалося завантажити файлів: %1.
+Спроба %2 з %3 почнеться через %4</source>
+        <translation>Fichiers non téléchargés : %1.
+L&apos;essai %2 sur %3 commence dans %4</translation>
+    </message>
+    <message>
+        <source>не вдалося створити тимчасову папку</source>
+        <translation>impossible de créer un dossier temporaire</translation>
+    </message>
+    <message>
+        <source>Спроб: %1 з %2.</source>
+        <translation>Essais : %1 sur %2.</translation>
+    </message>
+    <message>
+        <source>Повторні спроби скасовано: пауза була б надто довгою.</source>
+        <translation>Nouveaux essais annulés : la pause aurait été trop longue.</translation>
     </message>
 </context>
 <context>

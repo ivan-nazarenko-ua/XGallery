@@ -1,5 +1,6 @@
 #include "downloaddialog.h"
 
+#include "busyspinner.h"
 #include "downloadnames.h"
 #include "htmllinks.h"
 #include "tagpickerdialog.h"
@@ -27,6 +28,7 @@
 #include <QRandomGenerator>
 #include <QSaveFile>
 #include <QShortcut>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTableWidget>
@@ -45,6 +47,9 @@ constexpr qint64 MaxPageBytes = 64LL * 1024 * 1024;          // a page to search
 constexpr int MinPauseMs = 100;
 constexpr int MaxPauseMs = 3000;
 constexpr int MaxListedFailures = 20;
+constexpr qint64 DefaultRetryPauseMs = 10'000;   // no Retry-After from the server
+constexpr qint64 AskAboveRetryPauseMs = 60'000;  // a longer pause only with the user's "yes"
+constexpr qint64 MaxTimerMs = 24LL * 3600 * 1000; // QTimer takes an int
 
 bool lessCaseInsensitive(const QString &a, const QString &b)
 {
@@ -66,6 +71,7 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
     , m_sourceEdit(new QLineEdit(this))
     , m_classesEdit(new QLineEdit(this))
     , m_attributesTable(new QTableWidget(0, 2, this))
+    , m_attemptsSpin(new QSpinBox(this))
     , m_urlEdit(new QLineEdit(this))
     , m_userEdit(new QLineEdit(this))
     , m_passwordEdit(new QLineEdit(this))
@@ -76,6 +82,7 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
     , m_profileTab(new QWidget(this))
     , m_form(new QWidget(this))
     , m_progress(new QProgressBar(this))
+    , m_spinner(new BusySpinner(this))
     , m_statusLabel(new QLabel(this))
     , m_startButton(new QPushButton(this))
     , m_fetcher(new HttpFetcher(this))
@@ -180,6 +187,15 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
     filesForm->addRow(tr("Джерело посилань:"), m_sourceEdit);
     filesForm->addRow(tr("Клас:"), m_classesEdit);
     filesForm->addRow(tr("Атрибути:"), attributesColumn);
+    m_attemptsSpin->setRange(1, DownloadProfile::MaxAttempts);
+    m_attemptsSpin->setValue(DownloadProfile::DefaultAttempts);
+    m_attemptsSpin->setToolTip(tr("Скільки разів пробувати завантажити кожен файл (перша спроба теж рахується).\n"
+                                  "Файли з помилкою пробуються знову після всього списку, у ту саму папку,\n"
+                                  "після паузи, яку просить сервер (Retry-After), інакше 10 с."));
+    auto *attemptsRow = new QHBoxLayout;
+    attemptsRow->addWidget(m_attemptsSpin);
+    attemptsRow->addStretch(1);
+    filesForm->addRow(tr("Кількість спроб:"), attemptsRow);
 
     auto *settingsForm = new QFormLayout(settingsBox);
     settingsForm->addRow(tr("User-Agent:"), m_userAgentEdit);
@@ -279,11 +295,15 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
     startRow->addWidget(m_startButton);
     startRow->addStretch(1);
 
+    auto *statusRow = new QHBoxLayout;
+    statusRow->addWidget(m_spinner, 0, Qt::AlignTop);
+    statusRow->addWidget(m_statusLabel, 1);
+
     auto *downloadTab = new QWidget(this);
     auto *downloadLayout = new QVBoxLayout(downloadTab);
     downloadLayout->addWidget(m_form, 1);
     downloadLayout->addWidget(m_progress);
-    downloadLayout->addWidget(m_statusLabel);
+    downloadLayout->addLayout(statusRow);
     downloadLayout->addLayout(startRow);
 
     auto *tabs = new QTabWidget(this);
@@ -300,6 +320,10 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
 
     m_pauseTimer.setSingleShot(true);
     connect(&m_pauseTimer, &QTimer::timeout, this, &DownloadDialog::downloadNextFile);
+    m_retryTimer.setSingleShot(true);
+    connect(&m_retryTimer, &QTimer::timeout, this, &DownloadDialog::startNextAttempt);
+    m_countdownTimer.setInterval(250);
+    connect(&m_countdownTimer, &QTimer::timeout, this, &DownloadDialog::showRetryCountdown);
 
     reloadProfiles(QString());
     refreshTags();
@@ -333,6 +357,7 @@ DownloadProfile DownloadDialog::profileFromFields() const
     profile.tag = DownloadProfile::Tag(m_tagCombo->currentData().toInt());
     profile.source = m_sourceEdit->text();
     profile.classes = m_classesEdit->text();
+    profile.attempts = m_attemptsSpin->value();
     for (int row = 0; row < m_attributesTable->rowCount(); ++row) {
         const QTableWidgetItem *name = m_attributesTable->item(row, 0);
         const QTableWidgetItem *value = m_attributesTable->item(row, 1);
@@ -350,6 +375,7 @@ void DownloadDialog::showProfile(const DownloadProfile &profile)
     m_tagCombo->setCurrentIndex(qMax(0, m_tagCombo->findData(int(profile.tag))));
     m_sourceEdit->setText(profile.source);
     m_classesEdit->setText(profile.classes);
+    m_attemptsSpin->setValue(profile.attempts);
     m_attributesTable->setRowCount(0);
     for (const auto &attribute : profile.attributes)
         addAttributeRow(attribute.first, attribute.second);
@@ -607,8 +633,10 @@ void DownloadDialog::startOrStop()
         return;
     m_stopped = true;
     m_startButton->setEnabled(false); // until what's downloaded is in the gallery
-    if (m_pauseTimer.isActive()) {
+    if (m_pauseTimer.isActive() || m_retryTimer.isActive()) {
         m_pauseTimer.stop();
+        m_retryTimer.stop();
+        m_countdownTimer.stop();
         importDownloads();
     } else {
         m_fetcher->abort(); // its finished() goes on from there
@@ -655,8 +683,12 @@ void DownloadDialog::start()
     m_runTags = m_tags;
     m_targetDir = folder + '/' + DownloadNames::nextFolderName(root.filePath(folder));
     m_links.clear();
+    m_queue.clear();
     m_next = 0;
+    m_attempt = 1;
+    m_retriesDeclined = false;
     m_failed.clear();
+    m_retrying.clear();
     m_items.clear();
     m_stopped = false;
     m_fetcher->setUserAgent(m_runProfile.userAgent);
@@ -712,49 +744,138 @@ void DownloadDialog::onPageFetched(const HttpFetcher::Result &result)
         finishRun(tr("На сторінці не знайдено посилань, що підходять під профіль."), true);
         return;
     }
-    m_progress->setRange(0, int(m_links.size()));
+    for (int i = 0; i < m_links.size(); ++i)
+        m_queue << i;
+    m_progress->setRange(0, int(m_queue.size()));
     m_progress->setValue(0);
     scheduleNextFile();
 }
 
+QString DownloadDialog::fileHeader() const
+{
+    if (m_attempt == 1)
+        return tr("Файл %1 з %2").arg(m_next + 1).arg(m_queue.size());
+    return tr("Спроба %1 з %2 · файл %3 з %4")
+        .arg(m_attempt)
+        .arg(m_runProfile.attempts)
+        .arg(m_next + 1)
+        .arg(m_queue.size());
+}
+
 void DownloadDialog::scheduleNextFile()
 {
-    if (m_stopped || m_next >= m_links.size()) {
+    if (m_stopped) {
         importDownloads();
+        return;
+    }
+    if (m_next >= m_queue.size()) {
+        finishAttempt();
         return;
     }
     // A pause before every request: no load spikes on the server, no anti-bot alarm.
     const int pause = int(QRandomGenerator::global()->bounded(MinPauseMs, MaxPauseMs + 1));
-    m_statusLabel->setText(tr("Файл %1 з %2: пауза %3 с\n%4")
-                               .arg(m_next + 1)
-                               .arg(m_links.size())
-                               .arg(QLocale().toString(pause / 1000.0, 'f', 1))
-                               .arg(shownUrl(m_links.at(m_next))));
+    m_statusLabel->setText(tr("%1: пауза %2 с\n%3")
+                               .arg(fileHeader(), QLocale().toString(pause / 1000.0, 'f', 1),
+                                    shownUrl(m_links.at(m_queue.at(m_next)))));
+    m_spinner->start();
     m_pauseTimer.start(pause);
+}
+
+void DownloadDialog::fileFailed(const QString &reason, qint64 retryAfterMs)
+{
+    m_failed.append({m_queue.at(m_next), reason, retryAfterMs >= 0 ? retryAfterMs : DefaultRetryPauseMs});
+    ++m_next;
+    m_progress->setValue(m_next);
+    scheduleNextFile();
+}
+
+void DownloadDialog::finishAttempt()
+{
+    if (m_failed.isEmpty() || m_attempt >= m_runProfile.attempts) {
+        importDownloads();
+        return;
+    }
+    // The longest pause any failed file asked for, waited out after the whole list.
+    qint64 pause = 0;
+    for (const Failure &failure : std::as_const(m_failed))
+        pause = qMax(pause, failure.pauseMs);
+    pause = qMin(pause, MaxTimerMs);
+    if (pause > AskAboveRetryPauseMs) {
+        const qint64 seconds = (pause + 999) / 1000;
+        const QString wait = seconds >= 3600 ? tr("%1 год %2 хв").arg(seconds / 3600).arg(seconds / 60 % 60)
+                                             : tr("%1 хв %2 с").arg(seconds / 60).arg(seconds % 60);
+        const auto answer = QMessageBox::question(
+            this, windowTitle(),
+            tr("Не вдалося завантажити файлів: %1.\n"
+               "Сервер просить почекати %2 перед наступною спробою (спроба %3 з %4).\n\n"
+               "Чекати? «Ні» — завершити з тим, що вже завантажено.")
+                .arg(m_failed.size())
+                .arg(wait)
+                .arg(m_attempt + 1)
+                .arg(m_runProfile.attempts));
+        if (answer != QMessageBox::Yes) {
+            m_retriesDeclined = true;
+            importDownloads();
+            return;
+        }
+    }
+    m_retryDeadline = QDeadlineTimer(pause);
+    m_spinner->start();
+    showRetryCountdown();
+    m_countdownTimer.start();
+    m_retryTimer.start(int(pause));
+}
+
+void DownloadDialog::showRetryCountdown()
+{
+    const qint64 seconds = (m_retryDeadline.remainingTime() + 999) / 1000;
+    const QString left = seconds >= 3600 ? QStringLiteral("%1:%2:%3")
+                                               .arg(seconds / 3600)
+                                               .arg(seconds / 60 % 60, 2, 10, QLatin1Char('0'))
+                                               .arg(seconds % 60, 2, 10, QLatin1Char('0'))
+                                         : QStringLiteral("%1:%2").arg(seconds / 60).arg(seconds % 60, 2, 10, QLatin1Char('0'));
+    m_statusLabel->setText(tr("Не вдалося завантажити файлів: %1.\nСпроба %2 з %3 почнеться через %4")
+                               .arg(m_failed.size())
+                               .arg(m_attempt + 1)
+                               .arg(m_runProfile.attempts)
+                               .arg(left));
+}
+
+void DownloadDialog::startNextAttempt()
+{
+    m_countdownTimer.stop();
+    m_queue.clear();
+    for (const Failure &failure : std::as_const(m_failed))
+        m_queue << failure.index;
+    m_retrying = m_failed;
+    m_failed.clear();
+    ++m_attempt;
+    m_next = 0;
+    m_progress->setRange(0, int(m_queue.size()));
+    m_progress->setValue(0);
+    scheduleNextFile();
 }
 
 void DownloadDialog::downloadNextFile()
 {
-    const QUrl url = m_links.at(m_next);
+    m_spinner->stop();
+    const int index = m_queue.at(m_next);
+    const QUrl url = m_links.at(index);
     // A folder per file: the name it gets later can't collide with another download's.
-    const QString folder = QString::number(m_next);
-    if (!QDir(m_tempDir->path()).mkdir(folder)) {
-        m_failed << tr("%1 — не вдалося створити тимчасову папку").arg(url.toDisplayString());
-        ++m_next;
-        m_progress->setValue(m_next);
-        scheduleNextFile();
+    // Another attempt of the file reuses its (empty) folder.
+    const QString folder = QString::number(index);
+    if (!QDir(m_tempDir->path()).mkpath(folder)) {
+        fileFailed(tr("не вдалося створити тимчасову папку"));
         return;
     }
     m_file = std::make_unique<QFile>(QDir(m_tempDir->filePath(folder)).filePath(QStringLiteral("download.part")));
     if (!m_file->open(QIODevice::WriteOnly)) {
-        m_failed << tr("%1 — %2").arg(url.toDisplayString(), m_file->errorString());
+        const QString error = m_file->errorString();
         m_file.reset();
-        ++m_next;
-        m_progress->setValue(m_next);
-        scheduleNextFile();
+        fileFailed(error);
         return;
     }
-    const QString header = tr("Файл %1 з %2").arg(m_next + 1).arg(m_links.size());
+    const QString header = fileHeader();
     const QString shown = shownUrl(url);
     m_statusLabel->setText(header + "\n" + shown);
     connect(m_fetcher, &HttpFetcher::progress, this, [this, header, shown](qint64 received, qint64) {
@@ -767,7 +888,8 @@ void DownloadDialog::downloadNextFile()
 void DownloadDialog::onFileFetched(const HttpFetcher::Result &result)
 {
     disconnect(m_fetcher, &HttpFetcher::progress, this, nullptr);
-    const QUrl url = m_links.at(m_next);
+    const int index = m_queue.at(m_next);
+    const QUrl url = m_links.at(index);
     m_file->close();
     if (result.aborted) {
         m_file->remove();
@@ -777,20 +899,22 @@ void DownloadDialog::onFileFetched(const HttpFetcher::Result &result)
     }
     if (!result.ok) {
         m_file->remove();
-        m_failed << tr("%1 — %2").arg(url.toDisplayString(), result.error);
-    } else {
-        QString name = DownloadNames::nameFromUrl(url);
-        if (name.isEmpty())
-            name = DownloadNames::numberedName(m_next + 1, int(m_links.size()),
-                                               DownloadNames::extensionFor(result.contentType));
-        const QString path = QFileInfo(m_file->fileName()).dir().filePath(name);
-        if (m_file->rename(path)) {
-            m_items.append({path, m_targetDir, name, true, m_runTags, false});
-        } else {
-            m_failed << tr("%1 — %2").arg(url.toDisplayString(), m_file->errorString());
-            m_file->remove();
-        }
+        m_file.reset();
+        fileFailed(result.error, result.retryAfterMs);
+        return;
     }
+    QString name = DownloadNames::nameFromUrl(url);
+    if (name.isEmpty())
+        name = DownloadNames::numberedName(index + 1, int(m_links.size()), DownloadNames::extensionFor(result.contentType));
+    const QString path = QFileInfo(m_file->fileName()).dir().filePath(name);
+    if (!m_file->rename(path)) {
+        const QString error = m_file->errorString();
+        m_file->remove();
+        m_file.reset();
+        fileFailed(error);
+        return;
+    }
+    m_items.append({path, m_targetDir, name, true, m_runTags, false});
     m_file.reset();
     ++m_next;
     m_progress->setValue(m_next);
@@ -800,10 +924,11 @@ void DownloadDialog::onFileFetched(const HttpFetcher::Result &result)
 void DownloadDialog::importDownloads()
 {
     if (m_items.isEmpty()) {
-        finishRun(downloadSummary(), !m_failed.isEmpty());
+        finishRun(downloadSummary(), !failures().isEmpty());
         return;
     }
     m_importing = true;
+    m_spinner->stop();
     m_startButton->setEnabled(false);
     m_progress->setRange(0, 0);
     m_statusLabel->setText(tr("Додаю файли в галерею…"));
@@ -840,7 +965,7 @@ void DownloadDialog::importDownloads()
             message += "\n\n" + tr("Не вдалося скопіювати:\n%1").arg(stats.failed.join('\n'));
         if (!stats.error.isEmpty())
             message += "\n\n" + stats.error;
-        finishRun(message, !m_failed.isEmpty() || !stats.failed.isEmpty() || !stats.error.isEmpty());
+        finishRun(message, !failures().isEmpty() || !stats.failed.isEmpty() || !stats.error.isEmpty());
     });
     const qint64 galleryId = m_gallery.id;
     const QString root = m_gallery.rootFolder;
@@ -850,8 +975,17 @@ void DownloadDialog::importDownloads()
     }));
 }
 
+QList<DownloadDialog::Failure> DownloadDialog::failures() const
+{
+    QList<Failure> all = m_failed;
+    if (m_attempt > 1 && m_next < m_retrying.size())
+        all += m_retrying.mid(m_next); // m_queue follows m_retrying
+    return all;
+}
+
 QString DownloadDialog::downloadSummary() const
 {
+    const QList<Failure> failed = failures();
     QString message;
     if (m_stopped)
         message = tr("Завантаження зупинено.") + "\n";
@@ -860,11 +994,18 @@ QString DownloadDialog::downloadSummary() const
     message += tr("Знайдено посилань — %1, завантажено — %2, з помилкою — %3.")
                    .arg(m_links.size())
                    .arg(m_items.size())
-                   .arg(m_failed.size());
-    if (!m_failed.isEmpty()) {
-        message += "\n\n" + tr("Не завантажено:") + "\n" + m_failed.mid(0, MaxListedFailures).join('\n');
-        if (m_failed.size() > MaxListedFailures)
-            message += "\n" + tr("…і ще %1").arg(m_failed.size() - MaxListedFailures);
+                   .arg(failed.size());
+    if (m_attempt > 1)
+        message += "\n" + tr("Спроб: %1 з %2.").arg(m_attempt).arg(m_runProfile.attempts);
+    if (m_retriesDeclined)
+        message += "\n" + tr("Повторні спроби скасовано: пауза була б надто довгою.");
+    if (!failed.isEmpty()) {
+        QStringList lines;
+        for (const Failure &failure : failed.mid(0, MaxListedFailures))
+            lines << tr("%1 — %2").arg(m_links.at(failure.index).toDisplayString(), failure.reason);
+        message += "\n\n" + tr("Не завантажено:") + "\n" + lines.join('\n');
+        if (failed.size() > MaxListedFailures)
+            message += "\n" + tr("…і ще %1").arg(failed.size() - MaxListedFailures);
     }
     return message;
 }
@@ -889,6 +1030,10 @@ void DownloadDialog::setRunning(bool running)
 {
     m_running = running;
     m_importing = false;
+    if (!running) {
+        m_spinner->stop();
+        m_countdownTimer.stop();
+    }
     m_profileTab->setEnabled(!running);
     m_form->setEnabled(!running);
     m_progress->setVisible(running);

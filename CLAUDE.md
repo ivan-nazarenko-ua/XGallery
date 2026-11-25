@@ -48,10 +48,11 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
 | `collections.*` | Collections: xxh128 of the virtual path (`hashOf`), default name, `retag` (vpath/vpath_key/vpath_hash of files) and `sync` (collection rows: transfer, create, delete, covers) |
 | `downloaddialog.*` | "Завантажити з інтернету" window, two tabs ("Профіль" first: profiles + profile fields; "Завантаження": the rest + start): profiles (PuTTY-like), never-saved login/password/token, tags, root folder, the run (page → links → files one by one → `Scanner::importFiles`) |
-| `downloadprofile.*` | `DownloadProfile` (mode, tag, source attribute, classes, attributes) + JSON of one profile and of the export file |
+| `downloadprofile.*` | `DownloadProfile` (mode, tag, source attribute, classes, attributes, attempts) + JSON of one profile and of the export file |
 | `htmllinks.*` | Regex tag tokenizer (no WebKit): profile → strings → links; entities; page charset (Windows code pages when Qt has no ICU) |
 | `downloadnames.*` | Next `NNN-collection` folder, file name from a link, `file_NNN.ext`, `page_N.html/bin`, extension from Content-Type |
-| `httpfetcher.*` | One GET at a time over `QNetworkAccessManager`: manual redirects, credentials only for the page's host, 60 s transfer timeout |
+| `httpfetcher.*` | One GET at a time over `QNetworkAccessManager`: manual redirects, credentials only for the page's host, 60 s transfer timeout; `retryAfterMs` (Retry-After: seconds or HTTP date vs. the answer's Date) |
+| `busyspinner.*` | `BusySpinner`: a circle of dots running round, hidden while stopped (download manager's pauses) |
 | `wrappedtext.*` | `WrappedText::layout`: text wrapped at word boundaries, else anywhere (main tag list, tag picker) |
 | `trashprompt.*` | `TrashPrompt::ask`: the question when a file can't go to the Recycle Bin (delete permanently / all such / continue / stop) |
 | `thumbcache.*` | Grid thumbnails cached as `thumbs/<first 2 hex>/<sha256>.png` next to the DB (256 subfolders: FAT32 per-folder limit) (`ThumbCache::thumbnail` = load or make+store; stores only real previews of images and videos, never extension cards — a video Windows can't preview is tried again; "other" files skip the cache). All errors ignored |
@@ -64,10 +65,10 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
   never edit existing steps. A DB with a newer `user_version` than `latestVersion()` is refused (not opened). At start
   `Db::repairCollections` fixes what an older version (which ignores newer schemas) may have written: files without
-  vpath_hash are retagged, collections left without files are synced away. Current version: 15 (galleries; rating+name; allow_upscale; no commas in tags;
+  vpath_hash are retagged, collections left without files are synced away. Current version: 16 (galleries; rating+name; allow_upscale; no commas in tags;
   normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space;
   collections — images.rating dropped; collections.name_key; tag groups; download profiles; gallery settings;
-  collections.name_manual; ignored duplicates).
+  collections.name_manual; ignored duplicates; download_profiles.attempts).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -219,6 +220,11 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   extension → `file_NNN.<ext from Content-Type or bin>`. Files are imported with `ImportItem::keepDuplicate`, `folderTags = false`
   and `tags` = the window's tags (owner's decision: no folder tags, the user picks the tags in the window). While it runs only "Зупинити завантаження" works (both tabs' fields disabled) and the window can't close; stopping
   still imports what was downloaded.
+  Attempts (profile, files mode, 1…99, default 3, total incl. the first): any failure of a file (also 404, local errors) puts it
+  in `m_failed` with a pause (`Result::retryAfterMs`, else 10 s); after the list, the longest pause is waited out (over 60 s only after
+  a yes; no = finish as now, `m_retriesDeclined`), then the failed files (`m_queue` of indexes into `m_links`, `m_retrying`) are tried
+  again into the same `m_targetDir` (one import at the end). `BusySpinner` + countdown during every pause; Stop works there too.
+  The page itself is not retried.
 - Per-gallery settings: table `gallery_settings` (gallery_id, key, value; cascade with the gallery), `Db::gallerySetting`/`setGallerySetting`.
   The root folder last chosen is remembered per gallery: downloads (`download_root_folder`, saved on a list pick or when the typed
   name is left) and imports (`import_root_folder`, shared by add files/folder, saved when `chooseRootTag` is accepted; it wins

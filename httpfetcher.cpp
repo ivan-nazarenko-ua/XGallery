@@ -1,10 +1,13 @@
 #include "httpfetcher.h"
 
 #include <QAuthenticator>
+#include <QDateTime>
 #include <QIODevice>
+#include <QLocale>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QTimeZone>
 
 namespace {
 
@@ -17,7 +20,52 @@ bool isHttp(const QUrl &url)
     return scheme == QLatin1String("http") || scheme == QLatin1String("https");
 }
 
+// An HTTP date: "Sun, 06 Nov 1994 08:49:37 GMT" (RFC 2822 parsing, which knows no "GMT", covers it
+// as "+0000"), or the obsolete RFC 850 ("Sunday, 06-Nov-94 08:49:37 GMT") and asctime
+// ("Sun Nov  6 08:49:37 1994") forms. Always UTC.
+QDateTime httpDate(const QByteArray &value)
+{
+    const QString text = QString::fromLatin1(value).simplified();
+    QString rfc2822 = text;
+    if (rfc2822.endsWith(QLatin1String(" GMT")))
+        rfc2822 = rfc2822.chopped(3) + QLatin1String("+0000");
+    QDateTime date = QDateTime::fromString(rfc2822, Qt::RFC2822Date);
+    if (date.isValid())
+        return date;
+    const QLocale c = QLocale::c();
+    QString rest = text.mid(text.indexOf(u',') + 1).trimmed();
+    rest.remove(QLatin1String(" GMT"));
+    date = c.toDateTime(rest, QStringLiteral("dd-MMM-yy HH:mm:ss"));
+    if (date.isValid()) {
+        if (date.date().year() < 1970)
+            date = date.addYears(100);
+    } else {
+        date = c.toDateTime(text, QStringLiteral("ddd MMM d HH:mm:ss yyyy"));
+    }
+    if (date.isValid())
+        date.setTimeZone(QTimeZone::UTC);
+    return date;
+}
+
 } // namespace
+
+qint64 HttpFetcher::retryAfterMs(const QByteArray &value, const QByteArray &serverDate)
+{
+    const QByteArray trimmed = value.trimmed();
+    if (trimmed.isEmpty())
+        return -1;
+    bool isNumber = false;
+    const qint64 seconds = trimmed.toLongLong(&isNumber);
+    if (isNumber)
+        return seconds < 0 ? -1 : qMin(seconds, qint64(365) * 24 * 3600) * 1000;
+    const QDateTime when = httpDate(trimmed);
+    if (!when.isValid())
+        return -1;
+    QDateTime now = httpDate(serverDate);
+    if (!now.isValid())
+        now = QDateTime::currentDateTimeUtc();
+    return qMax(qint64(0), now.msecsTo(when));
+}
 
 HttpFetcher::HttpFetcher(QObject *parent)
     : QObject(parent)
@@ -174,6 +222,8 @@ void HttpFetcher::onFinished()
         } else {
             error = QStringLiteral("HTTP %1").arg(status);
         }
+        if (status > 0)
+            m_result.retryAfterMs = retryAfterMs(reply->rawHeader("Retry-After"), reply->rawHeader("Date"));
         finish(false, error);
         return;
     }

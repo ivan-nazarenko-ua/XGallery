@@ -38,7 +38,12 @@ public:
         QUrl finalUrl;        // after redirects
         QByteArray contentType;
         QByteArray body;      // when no output device was given
+        qint64 retryAfterMs = -1; // an error answer's Retry-After header as a pause; -1: none
     };
+
+    // The pause a Retry-After header asks for: seconds, or an HTTP date (counted from serverDate,
+    // the answer's Date header, if it parses, else from now). -1 if it can't be read. Past: 0.
+    static qint64 retryAfterMs(const QByteArray &value, const QByteArray &serverDate = {});
 
     explicit HttpFetcher(QObject *parent = nullptr);
 

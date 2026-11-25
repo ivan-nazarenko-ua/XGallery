@@ -23,6 +23,8 @@ set(PROJECT_SOURCES
         scanner.cpp
         busydialog.h
         busydialog.cpp
+        busyspinner.h
+        busyspinner.cpp
         imageviewer.h
         imageviewer.cpp
         gallerydialog.h

@@ -340,6 +340,8 @@ Un profil contient :
     - **Attributs** — des paires « attribut = valeur » que la balise doit aussi avoir ; la valeur
       doit être exactement celle-ci, sans tenir compte de la casse. Les espaces autour des noms et
       des valeurs sont retirés à l'enregistrement.
+    - **Nombre d'essais** — combien de fois au total chaque fichier est essayé (le premier essai
+      compte ; 3 par défaut, voir plus bas).
 
 Les liens tirés d'un attribut peuvent être relatifs (`/img/1.jpg`, `../a.jpg`) : ils sont complétés
 par l'adresse de la page. Seuls les liens commençant par `http://` ou `https://` sont téléchargés ;
@@ -373,6 +375,16 @@ Pendant ce temps, la fenêtre affiche une barre de progression et tout est verro
 la galerie. Une requête sans données pendant 60 secondes échoue ; les réponses d'erreur (404, etc.)
 ne sont pas enregistrées. À la fin, vous voyez combien de liens ont été trouvés, téléchargés et en
 erreur, et lesquels.
+
+**Les fichiers en erreur sont réessayés**, autant de fois que l'indique **« Nombre d'essais »**. Un
+fichier qui échoue pour n'importe quelle raison (même 404) est mis de côté, et le reste de la liste
+continue. Après le dernier fichier, le programme attend, puis réessaie les fichiers mis de côté, dans
+**le même dossier**. L'attente est celle que le serveur a demandée dans son en-tête `Retry-After` (la
+plus longue parmi les fichiers en erreur), 10 secondes s'il n'a rien demandé. Si elle dépasse une
+minute, le programme demande d'abord s'il faut attendre ; **« Non »** termine comme d'habitude avec ce
+qui a déjà été téléchargé. Pendant les pauses, un cercle tourne (et avant un nouvel essai, un compte à
+rebours s'affiche) : on voit que le programme n'est pas bloqué. **« Arrêter le téléchargement »**
+fonctionne aussi pendant les pauses.
 
 Un fichier prend le nom de la dernière partie de son lien, sans les paramètres : de
 `https://site.com/1280/7/279/82840051/82840051_018_7358.jpg?ver=1` vient `82840051_018_7358.jpg`.

@@ -295,6 +295,8 @@ A profile holds:
       matters, as in HTML. Empty: any tag.
     - **Attributes** — "attribute = value" pairs the tag must also have; the value must be exactly
       this, but case doesn't matter. Spaces around names and values are removed on saving.
+    - **Attempts** — how many times each file is tried in all (the first try counts; 3 by default,
+      see below).
 
 Links from an attribute may be relative (`/img/1.jpg`, `../a.jpg`): they are completed with the
 page's address. Only links starting with `http://` or `https://` are downloaded; the same link is
@@ -324,6 +326,14 @@ a progress bar and everything except **"Stop download"** is locked. What has bee
 a stop is still added to the gallery. A request with no data for 60 seconds fails; error responses
 (404 and the like) are not saved. In the end you see how many links were found, downloaded and
 failed, and which ones failed.
+
+**Failed files are tried again**, as many times as **"Attempts"** says. A file that fails for any
+reason (even 404) is put aside, and the rest of the list goes on. After the last file the program
+waits, then tries the failed files again, into **the same folder**. The wait is what the server asked
+for in its `Retry-After` header (the longest of the failed files), 10 seconds if it didn't ask. If that
+is more than a minute, the program asks first whether to wait; **"No"** finishes as usual with what has
+been downloaded. Pauses show a spinning circle (and before another attempt, a countdown), so you
+can see the program isn't hung. **"Stop download"** works during the pauses too.
 
 A file is named after the last part of its link without the query: from
 `https://site.com/1280/7/279/82840051/82840051_018_7358.jpg?ver=1` comes `82840051_018_7358.jpg`.

@@ -392,16 +392,6 @@ You can type a new name — the folder will be created.</translation>
         <translation>No links matching the profile were found on the page.</translation>
     </message>
     <message>
-        <source>Файл %1 з %2: пауза %3 с
-%4</source>
-        <translation>File %1 of %2: pause %3 s
-%4</translation>
-    </message>
-    <message>
-        <source>%1 — не вдалося створити тимчасову папку</source>
-        <translation>%1 — could not create a temporary folder</translation>
-    </message>
-    <message>
         <source>%1 — %2</source>
         <translation>%1 — %2</translation>
     </message>
@@ -466,6 +456,64 @@ You can type a new name — the folder will be created.</translation>
 %1</source>
         <translation>Could not change the tag&apos;s group:
 %1</translation>
+    </message>
+    <message>
+        <source>Скільки разів пробувати завантажити кожен файл (перша спроба теж рахується).
+Файли з помилкою пробуються знову після всього списку, у ту саму папку,
+після паузи, яку просить сервер (Retry-After), інакше 10 с.</source>
+        <translation>How many times to try each file (the first try counts too).
+Files that failed are tried again after the whole list, in the same folder,
+after the pause the server asks for (Retry-After), otherwise 10 s.</translation>
+    </message>
+    <message>
+        <source>Кількість спроб:</source>
+        <translation>Attempts:</translation>
+    </message>
+    <message>
+        <source>Спроба %1 з %2 · файл %3 з %4</source>
+        <translation>Attempt %1 of %2 · file %3 of %4</translation>
+    </message>
+    <message>
+        <source>%1: пауза %2 с
+%3</source>
+        <translation>%1: pause %2 s
+%3</translation>
+    </message>
+    <message>
+        <source>%1 год %2 хв</source>
+        <translation>%1 h %2 min</translation>
+    </message>
+    <message>
+        <source>%1 хв %2 с</source>
+        <translation>%1 min %2 s</translation>
+    </message>
+    <message>
+        <source>Не вдалося завантажити файлів: %1.
+Сервер просить почекати %2 перед наступною спробою (спроба %3 з %4).
+
+Чекати? «Ні» — завершити з тим, що вже завантажено.</source>
+        <translation>Files that could not be downloaded: %1.
+The server asks to wait %2 before the next attempt (attempt %3 of %4).
+
+Wait? &quot;No&quot; — finish with what is already downloaded.</translation>
+    </message>
+    <message>
+        <source>Не вдалося завантажити файлів: %1.
+Спроба %2 з %3 почнеться через %4</source>
+        <translation>Files that could not be downloaded: %1.
+Attempt %2 of %3 starts in %4</translation>
+    </message>
+    <message>
+        <source>не вдалося створити тимчасову папку</source>
+        <translation>could not create a temporary folder</translation>
+    </message>
+    <message>
+        <source>Спроб: %1 з %2.</source>
+        <translation>Attempts: %1 of %2.</translation>
+    </message>
+    <message>
+        <source>Повторні спроби скасовано: пауза була б надто довгою.</source>
+        <translation>Further attempts cancelled: the pause would have been too long.</translation>
     </message>
 </context>
 <context>

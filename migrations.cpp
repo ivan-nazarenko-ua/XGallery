@@ -653,6 +653,13 @@ bool toV15IgnoredDuplicates(Sql &s)
                   " PRIMARY KEY (gallery_id, path, sha256))");
 }
 
+// ---- v15 -> v16: download attempts --------------------------------------------------------------
+// How many times the download manager tries a file of a profile in all.
+bool toV16DownloadAttempts(Sql &s)
+{
+    return s.exec("ALTER TABLE download_profiles ADD COLUMN attempts INTEGER NOT NULL DEFAULT 3");
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -746,6 +753,7 @@ static const QList<Migrations::Step> &steps()
         {toV13GallerySettings, false},
         {toV14ManualNames, false},
         {toV15IgnoredDuplicates, false},
+        {toV16DownloadAttempts, false},
     };
     return list;
 }

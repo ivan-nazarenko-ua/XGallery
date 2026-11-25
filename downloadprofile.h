@@ -28,8 +28,15 @@ struct DownloadProfile
     QString classes; // space-separated; all must be in the tag's class attribute (case-sensitive)
     // Attributes the tag must have: name (case-insensitive, as in HTML) -> exact value, case ignored.
     QList<QPair<QString, QString>> attributes;
+    // Files mode: how many times a file is tried in all (the first try included). Failed files are
+    // tried again after the whole list, in the same folder.
+    int attempts = DefaultAttempts;
 
-    // Trims the text fields, drops attributes without a name (and repeats of one, the first wins).
+    static constexpr int DefaultAttempts = 3;
+    static constexpr int MaxAttempts = 99;
+
+    // Trims the text fields, drops attributes without a name (and repeats of one, the first wins),
+    // keeps attempts within 1…MaxAttempts.
     void normalize();
 
     QJsonObject toJson() const;
