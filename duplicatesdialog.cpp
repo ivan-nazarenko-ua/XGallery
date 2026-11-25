@@ -3,6 +3,7 @@
 #include "trashprompt.h"
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
@@ -10,8 +11,10 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLocale>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSet>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
@@ -21,12 +24,24 @@ namespace {
 
 constexpr int ImageIdRole = Qt::UserRole;
 constexpr int PathRole = Qt::UserRole + 1;
+constexpr int GroupIndexRole = Qt::UserRole + 2; // group items: index in m_groups
+
+bool hasUnignored(const Db::DuplicateGroup &group)
+{
+    return std::any_of(group.files.cbegin(), group.files.cend(), [](const Db::DuplicateFile &f) { return !f.ignored; });
+}
+
+bool hasIgnored(const Db::DuplicateGroup &group)
+{
+    return std::any_of(group.files.cbegin(), group.files.cend(), [](const Db::DuplicateFile &f) { return f.ignored; });
+}
 
 } // namespace
 
 DuplicatesDialog::DuplicatesDialog(const Gallery &gallery, QWidget *parent)
     : QDialog(parent)
     , m_gallery(gallery)
+    , m_showIgnored(new QCheckBox(tr("Показати пропущені дублікати"), this))
     , m_tree(new QTreeWidget(this))
     , m_summary(new QLabel(this))
     , m_deleteButton(new QPushButton(tr("Видалити"), this))
@@ -38,10 +53,15 @@ DuplicatesDialog::DuplicatesDialog(const Gallery &gallery, QWidget *parent)
     m_tree->header()->hide();
     m_tree->setUniformRowHeights(true);
     m_tree->setSelectionMode(QAbstractItemView::NoSelection);
+    m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_tree, &QTreeWidget::itemChanged, this, &DuplicatesDialog::updateButtons);
+    connect(m_tree, &QWidget::customContextMenuRequested, this, &DuplicatesDialog::showContextMenu);
+    connect(m_showIgnored, &QCheckBox::toggled, this, &DuplicatesDialog::populate);
 
     auto *hint = new QLabel(tr("Відміть файли, які треба видалити. Вони підуть у Кошик і зникнуть з бази.\n"
-                               "Якщо відмітити всі файли групи, перший з них залишиться."),
+                               "Якщо відмітити всі файли групи, перший з них залишиться.\n"
+                               "Правий клік на групі — «Ігнорувати»: група більше не показуватиметься, "
+                               "поки в ній не з'явиться новий дублікат."),
                             this);
     hint->setWordWrap(true);
 
@@ -53,19 +73,41 @@ DuplicatesDialog::DuplicatesDialog(const Gallery &gallery, QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
     layout->addWidget(hint);
+    layout->addWidget(m_showIgnored);
     layout->addWidget(m_tree, 1);
     layout->addWidget(m_summary);
     layout->addWidget(buttons);
 
+    // Entries of files that are gone, moved or changed would only pile up.
+    Db::pruneIgnoredDuplicates(m_gallery.id);
     reload();
 }
 
 void DuplicatesDialog::reload()
 {
+    m_groups = Db::findDuplicates(m_gallery.id);
+    for (Db::DuplicateGroup &group : m_groups)
+        std::sort(group.files.begin(), group.files.end(), [](const Db::DuplicateFile &a, const Db::DuplicateFile &b) {
+            return QString::compare(a.relativePath, b.relativePath, Qt::CaseInsensitive) < 0;
+        });
+    populate();
+}
+
+void DuplicatesDialog::populate()
+{
+    // Checks survive a rebuild (toggling the checkbox, ignoring a group) for files still shown.
+    QSet<qint64> checkedIds;
+    for (int g = 0; g < m_tree->topLevelItemCount(); ++g) {
+        QTreeWidgetItem *group = m_tree->topLevelItem(g);
+        for (int i = 0; i < group->childCount(); ++i)
+            if (group->child(i)->checkState(0) == Qt::Checked)
+                checkedIds.insert(group->child(i)->data(0, ImageIdRole).toLongLong());
+    }
+
     const QSignalBlocker blocker(m_tree);
     m_tree->clear();
 
-    const QList<Db::DuplicateGroup> groups = Db::findDuplicates(m_gallery.id);
+    const bool showIgnored = m_showIgnored->isChecked();
     const QDir root(m_gallery.rootFolder);
     QFont bold = m_tree->font();
     bold.setBold(true);
@@ -74,11 +116,14 @@ void DuplicatesDialog::reload()
     const QString noTags = QCoreApplication::translate("MainWindow", "<без тегів>");
 
     int groupNo = 0;
-    for (const Db::DuplicateGroup &group : groups) {
-        QList<Db::DuplicateFile> files = group.files;
-        std::sort(files.begin(), files.end(), [](const Db::DuplicateFile &a, const Db::DuplicateFile &b) {
-            return QString::compare(a.relativePath, b.relativePath, Qt::CaseInsensitive) < 0;
-        });
+    int hidden = 0;
+    for (int index = 0; index < m_groups.size(); ++index) {
+        const Db::DuplicateGroup &group = m_groups.at(index);
+        if (!showIgnored && !hasUnignored(group)) {
+            ++hidden;
+            continue;
+        }
+        const QList<Db::DuplicateFile> &files = group.files;
 
         auto *groupItem = new QTreeWidgetItem(m_tree);
         groupItem->setText(0, tr("Група %1 · файлів: %2 · розмір кожного: %3 · sha256 %4…")
@@ -88,6 +133,7 @@ void DuplicatesDialog::reload()
                                   .arg(group.sha256.left(12)));
         groupItem->setFont(0, bold);
         groupItem->setFlags(Qt::ItemIsEnabled);
+        groupItem->setData(0, GroupIndexRole, index);
 
         for (const Db::DuplicateFile &file : std::as_const(files)) {
             const QString path = QDir::toNativeSeparators(root.filePath(file.relativePath));
@@ -95,6 +141,8 @@ void DuplicatesDialog::reload()
             // The collection, as the main window names it: its name, else its tags.
             const QString collection = file.collectionName.isEmpty() ? virtualPath : file.collectionName;
             QString text = path + " (" + collection + ")";
+            if (file.ignored)
+                text = tr("[пропущено]") + " " + text;
             if (!QFileInfo::exists(path))
                 text += tr("   (файлу вже немає на диску)");
             auto *item = new QTreeWidgetItem(groupItem);
@@ -103,17 +151,55 @@ void DuplicatesDialog::reload()
             item->setData(0, ImageIdRole, file.id);
             item->setData(0, PathRole, path);
             item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
-            item->setCheckState(0, Qt::Unchecked);
+            item->setCheckState(0, checkedIds.contains(file.id) ? Qt::Checked : Qt::Unchecked);
         }
         groupItem->setExpanded(true);
     }
 
-    if (groups.isEmpty()) {
+    if (groupNo == 0) {
         auto *item = new QTreeWidgetItem(m_tree);
-        item->setText(0, tr("Дублікатів не знайдено."));
+        item->setText(0, hidden > 0 ? tr("Нових дублікатів немає, лише пропущені (груп: %1).").arg(hidden)
+                                    : tr("Дублікатів не знайдено."));
         item->setFlags(Qt::ItemIsEnabled);
     }
     updateButtons();
+}
+
+void DuplicatesDialog::showContextMenu(const QPoint &pos)
+{
+    QTreeWidgetItem *item = m_tree->itemAt(pos);
+    if (item && item->parent())
+        item = item->parent(); // a file: the menu is about its group
+    if (!item || !item->data(0, GroupIndexRole).isValid())
+        return;
+    const int index = item->data(0, GroupIndexRole).toInt();
+    if (index < 0 || index >= m_groups.size())
+        return;
+
+    QMenu menu(this);
+    QAction *ignore = menu.addAction(tr("Ігнорувати"));
+    ignore->setEnabled(hasUnignored(m_groups.at(index))); // otherwise it is ignored already
+    QAction *unignore = menu.addAction(tr("Не ігнорувати"));
+    unignore->setEnabled(hasIgnored(m_groups.at(index)));
+    QAction *chosen = menu.exec(m_tree->viewport()->mapToGlobal(pos));
+    if (!chosen || (chosen != ignore && chosen != unignore))
+        return;
+    const bool ignored = chosen == ignore; // both act on the whole group
+
+    Db::DuplicateGroup &group = m_groups[index];
+    QList<ImageRecord> files;
+    for (const Db::DuplicateFile &file : std::as_const(group.files))
+        files << file;
+    if (!Db::setDuplicatesIgnored(m_gallery.id, files, ignored)) {
+        QMessageBox::warning(this, windowTitle(),
+                             (ignored ? tr("Не вдалося запам'ятати пропущені файли:\n%1")
+                                      : tr("Не вдалося прибрати файли зі списку пропущених:\n%1"))
+                                 .arg(Db::lastError()));
+        return;
+    }
+    for (Db::DuplicateFile &file : group.files)
+        file.ignored = ignored;
+    populate();
 }
 
 void DuplicatesDialog::updateButtons()
@@ -131,7 +217,14 @@ void DuplicatesDialog::updateButtons()
             if (group->child(i)->checkState(0) == Qt::Checked)
                 ++checked;
     }
-    m_summary->setText(tr("Груп: %1, файлів у них: %2, відмічено: %3").arg(groups).arg(files).arg(checked));
+    QString summary = tr("Груп: %1, файлів у них: %2, відмічено: %3").arg(groups).arg(files).arg(checked);
+    if (!m_showIgnored->isChecked()) {
+        const auto hidden = std::count_if(m_groups.cbegin(), m_groups.cend(),
+                                          [](const Db::DuplicateGroup &g) { return !hasUnignored(g); });
+        if (hidden > 0)
+            summary += tr(", приховано пропущених груп: %1").arg(hidden);
+    }
+    m_summary->setText(summary);
     m_deleteButton->setEnabled(checked > 0);
 }
 

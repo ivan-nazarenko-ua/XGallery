@@ -232,7 +232,13 @@ with it.
 - **Find duplicates…** — groups of files with identical content. After each file's path its
   collection is shown in brackets; its tooltip shows the whole virtual path (its tags). Tick the extra ones and click
   "Delete": the files go to the **Recycle Bin**. If you tick all the files of a group, the first
-  one is kept.
+  one is kept. Duplicates you want to keep: right-click the group → **"Ignore"**. The group
+  disappears and won't show up in later searches. The program remembers each of its files by its
+  path and content, so if the same content later turns up somewhere else, the group is shown
+  again, with **[skipped]** before the paths of the files ignored earlier (they can still be ticked
+  for deletion). A file that was moved or changed is no longer ignored. **"Show skipped
+  duplicates"** above the list shows the fully ignored groups too. **"Don't ignore"** in the same
+  menu takes the whole group off the ignore list again.
 - **Delete junk…** — deletes `Thumbs.db`, `desktop.ini` and empty folders in the gallery.
   The deletion is **permanent, without the Recycle Bin**, so a list and a confirmation come
   first. The program's own folder is left alone.

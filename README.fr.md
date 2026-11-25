@@ -269,7 +269,14 @@ programme vous demande quoi en faire.
   chaque fichier, sa collection est indiquée entre parenthèses ; son info-bulle montre le chemin
   virtuel complet (ses tags). Cochez ceux qui
   sont en trop et cliquez sur « Supprimer » : les fichiers vont dans la **Corbeille**. Si vous
-  cochez tous les fichiers d'un groupe, le premier est conservé.
+  cochez tous les fichiers d'un groupe, le premier est conservé. Des doublons à garder : clic
+  droit sur le groupe → **« Ignorer »**. Le groupe disparaît et ne réapparaîtra plus lors des
+  recherches suivantes. Le programme retient chacun de ses fichiers par son chemin et son contenu :
+  si le même contenu apparaît plus tard ailleurs, le groupe est de nouveau affiché, avec
+  **[ignoré]** devant les chemins des fichiers ignorés auparavant (on peut quand même les cocher
+  pour les supprimer). Un fichier déplacé ou modifié n'est plus ignoré. La case **« Afficher les
+  doublons ignorés »** au-dessus de la liste montre aussi les groupes entièrement ignorés.
+  **« Ne plus ignorer »**, dans le même menu, retire de nouveau tout le groupe de la liste des ignorés.
 - **Supprimer les fichiers inutiles…** — supprime `Thumbs.db`, `desktop.ini` et les dossiers
   vides de la galerie. La suppression est **définitive, sans passer par la Corbeille** : une liste
   et une confirmation s'affichent donc d'abord. Le dossier du programme n'est pas touché.

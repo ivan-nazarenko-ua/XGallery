@@ -494,12 +494,6 @@ Vous pouvez saisir un nouveau nom — le dossier sera créé.</translation>
         <translation>Doublons — %1</translation>
     </message>
     <message>
-        <source>Відміть файли, які треба видалити. Вони підуть у Кошик і зникнуть з бази.
-Якщо відмітити всі файли групи, перший з них залишиться.</source>
-        <translation>Cochez les fichiers à supprimer. Ils iront dans la Corbeille et seront retirés de la base.
-Si tous les fichiers d&apos;un groupe sont cochés, le premier est conservé.</translation>
-    </message>
-    <message>
         <source>Закрити</source>
         <translation>Fermer</translation>
     </message>
@@ -556,6 +550,50 @@ Lancez une analyse pour retirer les enregistrements.</translation>
     <message>
         <source>З них видалено остаточно, без Кошика: %1.</source>
         <translation>Dont supprimés définitivement, sans la Corbeille : %1.</translation>
+    </message>
+    <message>
+        <source>Показати пропущені дублікати</source>
+        <translation>Afficher les doublons ignorés</translation>
+    </message>
+    <message>
+        <source>Відміть файли, які треба видалити. Вони підуть у Кошик і зникнуть з бази.
+Якщо відмітити всі файли групи, перший з них залишиться.
+Правий клік на групі — «Ігнорувати»: група більше не показуватиметься, поки в ній не з&apos;явиться новий дублікат.</source>
+        <translation>Cochez les fichiers à supprimer. Ils iront dans la Corbeille et seront retirés de la base.
+Si tous les fichiers d&apos;un groupe sont cochés, le premier est conservé.
+Clic droit sur un groupe → « Ignorer » : le groupe n&apos;est plus affiché tant qu&apos;un nouveau doublon n&apos;y apparaît pas.</translation>
+    </message>
+    <message>
+        <source>[пропущено]</source>
+        <translation>[ignoré]</translation>
+    </message>
+    <message>
+        <source>Нових дублікатів немає, лише пропущені (груп: %1).</source>
+        <translation>Aucun nouveau doublon, seulement des doublons ignorés (groupes : %1).</translation>
+    </message>
+    <message>
+        <source>Ігнорувати</source>
+        <translation>Ignorer</translation>
+    </message>
+    <message>
+        <source>Не вдалося запам&apos;ятати пропущені файли:
+%1</source>
+        <translation>Impossible de mémoriser les fichiers ignorés :
+%1</translation>
+    </message>
+    <message>
+        <source>, приховано пропущених груп: %1</source>
+        <translation>, groupes ignorés masqués : %1</translation>
+    </message>
+    <message>
+        <source>Не ігнорувати</source>
+        <translation>Ne plus ignorer</translation>
+    </message>
+    <message>
+        <source>Не вдалося прибрати файли зі списку пропущених:
+%1</source>
+        <translation>Impossible de retirer les fichiers de la liste des ignorés :
+%1</translation>
     </message>
 </context>
 <context>

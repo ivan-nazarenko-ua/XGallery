@@ -44,7 +44,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `mediafiles.*` | File kind by extension (image / video / other) and thumbnails (videos via `IShellItemImageFactory`, others as an extension card) |
 | `imageviewer.*` | Viewer window: fit/upscale, arrows (circular), double-click full screen, right-click rotation, Delete key (only with a `DeleteHandler`, else the refusal warning) |
 | `imagerotation.*` | Saving rotations to disk (lossless for JPEG via EXIF orientation) |
-| `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `DuplicatesDialog`: path + " (collection)" per file, tooltip = virtual path (`Db::DuplicateFile`). `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating. `GalleryDialog` also edits the tag groups |
+| `gallerydialog.*`, `imagemetadialog.*`, `tagpickerdialog.*`, `duplicatesdialog.*`, `collectiondialog.*`, `busydialog.*` | Dialogs. `DuplicatesDialog`: path + " (collection)" per file, tooltip = virtual path (`Db::DuplicateFile`); right click on a group → "Ігнорувати" / "Не ігнорувати" (see Duplicates rule). `ImageMetaDialog` has a bulk mode (several paths → common tags only, no name/delete/export). `TagPickerDialog` is its "Додати теги" window. `CollectionDialog` = collection name + rating. `GalleryDialog` also edits the tag groups |
 | `virtualpath.*` | Virtual path (sorted tags joined by `/`) and its sort key |
 | `collections.*` | Collections: xxh128 of the virtual path (`hashOf`), default name, `retag` (vpath/vpath_key/vpath_hash of files) and `sync` (collection rows: transfer, create, delete, covers) |
 | `downloaddialog.*` | "Завантажити з інтернету" window, two tabs ("Профіль" first: profiles + profile fields; "Завантаження": the rest + start): profiles (PuTTY-like), never-saved login/password/token, tags, root folder, the run (page → links → files one by one → `Scanner::importFiles`) |
@@ -64,10 +64,10 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
   never edit existing steps. A DB with a newer `user_version` than `latestVersion()` is refused (not opened). At start
   `Db::repairCollections` fixes what an older version (which ignores newer schemas) may have written: files without
-  vpath_hash are retagged, collections left without files are synced away. Current version: 14 (galleries; rating+name; allow_upscale; no commas in tags;
+  vpath_hash are retagged, collections left without files are synced away. Current version: 15 (galleries; rating+name; allow_upscale; no commas in tags;
   normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space;
   collections — images.rating dropped; collections.name_key; tag groups; download profiles; gallery settings;
-  collections.name_manual).
+  collections.name_manual; ignored duplicates).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -223,6 +223,12 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   The root folder last chosen is remembered per gallery: downloads (`download_root_folder`, saved on a list pick or when the typed
   name is left) and imports (`import_root_folder`, shared by add files/folder, saved when `chooseRootTag` is accepted; it wins
   over the add-folder suggestion, which stays in the list). A remembered folder that no longer exists is ignored (first one as before).
+- **Ignored duplicates**: table `ignored_duplicates` (gallery_id, path relative to the root, sha256; cascade with the gallery).
+  "Ігнорувати" / "Не ігнорувати" (DuplicatesDialog's group menu, `Db::setDuplicatesIgnored`) store / drop every file of the
+  group (each enabled only while it would change something). `Db::findDuplicates`
+  marks such files `ignored` (path and sha256 both match); shown with "[пропущено]" before the path, still checkable for deletion.
+  A group of ignored files only is shown only with "Показати пропущені дублікати" (not saved, off at start). Moved/changed files
+  no longer match; entries no record matches are dropped when the dialog opens (`Db::pruneIgnoredDuplicates`).
 - "Сховати чужі теги": the tag list shows `Db::tagsOfSearch` (tags of the last search's results).
 - Tag filter field (`m_tagFilterEdit`, under that checkbox): always hides list entries not containing its text
   (case-insensitive); the `<без тегів>` service entry always stays. Only the user changes the text; it is not saved between runs.

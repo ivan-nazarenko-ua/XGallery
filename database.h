@@ -208,6 +208,7 @@ struct DuplicateFile : ImageRecord
 {
     QString virtualPath;    // empty = no tags
     QString collectionName; // the stored name, may be empty
+    bool ignored = false;   // its path + sha256 is in the ignore list ("пропущено")
 };
 
 struct DuplicateGroup
@@ -219,6 +220,12 @@ struct DuplicateGroup
 
 // Files of the gallery that share a sha256, one group per hash.
 QList<DuplicateGroup> findDuplicates(qint64 galleryId);
+
+// Adds the files (path + sha256) to the gallery's ignore list of duplicates, or takes them off it.
+bool setDuplicatesIgnored(qint64 galleryId, const QList<ImageRecord> &files, bool ignored);
+
+// Drops ignore entries no record of the gallery matches any more (file deleted, moved or changed).
+bool pruneIgnoredDuplicates(qint64 galleryId);
 
 // Removes the records (not the files), then tags nobody uses any more and cached thumbnails
 // no other record needs.

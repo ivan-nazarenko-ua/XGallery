@@ -641,6 +641,18 @@ bool toV14ManualNames(Sql &s)
     return true;
 }
 
+// ---- v14 -> v15: duplicates the user chose to ignore -----------------------------------------
+// A file is ignored by its place (path relative to the gallery root) and content: moved or
+// changed, it counts as a new duplicate again.
+bool toV15IgnoredDuplicates(Sql &s)
+{
+    return s.exec("CREATE TABLE ignored_duplicates ("
+                  " gallery_id INTEGER NOT NULL REFERENCES galleries(id) ON DELETE CASCADE,"
+                  " path TEXT NOT NULL,"
+                  " sha256 TEXT NOT NULL,"
+                  " PRIMARY KEY (gallery_id, path, sha256))");
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -733,6 +745,7 @@ static const QList<Migrations::Step> &steps()
         {toV12DownloadProfiles, false},
         {toV13GallerySettings, false},
         {toV14ManualNames, false},
+        {toV15IgnoredDuplicates, false},
     };
     return list;
 }

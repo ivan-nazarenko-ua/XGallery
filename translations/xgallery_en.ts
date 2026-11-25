@@ -494,12 +494,6 @@ You can type a new name — the folder will be created.</translation>
         <translation>Duplicates — %1</translation>
     </message>
     <message>
-        <source>Відміть файли, які треба видалити. Вони підуть у Кошик і зникнуть з бази.
-Якщо відмітити всі файли групи, перший з них залишиться.</source>
-        <translation>Check the files to delete. They go to the Recycle Bin and are removed from the database.
-If all files of a group are checked, the first one is kept.</translation>
-    </message>
-    <message>
         <source>Закрити</source>
         <translation>Close</translation>
     </message>
@@ -556,6 +550,50 @@ Rescan to remove the records.</translation>
     <message>
         <source>З них видалено остаточно, без Кошика: %1.</source>
         <translation>Of these, deleted permanently, without the Recycle Bin: %1.</translation>
+    </message>
+    <message>
+        <source>Показати пропущені дублікати</source>
+        <translation>Show skipped duplicates</translation>
+    </message>
+    <message>
+        <source>Відміть файли, які треба видалити. Вони підуть у Кошик і зникнуть з бази.
+Якщо відмітити всі файли групи, перший з них залишиться.
+Правий клік на групі — «Ігнорувати»: група більше не показуватиметься, поки в ній не з&apos;явиться новий дублікат.</source>
+        <translation>Check the files to delete. They go to the Recycle Bin and are removed from the database.
+If all files of a group are checked, the first one is kept.
+Right-click a group → “Ignore”: the group is no longer shown until a new duplicate appears in it.</translation>
+    </message>
+    <message>
+        <source>[пропущено]</source>
+        <translation>[skipped]</translation>
+    </message>
+    <message>
+        <source>Нових дублікатів немає, лише пропущені (груп: %1).</source>
+        <translation>No new duplicates, only skipped ones (groups: %1).</translation>
+    </message>
+    <message>
+        <source>Ігнорувати</source>
+        <translation>Ignore</translation>
+    </message>
+    <message>
+        <source>Не вдалося запам&apos;ятати пропущені файли:
+%1</source>
+        <translation>Could not remember the skipped files:
+%1</translation>
+    </message>
+    <message>
+        <source>, приховано пропущених груп: %1</source>
+        <translation>, skipped groups hidden: %1</translation>
+    </message>
+    <message>
+        <source>Не ігнорувати</source>
+        <translation>Don&apos;t ignore</translation>
+    </message>
+    <message>
+        <source>Не вдалося прибрати файли зі списку пропущених:
+%1</source>
+        <translation>Could not take the files off the skipped list:
+%1</translation>
     </message>
 </context>
 <context>
@@ -1787,7 +1825,7 @@ Run a rescan.</translation>
 Імена, задані вручну, можна зберегти або теж замінити. Повернути старі імена не вийде.</source>
         <translation>Give the collections of the gallery &quot;%1&quot; their default names (a tag of the last group and the smallest number)?
 
-Names given by hand can be kept or replaced too. The old names can't be brought back.</translation>
+Names given by hand can be kept or replaced too. The old names can&apos;t be brought back.</translation>
     </message>
     <message>
         <source>Перейменувати лише автоматичні імена</source>

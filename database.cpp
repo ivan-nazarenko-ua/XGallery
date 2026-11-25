@@ -1098,7 +1098,9 @@ QList<DuplicateGroup> findDuplicates(qint64 galleryId)
 {
     QList<DuplicateGroup> groups;
     QSqlQuery q(mainDb());
-    q.prepare("SELECT i.sha256, i.size, i.id, i.path, i.vpath, c.name FROM images i "
+    q.prepare("SELECT i.sha256, i.size, i.id, i.path, i.vpath, c.name, "
+              " EXISTS(SELECT 1 FROM ignored_duplicates d WHERE d.gallery_id = i.gallery_id "
+              "        AND d.path = i.path AND d.sha256 = i.sha256) FROM images i "
               "LEFT JOIN collections c ON c.gallery_id = i.gallery_id AND c.vpath_hash = i.vpath_hash "
               "WHERE i.gallery_id = ? AND i.sha256 IN ("
               " SELECT sha256 FROM images WHERE gallery_id = ? GROUP BY sha256 HAVING COUNT(*) > 1) "
@@ -1113,9 +1115,48 @@ QList<DuplicateGroup> findDuplicates(qint64 galleryId)
             groups.append({hash, q.value(1).toLongLong(), {}});
         groups.last().files.append({{q.value(2).toLongLong(), q.value(3).toString(), groups.last().size, hash},
                                     q.value(4).toString(),
-                                    q.value(5).toString()});
+                                    q.value(5).toString(),
+                                    q.value(6).toBool()});
     }
     return groups;
+}
+
+bool setDuplicatesIgnored(qint64 galleryId, const QList<ImageRecord> &files, bool ignored)
+{
+    QSqlDatabase db = mainDb();
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return false;
+    }
+    bool ok = true;
+    {
+        QSqlQuery q(db);
+        q.prepare(ignored ? "INSERT OR IGNORE INTO ignored_duplicates(gallery_id, path, sha256) VALUES(?, ?, ?)"
+                          : "DELETE FROM ignored_duplicates WHERE gallery_id = ? AND path = ? AND sha256 = ?");
+        for (const ImageRecord &file : files) {
+            q.addBindValue(galleryId);
+            q.addBindValue(file.relativePath);
+            q.addBindValue(file.sha256);
+            if (!(ok = exec(q)))
+                break;
+        }
+    }
+    if (ok && db.commit())
+        return true;
+    if (ok)
+        g_lastError = db.lastError().text();
+    db.rollback();
+    return false;
+}
+
+bool pruneIgnoredDuplicates(qint64 galleryId)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("DELETE FROM ignored_duplicates WHERE gallery_id = ? AND NOT EXISTS("
+              " SELECT 1 FROM images i WHERE i.gallery_id = ignored_duplicates.gallery_id "
+              " AND i.path = ignored_duplicates.path AND i.sha256 = ignored_duplicates.sha256)");
+    q.addBindValue(galleryId);
+    return exec(q);
 }
 
 bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds)
