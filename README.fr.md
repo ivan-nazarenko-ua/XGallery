@@ -45,7 +45,10 @@ simplement sans groupe.
   fichier `Vacances/2024/mer.jpg` reçoit les tags « Vacances » et « 2024 ». Une virgule dans un
   nom de dossier est remplacée par une espace.
 - **Les vôtres.** Dans une collection (voir plus bas), un clic droit sur la vignette d'un fichier
-  ouvre la fenêtre des métadonnées. Vous pouvez y retirer un tag du fichier ou en ajouter. Les
+  ouvre la fenêtre des métadonnées. Vous pouvez y retirer un tag du fichier ou en ajouter. Après
+  **« Retirer le tag »**, le tag qui a pris sa place est sélectionné (le dernier, si c'est le dernier
+  tag qui a été retiré) : un nouveau clic retire le suivant (les listes de tags et d'attributs de la
+  fenêtre de téléchargement et les groupes de tags de la fenêtre de la galerie font de même). Les
   modifications sont enregistrées avec le bouton « Enregistrer ». Un tag qui n'est plus utilisé nulle part est
   supprimé automatiquement. Un double-clic sur un tag dans cette fenêtre l'ajoute au champ
   « Contient les tags » de la fenêtre principale. La recherche elle-même ne démarre que lorsque

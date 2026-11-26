@@ -227,6 +227,10 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   page); the metadata dialog then gets fresh `setGalleryTags`/counts and drops deleted tags from its initial/partial lists. Groups of
   tags not stored yet stay pending (passed back to the picker as `pending`): `ImageMetaDialog::groupChanges()` is applied after its
   Save, the download window's `m_pendingGroups` after the run's import.
+- Removing entries from an editable list (owner's rule: repeated clicks remove a run): afterwards the entry now at the
+  row of the first removed one is selected, the last one if the end was removed. Metadata dialog "Видалити тег" / Delete
+  (single and bulk), download window's tags and profile attributes, `GalleryDialog` groups. Not the download
+  profiles: each deletion is asked about, and a selection would put the next profile's name into the name field.
 - Tag clipboard (metadata dialog, single and bulk): Ctrl+C / context menu copies the selected tags as `А, Б`;
   Ctrl+V adds a list via `Db::tagsFromText` (commas and line breaks separate; other forbidden characters → space; normalized).
 - **i18n**: source strings are Ukrainian in `tr()` / `QCoreApplication::translate`. Language code

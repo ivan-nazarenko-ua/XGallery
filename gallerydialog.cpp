@@ -163,7 +163,12 @@ void GalleryDialog::renameGroup()
 void GalleryDialog::deleteGroup()
 {
     // Takes effect on "Save" only: the group's tags then stay without a group.
-    delete m_groupList->takeItem(m_groupList->currentRow());
+    const int row = m_groupList->currentRow();
+    delete m_groupList->takeItem(row);
+    // The group now in its place is selected, the last one if the last was deleted (owner's rule: repeated clicks
+    // delete a run).
+    if (m_groupList->count() > 0)
+        m_groupList->setCurrentRow(qMin(row, m_groupList->count() - 1));
     updateGroupButtons();
 }
 

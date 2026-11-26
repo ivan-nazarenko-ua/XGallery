@@ -172,6 +172,12 @@ DownloadDialog::DownloadDialog(const Gallery &gallery, QWidget *parent)
         rows.erase(std::unique(rows.begin(), rows.end()), rows.end());
         for (const int row : std::as_const(rows))
             m_attributesTable->removeRow(row);
+        // The row now in the place of the (first) removed one is selected, the last one if the end was removed.
+        if (!rows.isEmpty() && m_attributesTable->rowCount() > 0) {
+            const int row = qMin(rows.last(), m_attributesTable->rowCount() - 1); // rows: highest first
+            m_attributesTable->setCurrentCell(row, 0);
+            m_attributesTable->selectRow(row);
+        }
     });
     auto *attributeButtons = new QHBoxLayout;
     attributeButtons->addWidget(addAttributeButton);
@@ -576,9 +582,20 @@ void DownloadDialog::chooseTags()
 void DownloadDialog::removeSelectedTags()
 {
     const auto selected = m_tagList->selectedItems();
-    for (const QListWidgetItem *item : selected)
+    if (selected.isEmpty())
+        return;
+    int firstRow = m_tagList->count();
+    for (const QListWidgetItem *item : selected) {
+        firstRow = qMin(firstRow, m_tagList->row(item));
         m_tags.removeAll(item->text());
+    }
     refreshTags();
+    // The tag now in the place of the (first) removed one is selected, the last one if the end was removed:
+    // one click after another removes a run of tags (owner's rule, as in the metadata dialog).
+    if (m_tagList->count() > 0) {
+        m_tagList->setCurrentRow(qMin(firstRow, m_tagList->count() - 1));
+        m_tagList->scrollToItem(m_tagList->currentItem());
+    }
 }
 
 void DownloadDialog::copySelectedTags()

@@ -404,9 +404,20 @@ void ImageMetaDialog::chooseTags()
 void ImageMetaDialog::removeSelectedTags()
 {
     const auto selected = m_tagList->selectedItems();
-    for (const QListWidgetItem *item : selected)
+    if (selected.isEmpty())
+        return;
+    int firstRow = m_tagList->count();
+    for (const QListWidgetItem *item : selected) {
+        firstRow = qMin(firstRow, m_tagList->row(item));
         m_tags.removeAll(item->text());
+    }
     refresh();
+    // The tag that took the place of the (first) removed one is selected, the last one if the end was removed:
+    // one click after another removes a run of tags (owner's rule).
+    if (m_tagList->count() > 0) {
+        m_tagList->setCurrentRow(qMin(firstRow, m_tagList->count() - 1)); // selects it; the button follows
+        m_tagList->scrollToItem(m_tagList->currentItem());
+    }
 }
 
 void ImageMetaDialog::copySelectedTags()

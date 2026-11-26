@@ -41,7 +41,10 @@ just stay without a group.
   `Vacation/2024/sea.jpg` gets the tags "Vacation" and "2024". A comma in a folder name is
   replaced with a space.
 - **Your own.** Inside a collection (see below), right-clicking a file's thumbnail opens the
-  metadata window. There you can remove a tag from the file or add new ones. Changes are written
+  metadata window. There you can remove a tag from the file or add new ones. After **"Remove tag"**
+  the tag that took its place is selected (the last one, if the last tag was removed), so clicking
+  again removes the next one (the tag and attribute lists of the download window and the tag groups
+  of the gallery window work the same way). Changes are written
   with the "Save" button. A tag that is no longer used anywhere is deleted automatically. Double-clicking a
   tag in this window adds it to the "Contains tags" field of the main window. The search itself
   only runs when you click "Search".
