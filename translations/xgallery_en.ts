@@ -94,6 +94,14 @@
         <source>Оновлена:</source>
         <translation>Updated:</translation>
     </message>
+    <message>
+        <source>Редагувати теги…</source>
+        <translation>Edit tags…</translation>
+    </message>
+    <message>
+        <source>Змінити теги всіх файлів колекції разом (ім&apos;я та оцінку буде збережено)</source>
+        <translation>Change the tags of all the collection&apos;s files at once (the name and rating will be saved)</translation>
+    </message>
 </context>
 <context>
     <name>DownloadDialog</name>

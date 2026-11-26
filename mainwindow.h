@@ -60,6 +60,10 @@ private slots:
     void editImageMeta(int index);  // collection list: collection properties; inside one: the file's
     void closeCollection();
     void editTagsOfSelection(); // all selected files, on any page
+    // The bulk tag edit of these files (2 or more), saved on its Save; the selection is not touched.
+    void editTagsOfImages(qint64 galleryId, const QList<ImageRecord> &records);
+    // The metadata dialog of one file (images and videos; other files: nothing), saved on its Save.
+    void editSingleImage(qint64 galleryId, const ImageRecord &record);
     void clearSelection();
     void updateSelectionUi();
     void selectWholeCollection();
@@ -130,6 +134,9 @@ private:
     bool inCollection() const { return m_openCollectionId != 0; }
     void openCollection(int index);
     void editCollection(int index);
+    // CollectionDialog of this collection (cover: its thumbnail, null = made here); after "Редагувати теги…" it
+    // opens again for the collection the files are in then.
+    void showCollectionDialog(qint64 galleryId, qint64 collectionId, QPixmap cover);
     // Moves every file of the collection to the Recycle Bin (worker, with progress and "Перервати")
     // and drops the records of the ones that went. Already confirmed by the user.
     void deleteCollectionFiles(qint64 galleryId, const CollectionRecord &collection);

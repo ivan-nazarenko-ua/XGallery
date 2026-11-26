@@ -14,7 +14,7 @@
 #include <QVBoxLayout>
 
 CollectionDialog::CollectionDialog(const CollectionRecord &collection, const QPixmap &cover, const QString &defaultName,
-                                   QWidget *parent)
+                                   bool canEditTags, QWidget *parent)
     : QDialog(parent)
     , m_nameEdit(new QLineEdit(collection.name, this))
     , m_ratingSpin(new QSpinBox(this))
@@ -62,7 +62,16 @@ CollectionDialog::CollectionDialog(const CollectionRecord &collection, const QPi
     tags->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
     auto *form = new QFormLayout;
-    form->addRow(tr("Теги:"), tags);
+    // The tags of all its files at once (the bulk tag edit); name and rating are saved first, like Save.
+    auto *editTagsButton = new QPushButton(tr("Редагувати теги…"), this);
+    editTagsButton->setToolTip(tr("Змінити теги всіх файлів колекції разом (ім'я та оцінку буде збережено)"));
+    editTagsButton->setEnabled(canEditTags);
+    connect(editTagsButton, &QPushButton::clicked, this, [this] { done(EditTagsRequested); });
+    auto *tagsRow = new QHBoxLayout;
+    tagsRow->addWidget(tags, 1);
+    tagsRow->addWidget(editTagsButton, 0, Qt::AlignTop);
+
+    form->addRow(tr("Теги:"), tagsRow);
     form->addRow(tr("Файлів:"), new QLabel(QString::number(collection.fileCount), this));
     // From its files: when the first one was added to the gallery, the last change (Collections::touch).
     // The locale's short form, but with a 4-digit year and seconds (tells apart two similar collections edited in turn).

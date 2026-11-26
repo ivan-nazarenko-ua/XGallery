@@ -115,7 +115,13 @@ photos with the same set of tags stay together, no matter which folder they are 
   or other files only shows its first file.
 - **Right click** on a collection opens the "Collection properties" window: name (the "Default"
   button brings back the default name) and rating, and also when it was created (its first file was
-  added to the gallery) and updated (its last change, see "Updated first" below). **"Delete collection…"** moves all its files to
+  added to the gallery) and updated (its last change, see "Updated first" below). **"Edit tags…"**
+  saves the name and rating and opens bulk tag editing for all files of the collection (videos and
+  other files included, so the collection moves as a whole); no checkboxes get ticked, so there is
+  nothing to clear afterwards. A collection of one photo or video opens that file's metadata window
+  instead. Afterwards "Collection properties" opens again with fresh data: of the same collection, or
+  of the one the files joined (if a collection with those tags already existed, with its own name and
+  rating). **"Delete collection…"** moves all its files to
   the Recycle Bin and removes them from the gallery, after one confirmation; the progress window has
   a **"Stop"** button (files already moved stay deleted, the rest stay in the collection). A file
   that can't go to the Recycle Bin (too big for it, or a drive without one) is never deleted silently:

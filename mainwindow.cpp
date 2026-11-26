@@ -1140,30 +1140,67 @@ void MainWindow::editCollection(int index)
     const Gallery *gallery = currentGallery();
     if (isBusy() || !gallery || index < 0 || index >= m_pageCollections.size())
         return;
-    const qint64 galleryId = gallery->id;
-    const CollectionRecord collection = Db::collection(galleryId, m_pageCollections[index].id);
-    if (collection.id == 0) {
-        loadPage(m_offset); // gone meanwhile
-        return;
-    }
+    showCollectionDialog(gallery->id, m_pageCollections[index].id, m_thumbButtons[index]->icon().pixmap(ThumbnailSize));
+}
 
-    CollectionDialog dialog(collection, m_thumbButtons[index]->icon().pixmap(ThumbnailSize),
-                            Db::defaultCollectionName(galleryId, collection.virtualPath), this);
-    const int result = dialog.exec();
-    if (result == CollectionDialog::DeleteRequested) {
-        deleteCollectionFiles(galleryId, collection);
-        return;
+void MainWindow::showCollectionDialog(qint64 galleryId, qint64 collectionId, QPixmap cover)
+{
+    // After "Редагувати теги…" the window opens again with fresh data (owner's rule): the collection the files are in
+    // now, which may be another one (the files joined an existing collection) with its own name and rating.
+    while (!isBusy()) {
+        const CollectionRecord collection = Db::collection(galleryId, collectionId);
+        if (collection.id == 0) {
+            loadPage(m_offset); // gone meanwhile
+            return;
+        }
+        if (cover.isNull() && !collection.coverPath.isEmpty())
+            cover = QPixmap::fromImage(
+                ThumbCache::thumbnail(absolutePath(collection.coverPath), collection.coverSha256, ThumbnailSize));
+
+        // "Редагувати теги…": all its files in the bulk edit (other files too, so the collection moves whole), the
+        // selection untouched (owner's rule); one image/video gets its own metadata dialog, one other file nothing.
+        Db::TagQuery filesQuery;
+        filesQuery.collectionId = collection.id;
+        const QList<ImageRecord> files = Db::searchImages(galleryId, filesQuery, 0, -1, nullptr,
+                                                          Db::SortOrder::Classic);
+        const bool canEditTags = files.size() > 1
+                                 || (files.size() == 1
+                                     && MediaFiles::kindOf(files.first().relativePath) != MediaFiles::Kind::Other);
+
+        CollectionDialog dialog(collection, cover, Db::defaultCollectionName(galleryId, collection.virtualPath),
+                                canEditTags, this);
+        const int result = dialog.exec();
+        if (result == CollectionDialog::DeleteRequested) {
+            deleteCollectionFiles(galleryId, collection);
+            return;
+        }
+        if (result != QDialog::Accepted && result != CollectionDialog::EditTagsRequested)
+            return;
+        if (!Db::updateCollection(galleryId, collection.id, dialog.name(), dialog.nameManual(), dialog.rating())) {
+            QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти колекцію:\n%1").arg(Db::lastError()));
+            return;
+        }
+        CollectionRecord saved = collection;
+        saved.name = dialog.name();
+        statusBar()->showMessage(tr("Збережено колекцію: %1").arg(collectionDisplayName(saved)), 5000);
+        loadPage(m_offset);
+        if (result != CollectionDialog::EditTagsRequested)
+            return;
+
+        // Name and rating are saved first (above); the tag edit may then move the files to another collection.
+        if (files.size() > 1)
+            editTagsOfImages(galleryId, files);
+        else
+            editSingleImage(galleryId, files.first());
+        // Where the files are now (the first one still there: a single file may have been deleted).
+        collectionId = 0;
+        for (const ImageRecord &file : files)
+            if ((collectionId = Db::collectionOfImage(galleryId, file.id)) != 0)
+                break;
+        if (collectionId == 0)
+            return;
+        cover = QPixmap(); // the cover may have changed too
     }
-    if (result != QDialog::Accepted)
-        return;
-    if (!Db::updateCollection(galleryId, collection.id, dialog.name(), dialog.nameManual(), dialog.rating())) {
-        QMessageBox::warning(this, tr("Помилка БД"), tr("Не вдалося зберегти колекцію:\n%1").arg(Db::lastError()));
-        return;
-    }
-    CollectionRecord saved = collection;
-    saved.name = dialog.name();
-    statusBar()->showMessage(tr("Збережено колекцію: %1").arg(collectionDisplayName(saved)), 5000);
-    loadPage(m_offset);
 }
 
 void MainWindow::deleteCollectionFiles(qint64 galleryId, const CollectionRecord &collection)
@@ -1701,6 +1738,11 @@ void MainWindow::editImageMeta(int index)
             record = chosen.first();
         }
     }
+    editSingleImage(galleryId, record);
+}
+
+void MainWindow::editSingleImage(qint64 galleryId, const ImageRecord &record)
+{
     if (MediaFiles::kindOf(record.relativePath) == MediaFiles::Kind::Other)
         return; // nothing to do for other files for now
 
@@ -1846,7 +1888,11 @@ void MainWindow::editTagsOfSelection()
         loadPage(m_offset);
         return;
     }
+    editTagsOfImages(galleryId, records);
+}
 
+void MainWindow::editTagsOfImages(qint64 galleryId, const QList<ImageRecord> &records)
+{
     QStringList paths;
     QList<qint64> ids;
     QStringList common;

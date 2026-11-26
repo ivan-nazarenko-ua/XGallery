@@ -182,6 +182,11 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   their first file in the file order, paged by collection). Left click opens the collection (`m_openCollectionId`,
   row id — it survives transfers): grid = all its files (`TagQuery::collectionId`, ignores the search), search/sort/tag
   list locked, "◀ Закрити колекцію" (Esc) returns to the saved position. Right click on a collection → `CollectionDialog`.
+  Its "Редагувати теги…" (`EditTagsRequested`): name/rating saved like Save, then `MainWindow::editTagsOfImages` with all
+  the collection's files (other files too) — never through `m_selectedIds` (owner's rule: no selection to clear after);
+  one file → `editSingleImage` (button disabled when that file is "other"). Then the dialog opens again
+  (`MainWindow::showCollectionDialog` loop, owner's rule) for `Db::collectionOfImage` of the first file still there,
+  cover made via `ThumbCache::thumbnail`; none left → nothing.
   If the open collection's row is gone, `loadPage` falls back to the collection list.
 - Grid size: as many cells (min. `ThumbnailSize`+16 × +32) as fit the grid area (`fitGridToSize` on its resize, buttons are
   made on demand and never deleted, extras hidden; reload 200 ms after the last change). Paging is by offset (`m_offset` = the

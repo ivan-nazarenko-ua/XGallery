@@ -170,6 +170,8 @@ CollectionRecord collection(qint64 galleryId, qint64 collectionId);
 
 // The image is the cover of its collection.
 bool isCollectionCover(qint64 galleryId, qint64 imageId);
+// The id of the collection the image is in now; 0 if the image (or its collection) is gone.
+qint64 collectionOfImage(qint64 galleryId, qint64 imageId);
 // Makes the image the cover of the collection it is in now.
 bool setCollectionCover(qint64 galleryId, qint64 imageId);
 

@@ -785,6 +785,16 @@ bool isCollectionCover(qint64 galleryId, qint64 imageId)
     return exec(q) && q.next();
 }
 
+qint64 collectionOfImage(qint64 galleryId, qint64 imageId)
+{
+    QSqlQuery q(mainDb());
+    q.prepare("SELECT c.id FROM collections c JOIN images i ON i.gallery_id = c.gallery_id AND i.vpath_hash = c.vpath_hash "
+              "WHERE i.id = ? AND i.gallery_id = ?");
+    q.addBindValue(imageId);
+    q.addBindValue(galleryId);
+    return exec(q) && q.next() ? q.value(0).toLongLong() : 0;
+}
+
 bool setCollectionCover(qint64 galleryId, qint64 imageId)
 {
     QSqlQuery q(mainDb());

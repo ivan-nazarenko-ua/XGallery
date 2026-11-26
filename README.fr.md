@@ -137,7 +137,13 @@ restent groupées, quel que soit le dossier où elles se trouvent.
 - Un **clic droit** sur une collection ouvre la fenêtre « Propriétés de la collection » : le nom
   (le bouton « Par défaut » rétablit le nom par défaut) et la note, ainsi que ses dates de création
   (ajout de son premier fichier à la galerie) et de modification (son dernier changement, voir
-  « Modifiés d'abord » plus bas). **« Supprimer la collection… »**
+  « Modifiés d'abord » plus bas). **« Modifier les tags… »** enregistre le nom et la note et ouvre
+  l'édition groupée des tags de tous les fichiers de la collection (vidéos et autres fichiers compris,
+  la collection change donc d'un bloc) ; aucune case n'est cochée, il n'y a donc rien à décocher
+  ensuite. Une collection d'une seule photo ou vidéo ouvre à la place la fenêtre de métadonnées de ce
+  fichier. Ensuite, « Propriétés de la collection » se rouvre avec des données à jour : celles de la
+  même collection, ou de celle que les fichiers ont rejointe (si une collection avec ces tags existait
+  déjà, avec son propre nom et sa note). **« Supprimer la collection… »**
   met tous ses fichiers à la Corbeille et les retire de la galerie, après une seule confirmation ; la
   fenêtre de progression a un bouton **« Interrompre »** (les fichiers déjà déplacés restent
   supprimés, les autres restent dans la collection). Un fichier qui ne peut pas aller à la Corbeille
