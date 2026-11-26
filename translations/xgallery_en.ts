@@ -82,6 +82,18 @@
         <source>Ім&apos;я автоматичне.</source>
         <translation>The name is automatic.</translation>
     </message>
+    <message>
+        <source>невідомо</source>
+        <translation>unknown</translation>
+    </message>
+    <message>
+        <source>Створена:</source>
+        <translation>Created:</translation>
+    </message>
+    <message>
+        <source>Оновлена:</source>
+        <translation>Updated:</translation>
+    </message>
 </context>
 <context>
     <name>DownloadDialog</name>
@@ -515,6 +527,42 @@ Attempt %2 of %3 starts in %4</translation>
         <source>Повторні спроби скасовано: пауза була б надто довгою.</source>
         <translation>Further attempts cancelled: the pause would have been too long.</translation>
     </message>
+    <message>
+        <source>%1 (%2) — вільно %3</source>
+        <translation>%1 (%2) — %3 free</translation>
+    </message>
+    <message>
+        <source>тимчасова папка</source>
+        <translation>temporary folder</translation>
+    </message>
+    <message>
+        <source>галерея</source>
+        <translation>gallery</translation>
+    </message>
+    <message>
+        <source>На диску менше 100 МБ вільного місця:
+%1
+
+Коли місце закінчиться, завантаження зупиниться. Справді почати завантаження?</source>
+        <translation>Less than 100 MB of free space on the drive:
+%1
+
+When the space runs out, the download will stop. Start the download anyway?</translation>
+    </message>
+    <message>
+        <source>На диску галереї закінчилося місце: решту файлів не додано.</source>
+        <translation>The gallery&apos;s drive ran out of space: the remaining files were not added.</translation>
+    </message>
+    <message>
+        <source>Не вдалося записати файл у тимчасову папку (%1): %2
+Завантаження зупинено без повторних спроб, уже завантажене додається в галерею.</source>
+        <translation>Could not write a file to the temporary folder (%1): %2
+The download was stopped without further attempts; what was downloaded is added to the gallery.</translation>
+    </message>
+    <message>
+        <source>Решту посилань не завантажено.</source>
+        <translation>The remaining links were not downloaded.</translation>
+    </message>
 </context>
 <context>
     <name>DownloadProfiles</name>
@@ -689,6 +737,25 @@ Right-click a group → “Ignore”: the group is no longer shown until a new d
     <message>
         <source>не вдалося створити папку</source>
         <translation>could not create the folder</translation>
+    </message>
+    <message>
+        <source>на диску закінчилося місце (%1)</source>
+        <translation>the drive ran out of space (%1)</translation>
+    </message>
+</context>
+<context>
+    <name>FreeSpace</name>
+    <message>
+        <source>На диску %1 (там база даних) вільно лише %2. Останні %3 лишаються для самої бази, тому додавати файли в галерею зараз не можна.
+
+Звільніть місце на цьому носії.</source>
+        <translation>Drive %1 (where the database is) has only %2 free. The last %3 are kept for the database itself, so no files can be added to the gallery now.
+
+Free up space on this drive.</translation>
+    </message>
+    <message>
+        <source>На диску %1 (там база даних) лишився тільки запас для бази (%2): додавання зупинено, уже додане залишилось. Звільніть місце на цьому носії.</source>
+        <translation>Drive %1 (where the database is) has only the database&apos;s reserve (%2) left: adding was stopped, what was added stays. Free up space on this drive.</translation>
     </message>
 </context>
 <context>
@@ -1799,20 +1866,6 @@ When unticked, the next rescan removes the files found through such folders from
         <translation>Download from the Internet</translation>
     </message>
     <message>
-        <source>Порядок знайдених файлів. Колекція стоїть там, де її перший файл.
-Класичне: за оцінкою колекції (більші спочатку), потім за ім&apos;ям колекції, потім за її
-тегами (за абеткою через «/»); останніми завжди ім&apos;я файлу.
-Спочатку новіші: за датою додавання в галерею, потім як класичне.
-Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.
-Усередині відкритої колекції файли завжди йдуть за ім&apos;ям.</source>
-        <translation>Order of the found files. A collection comes where its first file is.
-Classic: by the collection&apos;s rating (higher first), then by the collection&apos;s name, then by its
-tags (in alphabetical order, joined with &quot;/&quot;); the file name always comes last.
-Newest first: by the date added to the gallery, then as classic.
-Largest first: by file size (largest first), then as classic.
-Inside an open collection the files always go by name.</translation>
-    </message>
-    <message>
         <source>Зачекайте, доки завершиться поточна операція, і спробуйте ще раз.</source>
         <translation>Please wait until the current operation finishes, then try again.</translation>
     </message>
@@ -2192,6 +2245,60 @@ Run a rescan.</translation>
 Added to the gallery: %2
 With a new name (&quot;name (1)&quot;): %3</translation>
     </message>
+    <message>
+        <source>Спочатку оновлені</source>
+        <translation>Updated first</translation>
+    </message>
+    <message>
+        <source>Порядок знайдених файлів. Колекція стоїть там, де її перший файл.
+Класичне: за оцінкою колекції (більші спочатку), потім за ім&apos;ям колекції, потім за її
+тегами (за абеткою через «/»); останніми завжди ім&apos;я файлу.
+Спочатку новіші: за датою додавання в галерею, потім як класичне.
+Спочатку оновлені: за датою останньої зміни колекції (файли в неї додано
+чи з неї прибрано, змінено оцінку; ім&apos;я не рахується), потім як класичне.
+Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.
+Усередині відкритої колекції файли завжди йдуть за ім&apos;ям.</source>
+        <translation>Order of the found files. A collection comes where its first file is.
+Classic: by the collection&apos;s rating (higher first), then by the collection&apos;s name, then by its
+tags (in alphabetical order, joined with &quot;/&quot;); the file name always comes last.
+Newest first: by the date added to the gallery, then as classic.
+Updated first: by the date of the collection&apos;s last change (files added to it or removed
+from it, its rating changed; the name doesn&apos;t count), then as classic.
+Largest first: by file size (largest first), then as classic.
+Inside an open collection the files always go by name.</translation>
+    </message>
+    <message>
+        <source>На диску закінчилося місце: копіювання зупинено, уже зроблене залишилось.</source>
+        <translation>A drive ran out of space: copying was stopped, what was done stays.</translation>
+    </message>
+    <message>
+        <source>%1 — потрібно %2, вільно %3</source>
+        <translation>%1 — %2 needed, %3 free</translation>
+    </message>
+    <message>
+        <source>Може не вистачити місця на диску:</source>
+        <translation>There may not be enough space on the drive:</translation>
+    </message>
+    <message>
+        <source>Почати все одно? Коли місце закінчиться, копіювання зупиниться, а вже скопійоване залишиться.</source>
+        <translation>Start anyway? When the space runs out, copying will stop, and what was copied stays.</translation>
+    </message>
+    <message>
+        <source>Дублікати не копіюються, тож насправді може знадобитися менше.</source>
+        <translation>Duplicates are not copied, so less may actually be needed.</translation>
+    </message>
+    <message>
+        <source>На диску галереї закінчилося місце, додавання зупинено. Скопійовані файли залишились у галереї.</source>
+        <translation>The gallery&apos;s drive ran out of space, adding was stopped. The copied files stay in the gallery.</translation>
+    </message>
+    <message>
+        <source>Можна лише «Папку — як галерею»: вона нічого не додає в галерею.</source>
+        <translation>Only “Folder like the gallery” is possible: it adds nothing to the gallery.</translation>
+    </message>
+    <message>
+        <source>(на диску бази даних останні %1 лишаються для неї й тут не враховані)</source>
+        <translation>(on the database&apos;s drive the last %1 are kept for it and not counted here)</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>
@@ -2304,6 +2411,22 @@ Go on deleting the other files?</translation>
     <message>
         <source>Продовжити</source>
         <translation>Continue</translation>
+    </message>
+    <message>
+        <source>не вдалося прочитати</source>
+        <translation>could not be read</translation>
+    </message>
+    <message>
+        <source>папка призначення поза галереєю</source>
+        <translation>the target folder is outside the gallery</translation>
+    </message>
+    <message>
+        <source>не вдалося створити папку</source>
+        <translation>could not create the folder</translation>
+    </message>
+    <message>
+        <source>на диску галереї закінчилося місце</source>
+        <translation>the gallery&apos;s drive ran out of space</translation>
     </message>
 </context>
 <context>

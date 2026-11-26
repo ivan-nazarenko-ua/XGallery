@@ -51,6 +51,10 @@ struct CollectionRecord
     int fileCount = 0;
     QString coverSha256; // content of coverPath
     bool nameManual = false; // the user gave the name; false: Collections::defaultName gave it
+    // Only filled by Db::collection(), seconds since the epoch: when its first file was added to the gallery
+    // (min images.added_at) and when its last change was (max images.updated_at).
+    qint64 createdAt = 0;
+    qint64 updatedAt = 0;
 };
 
 namespace Db {
@@ -134,7 +138,9 @@ QList<TagSection> tagSections(qint64 galleryId, const QStringList &tags);
 enum class SortOrder {
     Classic,     // collection: its rating, shown name, virtual path; then file name, id
     NewestFirst, // most recently added to the DB first, then as Classic
-    LargestFirst // biggest files first, then as Classic
+    LargestFirst, // biggest files first, then as Classic
+    UpdatedFirst  // most recently changed (images.updated_at, see Collections::touch) first, then as Classic;
+                  // last in the enum: the value is the saved setting
 };
 
 // What a tag search asks for. Tag names are normalized by the search itself.
@@ -159,7 +165,7 @@ QList<CollectionRecord> searchCollections(qint64 galleryId, const TagQuery &quer
                                           int *totalCollections, int *totalFiles,
                                           SortOrder order = SortOrder::Classic);
 
-// The gallery's collection with this id; id 0 if there is none (any more).
+// The gallery's collection with this id (with createdAt/updatedAt); id 0 if there is none (any more).
 CollectionRecord collection(qint64 galleryId, qint64 collectionId);
 
 // The image is the cover of its collection.
@@ -168,7 +174,7 @@ bool isCollectionCover(qint64 galleryId, qint64 imageId);
 bool setCollectionCover(qint64 galleryId, qint64 imageId);
 
 // Saves the user-editable properties of a collection. nameManual: the user gave the name (false: it is the
-// default name, e.g. put in by "За замовчуванням").
+// default name, e.g. put in by "За замовчуванням"). A changed rating touches the collection (Collections::touch).
 bool updateCollection(qint64 galleryId, qint64 collectionId, const QString &name, bool nameManual, int rating);
 // Gives the gallery's collections their default name (Collections::defaultName with the current groups) and marks
 // the names automatic; onlyAutomatic: collections the user named keep their names. One transaction.

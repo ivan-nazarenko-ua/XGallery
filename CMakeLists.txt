@@ -71,6 +71,8 @@ set(PROJECT_SOURCES
         downloaddialog.cpp
         foldersync.h
         foldersync.cpp
+        freespace.h
+        freespace.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

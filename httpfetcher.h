@@ -39,6 +39,7 @@ public:
         QByteArray contentType;
         QByteArray body;      // when no output device was given
         qint64 retryAfterMs = -1; // an error answer's Retry-After header as a pause; -1: none
+        bool writeFailed = false; // the output device refused the data (a local problem: trying again won't help)
     };
 
     // The pause a Retry-After header asks for: seconds, or an HTTP date (counted from serverDate,

@@ -2,6 +2,7 @@
 
 #include "collections.h"
 
+#include <QDateTime>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -63,6 +64,21 @@ CollectionDialog::CollectionDialog(const CollectionRecord &collection, const QPi
     auto *form = new QFormLayout;
     form->addRow(tr("Теги:"), tags);
     form->addRow(tr("Файлів:"), new QLabel(QString::number(collection.fileCount), this));
+    // From its files: when the first one was added to the gallery, the last change (Collections::touch).
+    // The locale's short form, but with a 4-digit year and seconds (tells apart two similar collections edited in turn).
+    const auto dateText = [this](qint64 secs) {
+        if (secs <= 0)
+            return tr("невідомо");
+        QString date = locale().dateFormat(QLocale::ShortFormat);
+        if (!date.contains(QLatin1String("yyyy")))
+            date.replace(QLatin1String("yy"), QLatin1String("yyyy"));
+        QString time = locale().timeFormat(QLocale::ShortFormat);
+        if (!time.contains(u's'))
+            time.replace(QLatin1String("mm"), QLatin1String("mm:ss"));
+        return locale().toString(QDateTime::fromSecsSinceEpoch(secs), date + u' ' + time);
+    };
+    form->addRow(tr("Створена:"), new QLabel(dateText(collection.createdAt), this));
+    form->addRow(tr("Оновлена:"), new QLabel(dateText(collection.updatedAt), this));
     form->addRow(tr("Ім'я:"), nameRow);
     form->addRow(QString(), nameKind);
     form->addRow(tr("Оцінка:"), m_ratingSpin);

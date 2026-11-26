@@ -76,6 +76,8 @@ struct ApplyResult
     QStringList failed;         // "path — reason", native separators
     QList<qint64> removedImageIds; // gallery records dropped
     bool stopped = false;
+    bool outOfSpace = false;    // copying to a side stopped at the first file its drive had no room for (in failed)
+    bool reserveReached = false; // copying to a side stopped: the database's drive kept only FreeSpace::DbReserveBytes
     QString error;              // DB error (files may have changed: rescan)
 };
 
@@ -106,6 +108,11 @@ enum class Direction {
 // (one transaction, committed also when stopped). First the folder, then the gallery.
 void merge(QPromise<ApplyResult> &promise, qint64 galleryId, const QString &rootFolder, const QString &folder,
            const Comparison &comparison, Control *control);
+
+// Bytes the job of `direction` copies into the folder (intoFolder) or into the gallery. A replaced old version is
+// deleted only after the new one is complete, and deleted files go to the Recycle Bin (same drive), so nothing
+// freed is counted.
+qint64 bytesToCopy(const Comparison &comparison, Direction direction, bool intoFolder);
 
 } // namespace FolderSync
 

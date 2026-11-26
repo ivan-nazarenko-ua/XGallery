@@ -135,7 +135,9 @@ restent groupées, quel que soit le dossier où elles se trouvent.
   collection, la première photo redevient la couverture. Une collection qui ne contient que des
   vidéos ou d'autres fichiers montre son premier fichier.
 - Un **clic droit** sur une collection ouvre la fenêtre « Propriétés de la collection » : le nom
-  (le bouton « Par défaut » rétablit le nom par défaut) et la note. **« Supprimer la collection… »**
+  (le bouton « Par défaut » rétablit le nom par défaut) et la note, ainsi que ses dates de création
+  (ajout de son premier fichier à la galerie) et de modification (son dernier changement, voir
+  « Modifiés d'abord » plus bas). **« Supprimer la collection… »**
   met tous ses fichiers à la Corbeille et les retire de la galerie, après une seule confirmation ; la
   fenêtre de progression a un bouton **« Interrompre »** (les fichiers déjà déplacés restent
   supprimés, les autres restent dans la collection). Un fichier qui ne peut pas aller à la Corbeille
@@ -176,6 +178,12 @@ restent groupées, quel que soit le dossier où elles se trouvent.
     cherchant « Marie », « Marie/Village/2024 » notée 90 vient avant « Marie/Mer/2024 » notée 10 ;
   - « Plus récents d'abord » — les fichiers ajoutés le plus récemment à la galerie viennent en
     premier (pratique après l'ajout d'un nouveau lot de photos), puis comme en Classique ;
+  - « Modifiés d'abord » — les collections modifiées le plus récemment viennent en premier, puis
+    comme en Classique. Une collection change quand des fichiers y entrent (ajoutés, téléchargés ou
+    ayant reçu ses tags) ou en sortent (supprimés, ou leurs tags ont changé — les deux collections
+    comptent alors comme modifiées), et quand sa note change. Renommer une collection ne la
+    modifie **pas**, exprès : sinon « Renommer toutes les collections… » donnerait une seule date à
+    toute la galerie ;
   - « Plus gros d'abord » — les fichiers les plus volumineux d'abord (pratique pour libérer de
     la place), puis comme en Classique.
 - **« Masquer les autres tags »** (la case au-dessus de la liste des tags) — la liste ne garde
@@ -260,7 +268,13 @@ programme vous demande quoi en faire.
   sont ignorés. Si un fichier du même nom existe déjà avec un contenu différent, la nouvelle copie
   reçoit le suffixe `(1)`, `(2)`… À la fin, vous voyez combien de fichiers ont été copiés et
   combien de doublons ont été ignorés. **« Interrompre »** dans la fenêtre de progression arrête la
-  copie après le fichier en cours ; les fichiers déjà copiés restent dans la galerie. Les noms que Windows réserve aux périphériques (`CON`,
+  copie après le fichier en cours ; les fichiers déjà copiés restent dans la galerie. Avant de
+  copier, le programme vérifie l'espace libre sur le disque de la galerie : si les fichiers risquent
+  de ne pas tenir, il demande s'il faut commencer quand même (les doublons ne sont pas copiés, il en
+  faudra peut-être moins). Si le disque se remplit pendant la copie, l'ajout s'arrête à ce fichier ;
+  ce qui a été copié reste dans la galerie. Les derniers 30 Mo du disque de la base ne sont jamais
+  remplis (voir [De la place pour la base](#de-la-place-pour-la-base)). La liste des fichiers non
+  copiés indique toujours la raison. Les noms que Windows réserve aux périphériques (`CON`,
   `NUL`, `COM1`…) reçoivent un `_` dans le nom du dossier (`CON_`), tandis que le tag reste sans
   lui (« Con »).
 - **Télécharger depuis Internet…** — le gestionnaire de téléchargement, voir
@@ -379,8 +393,18 @@ la galerie. Une requête sans données pendant 60 secondes échoue ; les répons
 ne sont pas enregistrées. À la fin, vous voyez combien de liens ont été trouvés, téléchargés et en
 erreur, et lesquels.
 
+Les fichiers sont d'abord téléchargés dans un dossier temporaire (en général sur le disque C:) et
+ajoutés à la galerie à la fin. S'il reste moins de 100 Mo sur le disque de la galerie ou sur celui du
+dossier temporaire, **« Démarrer le téléchargement »** prévient et demande s'il faut vraiment
+commencer. Si un fichier ne peut pas être écrit dans le dossier temporaire (disque plein), le
+téléchargement s'arrête aussitôt, sans nouveaux essais, et ce qui a été téléchargé est ajouté à la
+galerie. Si le disque de la galerie se remplit pendant l'ajout, les fichiers restants ne sont pas
+ajoutés. Le téléchargement s'arrête aussi avant un fichier si ce qui a déjà été téléchargé ne laissait
+plus au disque de la base que sa réserve de 30 Mo (voir [De la place pour la base](#de-la-place-pour-la-base)).
+
 **Les fichiers en erreur sont réessayés**, autant de fois que l'indique **« Nombre d'essais »**. Un
-fichier qui échoue pour n'importe quelle raison (même 404) est mis de côté, et le reste de la liste
+fichier qui échoue pour n'importe quelle raison (même 404 ; sauf un fichier qui n'a pas pu être écrit
+sur cet ordinateur, voir plus haut) est mis de côté, et le reste de la liste
 continue. Après le dernier fichier, le programme attend, puis réessaie les fichiers mis de côté, dans
 **le même dossier**. L'attente est celle que le serveur a demandée dans son en-tête `Retry-After` (la
 plus longue parmi les fichiers en erreur), 10 secondes s'il n'a rien demandé. Si elle dépasse une
@@ -454,7 +478,11 @@ dossier qui le contient.
 Pendant la comparaison ou la synchronisation, le reste du programme est bloqué ; la fenêtre de
 progression montre le fichier en cours, un pourcentage pour les gros fichiers et une animation.
 **« Interrompre »** demande d'abord s'il faut vraiment arrêter (le travail attend pendant ce temps). Ce
-qui a été fait reste fait ; le fichier en cours de copie est retiré. Les fichiers de service qu'une
+qui a été fait reste fait ; le fichier en cours de copie est retiré. Avant le travail, le programme
+vérifie que les fichiers à copier tiennent sur chaque disque et demande s'ils risquent de ne pas tenir
+(les fichiers supprimés vont à la Corbeille et ne libèrent pas d'espace). Si un disque se remplit, la
+copie vers lui s'arrête à ce fichier ; ce qui a été fait reste. La réserve de 30 Mo de la base est
+gardée elle aussi (voir [De la place pour la base](#de-la-place-pour-la-base)). Les fichiers de service qu'une
 galerie ne contient pas (`Thumbs.db`, `desktop.ini`, `*.db`, `*.ini`) ne sont ni comparés ni touchés ;
 le programme n'entre pas dans les dossiers junction du dossier choisi. Un fichier du dossier illisible et
 le fichier de la galerie ayant le même chemin restent tels quels.
@@ -492,6 +520,27 @@ l'un des 256 sous-dossiers, pour qu'aucun dossier ne grossisse trop) : les doubl
 besoin d'être sauvegardé et peut être supprimé à tout moment : le programme refait simplement les
 vignettes. Si le dossier ne peut pas être créé ou écrit (par exemple sur une clé USB protégée en
 écriture), le programme fonctionne sans lui, simplement plus lentement.
+
+## De la place pour la base
+
+La base a besoin de place pour elle-même : pendant l'enregistrement d'une modification, SQLite garde à
+côté d'elle un journal (`xgallery.sqlite-journal`) avec l'ancienne version de ce qui change, pour qu'un
+plantage ou une coupure de courant ne puisse pas l'abîmer. Une grosse modification (une mise à jour de
+la base par une nouvelle version, le renommage de nombreux tags) peut rendre ce journal volumineux. Les
+derniers **30 Mo** du disque de la base lui sont donc réservés. Quand il n'en reste pas plus :
+
+- l'ajout à la galerie (fichiers, dossier, export dans la galerie, téléchargement) ne commence pas et
+  demande de libérer de l'espace sur ce support ;
+- une synchronisation avec un dossier n'est possible qu'en « Dossier comme la galerie » : elle n'ajoute
+  rien à la galerie ;
+- les nouvelles vignettes ne sont pas enregistrées dans `thumbs` (celles déjà enregistrées servent
+  toujours).
+
+Un travail déjà en cours s'arrête avant le fichier qui entamerait la réserve ; ce qui a été ajouté
+reste. La rotation d'une photo fonctionne toujours : elle modifie un fichier que la galerie a déjà. En mode
+portable, les galeries sont sur le disque de la base, leurs fichiers comptent donc ; avec la base dans
+AppData (disque C:), une galerie sur un autre disque ne remplit que son propre disque, mais l'ajout
+s'arrête quand même quand il ne reste que 30 Mo sur C:.
 
 ## Licence
 

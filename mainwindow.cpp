@@ -6,6 +6,7 @@
 #include "downloaddialog.h"
 #include "duplicatesdialog.h"
 #include "foldersync.h"
+#include "freespace.h"
 #include "gallerydialog.h"
 #include "i18n.h"
 #include "imagemetadialog.h"
@@ -295,7 +296,8 @@ void MainWindow::buildUi()
     m_sortLabel = new QLabel;
     searchRow->addWidget(m_sortLabel);
     m_sortCombo = new QComboBox;
-    for (Db::SortOrder order : {Db::SortOrder::Classic, Db::SortOrder::NewestFirst, Db::SortOrder::LargestFirst})
+    for (Db::SortOrder order : {Db::SortOrder::Classic, Db::SortOrder::NewestFirst, Db::SortOrder::UpdatedFirst,
+                                Db::SortOrder::LargestFirst})
         m_sortCombo->addItem(QString(), int(order));
     connect(m_sortCombo, &QComboBox::currentIndexChanged, this, [this] {
         Db::setSetting(SortOrderKey, QString::number(m_sortCombo->currentData().toInt()));
@@ -457,13 +459,19 @@ void MainWindow::retranslateUi()
     m_searchButton->setText(tr("Шукати"));
     m_clearSearchButton->setText(tr("Скинути"));
     m_sortLabel->setText(tr("Сортування:"));
-    m_sortCombo->setItemText(0, tr("Класичне"));
-    m_sortCombo->setItemText(1, tr("Спочатку новіші"));
-    m_sortCombo->setItemText(2, tr("Спершу більші"));
+    const auto setSortText = [this](Db::SortOrder order, const QString &text) {
+        m_sortCombo->setItemText(m_sortCombo->findData(int(order)), text);
+    };
+    setSortText(Db::SortOrder::Classic, tr("Класичне"));
+    setSortText(Db::SortOrder::NewestFirst, tr("Спочатку новіші"));
+    setSortText(Db::SortOrder::UpdatedFirst, tr("Спочатку оновлені"));
+    setSortText(Db::SortOrder::LargestFirst, tr("Спершу більші"));
     m_sortCombo->setToolTip(tr("Порядок знайдених файлів. Колекція стоїть там, де її перший файл.\n"
                                "Класичне: за оцінкою колекції (більші спочатку), потім за ім'ям колекції, потім за її\n"
                                "тегами (за абеткою через «/»); останніми завжди ім'я файлу.\n"
                                "Спочатку новіші: за датою додавання в галерею, потім як класичне.\n"
+                               "Спочатку оновлені: за датою останньої зміни колекції (файли в неї додано\n"
+                               "чи з неї прибрано, змінено оцінку; ім'я не рахується), потім як класичне.\n"
                                "Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.\n"
                                "Усередині відкритої колекції файли завжди йдуть за ім'ям."));
 
@@ -1607,6 +1615,10 @@ void MainWindow::exportFile(ImageMetaDialog &dialog, qint64 galleryId, const QSt
     if (box.clickedButton() != yes)
         return;
 
+    if (FreeSpace::dbReserveReached()) {
+        QMessageBox::warning(&dialog, title, FreeSpace::reserveRefusal());
+        return;
+    }
     const Scanner::ImportItem item{source, *galleryFolder, target.fileName(), true};
     dialog.setExporting(true);
     auto *watcher = new QFutureWatcher<Scanner::ImportStats>(this);
@@ -1619,6 +1631,8 @@ void MainWindow::exportFile(ImageMetaDialog &dialog, qint64 galleryId, const QSt
             loadPage(m_offset);
         if (stats.copied > 0 && stats.error.isEmpty())
             QMessageBox::information(&dialog, title, tr("Дублікат створено й додано в галерею."));
+        else if (stats.reserveReached)
+            QMessageBox::warning(&dialog, title, FreeSpace::reserveRefusal());
         else
             QMessageBox::warning(&dialog, title, stats.error.isEmpty()
                                                      ? tr("Не вдалося скопіювати файл:\n%1").arg(stats.failed.join('\n'))
@@ -2088,6 +2102,10 @@ void MainWindow::addFilesToGallery()
         QMessageBox::information(this, tr("Додати файли"), tr("Спершу створи галерею."));
         return;
     }
+    if (FreeSpace::dbReserveReached()) {
+        QMessageBox::warning(this, tr("Додати файли"), FreeSpace::reserveRefusal());
+        return;
+    }
     const QStringList files = QFileDialog::getOpenFileNames(this, tr("Обери файли для додавання в галерею"));
     if (files.isEmpty())
         return;
@@ -2110,6 +2128,10 @@ void MainWindow::addFolderToGallery()
         return;
     if (!gallery) {
         QMessageBox::information(this, tr("Додати папку"), tr("Спершу створи галерею."));
+        return;
+    }
+    if (FreeSpace::dbReserveReached()) {
+        QMessageBox::warning(this, tr("Додати папку"), FreeSpace::reserveRefusal());
         return;
     }
     const QString source = QFileDialog::getExistingDirectory(this, tr("Обери папку для додавання в галерею"));
@@ -2224,6 +2246,9 @@ QString pathList(const QString &title, const QStringList &paths)
 }
 
 } // namespace
+
+static bool confirmRoom(QWidget *parent, const QString &title, const QList<QPair<QString, qint64>> &needs,
+                        const QString &note); // below, before runImport
 
 void MainWindow::syncWithFolder()
 {
@@ -2406,6 +2431,15 @@ void MainWindow::chooseSyncAction(const Gallery &gallery, const QString &folder,
     else
         return;
 
+    // The database's own room (owner's rule): at the reserve, only a sync that copies nothing into the gallery.
+    const bool copiesIntoGallery = direction != FolderSync::Direction::FolderLikeGallery
+                                   && (!c.onlyInFolder.isEmpty() || !c.changed.isEmpty());
+    if (copiesIntoGallery && FreeSpace::dbReserveReached()) {
+        QMessageBox::warning(this, title, FreeSpace::reserveRefusal() + "\n\n"
+                                              + tr("Можна лише «Папку — як галерею»: вона нічого не додає в галерею."));
+        return;
+    }
+
     // Deleting user files: one more question, "no" by default. Merge deletes nothing.
     const bool galleryFollowsFolder = direction == FolderSync::Direction::GalleryLikeFolder;
     const qsizetype deletes = galleryFollowsFolder ? c.onlyInGallery.size() : c.onlyInFolder.size();
@@ -2421,6 +2455,11 @@ void MainWindow::chooseSyncAction(const Gallery &gallery, const QString &folder,
             != QMessageBox::Yes)
             return;
     }
+    if (!confirmRoom(this, title,
+                     {{folder, FolderSync::bytesToCopy(c, direction, true)},
+                      {gallery.rootFolder, FolderSync::bytesToCopy(c, direction, false)}},
+                     QString()))
+        return;
     runFolderSync(gallery, folder, comparison, direction);
 }
 
@@ -2448,6 +2487,10 @@ void MainWindow::runFolderSync(const Gallery &gallery, const QString &folder, co
         }
         QString message = result.stopped ? tr("Синхронізацію перервано. Уже зроблене залишилось.")
                                          : tr("Синхронізацію завершено.");
+        if (result.outOfSpace)
+            message += "\n" + tr("На диску закінчилося місце: копіювання зупинено, уже зроблене залишилось.");
+        if (result.reserveReached)
+            message += "\n" + FreeSpace::reserveStop();
         if (direction == Direction::Merge) {
             message += "\n\n" + tr("Скопійовано в папку: %1\nДодано в галерею: %2\nЗ новим ім'ям («ім'я (1)»): %3")
                                     .arg(result.copied).arg(result.added).arg(result.renamed);
@@ -2469,7 +2512,7 @@ void MainWindow::runFolderSync(const Gallery &gallery, const QString &folder, co
         if (!result.error.isEmpty())
             message += "\n\n" + tr("Файли змінено, але записати зміни в базу не вдалося:\n%1\n\nЗроби рескан.")
                                     .arg(result.error);
-        if (result.failed.isEmpty() && result.error.isEmpty())
+        if (result.failed.isEmpty() && result.error.isEmpty() && !result.reserveReached)
             QMessageBox::information(this, title, message);
         else
             QMessageBox::warning(this, title, message);
@@ -2502,6 +2545,59 @@ void MainWindow::runFolderSync(const Gallery &gallery, const QString &folder, co
     }));
 }
 
+// Before a job copies `bytes` to each path (a folder; several on one drive are added up): if a drive has less room,
+// asks whether to start anyway ("no" by default). True: start (also when the room is unknown). note: what may make
+// the real need smaller, or empty.
+static bool confirmRoom(QWidget *parent, const QString &title, const QList<QPair<QString, qint64>> &needs,
+                        const QString &note)
+{
+    QList<QPair<QString, qint64>> drives; // drive -> bytes, in the order given
+    QHash<QString, QString> folderOf;     // a folder on that drive, to ask for its room
+    for (const auto &[path, bytes] : needs) {
+        if (bytes <= 0)
+            continue;
+        const QString drive = FreeSpace::driveOf(path);
+        const auto it = std::find_if(drives.begin(), drives.end(), [&drive](const auto &d) {
+            return d.first.compare(drive, Qt::CaseInsensitive) == 0;
+        });
+        if (it != drives.end()) {
+            it->second += bytes;
+        } else {
+            drives.append({drive, bytes});
+            folderOf.insert(drive, path);
+        }
+    }
+    QStringList lines;
+    bool reserveCounted = false;
+    for (const auto &[drive, bytes] : std::as_const(drives)) {
+        const QString folder = folderOf.value(drive);
+        qint64 free = FreeSpace::available(folder);
+        // The database's drive keeps its reserve: the job stops there.
+        const bool dbDrive = free >= 0 && FreeSpace::sameDrive(folder, Db::databasePath());
+        if (dbDrive)
+            free = qMax<qint64>(free - FreeSpace::DbReserveBytes, 0);
+        if (free >= 0 && free < bytes) {
+            lines << QCoreApplication::translate("MainWindow", "%1 — потрібно %2, вільно %3")
+                         .arg(drive.isEmpty() ? QDir::toNativeSeparators(folder) : drive,
+                              QLocale().formattedDataSize(bytes), QLocale().formattedDataSize(free));
+            reserveCounted = reserveCounted || dbDrive;
+        }
+    }
+    if (lines.isEmpty())
+        return true;
+    QString text = QCoreApplication::translate("MainWindow", "Може не вистачити місця на диску:") + "\n" + lines.join('\n');
+    if (reserveCounted)
+        text += "\n" + QCoreApplication::translate("MainWindow", "(на диску бази даних останні %1 лишаються для неї й "
+                                                                 "тут не враховані)")
+                           .arg(QLocale().formattedDataSize(FreeSpace::DbReserveBytes));
+    if (!note.isEmpty())
+        text += "\n\n" + note;
+    text += "\n\n" + QCoreApplication::translate("MainWindow", "Почати все одно? Коли місце закінчиться, копіювання "
+                                                               "зупиниться, а вже скопійоване залишиться.");
+    return QMessageBox::warning(parent, title, text, QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+           == QMessageBox::Yes;
+}
+
 void MainWindow::runImport(std::function<QList<Scanner::ImportItem>()> collect)
 {
     const Gallery *gallery = currentGallery();
@@ -2510,15 +2606,25 @@ void MainWindow::runImport(std::function<QList<Scanner::ImportItem>()> collect)
     const qint64 galleryId = gallery->id;
     const QString root = gallery->rootFolder;
 
-    // Step 1: walk the source folders off the UI thread.
-    auto *collector = new QFutureWatcher<QList<Scanner::ImportItem>>(this);
+    // Step 1: walk the source folders off the UI thread (and add up their sizes, for the room on the drive).
+    using Collected = QPair<QList<Scanner::ImportItem>, qint64>;
+    auto *collector = new QFutureWatcher<Collected>(this);
     runBusy(collector, tr("Шукаю файли для додавання…"));
     connect(collector, &QFutureWatcherBase::finished, this, [this, collector, galleryId, root] {
-        const QList<Scanner::ImportItem> items = collector->result();
+        const Collected collected = collector->result();
+        const QList<Scanner::ImportItem> &items = collected.first;
+        const qint64 bytes = collected.second;
         if (items.isEmpty()) {
             QMessageBox::information(this, tr("Додавання в галерею"), tr("Немає файлів для додавання."));
             return;
         }
+        if (FreeSpace::dbReserveReached()) {
+            QMessageBox::warning(this, tr("Додавання в галерею"), FreeSpace::reserveRefusal());
+            return;
+        }
+        if (!confirmRoom(this, tr("Додавання в галерею"), {{root, bytes}},
+                         tr("Дублікати не копіюються, тож насправді може знадобитися менше.")))
+            return;
 
         // Step 2: copy + register. "Перервати" stops after the current file; what is copied stays.
         auto *importer = new QFutureWatcher<Scanner::ImportStats>(this);
@@ -2533,13 +2639,18 @@ void MainWindow::runImport(std::function<QList<Scanner::ImportItem>()> collect)
             QString message = tr("Скопійовано — %1, дублікатів — %2.").arg(stats.copied).arg(stats.duplicates);
             if (stats.stopped)
                 message.prepend(tr("Додавання перервано. Скопійовані файли залишились у галереї.") + "\n\n");
+            if (stats.outOfSpace)
+                message.prepend(tr("На диску галереї закінчилося місце, додавання зупинено. Скопійовані файли "
+                                   "залишились у галереї.") + "\n\n");
+            if (stats.reserveReached)
+                message.prepend(FreeSpace::reserveStop() + "\n\n");
             if (stats.ignored > 0)
                 message += "\n" + tr("Пропущено службових файлів (Thumbs.db, desktop.ini тощо) — %1.").arg(stats.ignored);
             if (!stats.failed.isEmpty())
                 message += "\n\n" + tr("Не вдалося скопіювати:\n%1").arg(stats.failed.join('\n'));
             if (!stats.error.isEmpty())
                 message += "\n\n" + stats.error;
-            if (stats.error.isEmpty() && stats.failed.isEmpty())
+            if (stats.error.isEmpty() && stats.failed.isEmpty() && !stats.reserveReached)
                 QMessageBox::information(this, tr("Додавання в галерею"), message);
             else
                 QMessageBox::warning(this, tr("Додавання в галерею"), message);
@@ -2548,7 +2659,12 @@ void MainWindow::runImport(std::function<QList<Scanner::ImportItem>()> collect)
             Scanner::importFiles(promise, galleryId, root, items, stop.get());
         }));
     });
-    collector->setFuture(QtConcurrent::run(std::move(collect)));
+    collector->setFuture(QtConcurrent::run([collect = std::move(collect)] {
+        Collected collected{collect(), 0};
+        for (const Scanner::ImportItem &item : std::as_const(collected.first))
+            collected.second += QFileInfo(item.source).size();
+        return collected;
+    }));
 }
 
 void MainWindow::runBusy(QFutureWatcherBase *watcher, const QString &text)

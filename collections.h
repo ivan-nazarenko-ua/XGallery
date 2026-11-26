@@ -57,7 +57,17 @@ struct Move
 // collection changed.
 bool retag(const QSqlDatabase &db, const QList<qint64> &imageIds, QList<Move> *moves, QString *error);
 
-// Brings the gallery's collections in line with its files (see above).
+// Call before deleting the image's record: appends a Move from its collection to none (to empty), so that
+// sync() touches what is left of that collection.
+bool removing(const QSqlDatabase &db, qint64 imageId, QList<Move> *moves, QString *error);
+
+// Sets images.updated_at to now for all files of the gallery in these collections (by vpath_hash): the
+// collection changed (files came or went, its rating). "Спочатку оновлені" sorts on it. Its name is not a change:
+// "Перейменувати всі колекції…" would give every collection the same date (owner's decision).
+bool touch(const QSqlDatabase &db, qint64 galleryId, const QList<QByteArray> &hashes, QString *error);
+
+// Brings the gallery's collections in line with its files (see above). First touch()es both sides of every
+// Move: the collection a file left (if it still has files) and the one it came to.
 bool sync(const QSqlDatabase &db, qint64 galleryId, const QList<Move> &moves, QString *error);
 
 // retag() + sync().

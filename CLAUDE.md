@@ -57,6 +57,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `busyspinner.*` | `BusySpinner`: a circle of dots running round, hidden while stopped (download manager's pauses) |
 | `wrappedtext.*` | `WrappedText::layout`: text wrapped at word boundaries, else anywhere (main tag list, tag picker) |
 | `trashprompt.*` | `TrashPrompt::ask`: the question when a file can't go to the Recycle Bin (delete permanently / all such / continue / stop) |
+| `freespace.*` | `FreeSpace::` — room on drives (`available`, `driveOf`, `sameDrive`; `isOutOfSpace` after a failed write = the drive has less than the bytes + 1 MiB), `LowSpaceBytes` (100 MB, download start warning), the DB reserve (see its rule). No GUI (texts via `QCoreApplication::translate`) |
 | `thumbcache.*` | Grid thumbnails cached as `thumbs/<first 2 hex>/<sha256>.png` next to the DB (256 subfolders: FAT32 per-folder limit) (`ThumbCache::thumbnail` = load or make+store; stores only real previews of images and videos, never extension cards — a video Windows can't preview is tried again; "other" files skip the cache). All errors ignored |
 | `third_party/xxhash/` | Vendored xxHash 0.8.3 single header (BSD-2, used header-only via `XXH_INLINE_ALL` in `collections.cpp`) |
 | `i18n.*`, `languagedialog.*`, `translations/*.ts`, `flags/` | UI language (uk source, en/fr translations), first-start flag dialog, flag SVGs + rendered PNGs (48x32 and @2x) |
@@ -67,10 +68,21 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 - **Schema changes only through `migrations.cpp`**: append a new step function to the list,
   never edit existing steps. A DB with a newer `user_version` than `latestVersion()` is refused (not opened). At start
   `Db::repairCollections` fixes what an older version (which ignores newer schemas) may have written: files without
-  vpath_hash are retagged, collections left without files are synced away. Current version: 16 (galleries; rating+name; allow_upscale; no commas in tags;
+  vpath_hash are retagged, collections left without files are synced away, and updated_at below added_at (0) is set to added_at. Current version: 17 (galleries; rating+name; allow_upscale; no commas in tags;
   normalized tag spelling; virtual path; virtual path with digits after letters; '_' in tags is a space;
   collections — images.rating dropped; collections.name_key; tag groups; download profiles; gallery settings;
-  collections.name_manual; ignored duplicates; download_profiles.attempts).
+  collections.name_manual; ignored duplicates; download_profiles.attempts; images.updated_at).
+- **DB reserve** (owner's rule): the last `FreeSpace::DbReserveBytes` (30 MB) of the DB's drive stay for SQLite (its
+  rollback journal; no journal_mode is set). `dbReserveReached()` (free ≤ reserve) refuses at the start, with
+  `reserveRefusal()`: add files/folder, `runImport` (after collecting), export into the gallery, `DownloadDialog::start`,
+  folder sync whose direction copies into the gallery (only "Папку — як галерею" is left). Per file, before copying,
+  `keepsDbReserve(target, bytes, addsToDb)` (a target on the DB's drive must leave more than the reserve after `bytes`;
+  `addsToDb` = records are written, so the DB's drive must not be at the reserve whatever the target's drive):
+  `Scanner::importFiles` (`ImportStats::reserveReached`, break, the rest is committed), folder sync copies
+  (`ApplyResult::reserveReached`; `addsToDb` only for the gallery side), downloads before each file (with the bytes
+  downloaded so far, `m_reserveReached` → import what's there). Reports use `reserveStop()`. `ThumbCache::store` stores
+  nothing at the reserve (checked at most every 2 s). `confirmRoom` counts the DB drive's room minus the reserve.
+  Image rotation is exempt (owner's decision).
 - **Heavy work off the UI thread**: `QtConcurrent::run`/`mapped` + `MainWindow::runBusy(watcher, text)`.
   `runBusy` must be called before connecting the caller's `finished` handler (so the UI is
   unlocked first and the handler may start the next job). Worker code opens its own DB
@@ -102,7 +114,10 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   All files of one scan/import get the same `added_at` (for "newest first").
 - **Import** (add files/folder): copy, never move; "Перервати" in the busy dialog (`BusyDialog::setStopHandler`, an
   `std::atomic_bool` passed to `Scanner::importFiles` — not `QFuture::cancel`, which would drop the stats) stops after the
-  current file and commits what was copied; skip duplicates (DB, same batch, or same
+  current file and commits what was copied; room: `runImport` sums the sources' sizes in the collector job and
+  `confirmRoom` (mainwindow.cpp, also used by folder sync) asks if a drive has less; a failed copy removes its target and,
+  when `FreeSpace::isOutOfSpace`, stops the import (`ImportStats::outOfSpace`, the rest is committed); `failed` entries are
+  "source — reason"; skip duplicates (DB, same batch, or same
   name+content already in the target); name clash → `name (1).ext`; records are written
   immediately (no rescan needed). The target folder is checked to stay inside the gallery; a
   Windows device name (CON, NUL, COM1…) gets `_` (`CON_`, `con_.old`), its tag stays `Con`.
@@ -149,7 +164,14 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   `Db::renameCollections(galleryId, onlyAutomatic)`: default names with the current groups, all marked automatic, one transaction. Groups chosen for not-yet-stored tags
   must be in the DB before the save/import that names the collection: `Db::prepareTagGroups` creates those tags with their
   group first (metadata Save, bulk edit, download import; an unused one goes with the next `deleteUnusedTags`).
-  invalid covers are re-chosen (a cover is valid while its image stays in the collection). Renaming a file doesn't change
+  invalid covers are re-chosen (a cover is valid while its image stays in the collection).
+  Freshness (owner's rule): images.updated_at = added_at on insert; `Collections::touch` sets it to now for all files of a
+  collection — `sync` does it for both sides of every Move (`from` if it still has files, `to`): tag edits, new/moved files,
+  and deleted records (each deletion site calls `Collections::removing` before the DELETE: a Move from its collection to
+  none — `Db::deleteImages`, rescan, folder sync); `Db::updateCollection` when the rating changes. The name never touches
+  (owner's decision: "Перейменувати всі колекції…" would give every collection one date; the READMEs say so). CollectionDialog shows
+  "Створена" = MIN(added_at) and "Оновлена" = MAX(updated_at) of its files (`CollectionRecord::createdAt/updatedAt`, only
+  filled by `Db::collection`). Renaming a file doesn't change
   the cover. "Встановити обкладинкою" in the single-image metadata dialog (disabled if already the cover, absent in bulk
   mode) is applied after Save via `Db::setCollectionCover` (the collection the file is in after the tag save).
 - **Thumbnail cache** (`thumbcache.*`): created at start (`ThumbCache::init`), keyed by sha256 so duplicates share one
@@ -168,7 +190,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   Window narrower than `CompactWidth` (900): the label is only "Сторінка N з M", the counts in its tooltip (`updatePageLabel`).
 - Sorting (files joined to their collection row as `ic`): Classic = ic.rating DESC, ic.name_key, vpath_key,
   file name NOCASE, id (file name and id always last); NewestFirst = added_at DESC then classic;
-  LargestFirst = size DESC then classic. These order the collections; the files of an open collection
+  LargestFirst = size DESC then classic; UpdatedFirst ("Спочатку оновлені", combo between Newest and Largest, enum value
+  last = saved setting) = updated_at DESC then classic. These order the collections; the files of an open collection
   (grid and viewer, images only) always use Classic, i.e. file name then id (owner's decision).
 - Bulk tag edit (inside a collection only): checkboxes on file thumbnails (hidden for "other" files and for collections). The selection is a set of image ids
   (`m_selectedIds`) kept across pages/searches, cleared by "Зняти всі" or a gallery switch; "Обрати всі"
@@ -227,6 +250,9 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   a yes; no = finish as now, `m_retriesDeclined`), then the failed files (`m_queue` of indexes into `m_links`, `m_retrying`) are tried
   again into the same `m_targetDir` (one import at the end). `BusySpinner` + countdown during every pause; Stop works there too.
   The page itself is not retried.
+  Room: `start` warns (yes/no) when the gallery's drive or the temp folder's has less than `FreeSpace::LowSpaceBytes`.
+  A local write failure (`HttpFetcher::Result::writeFailed`, a failed close/flush, temp folder or file not created) is
+  never retried: `localWriteFailed` → the run stops (`m_writeError` in the summary) and what was downloaded is imported.
 - Per-gallery settings: table `gallery_settings` (gallery_id, key, value; cascade with the gallery), `Db::gallerySetting`/`setGallerySetting`.
   The root folder last chosen is remembered per gallery: downloads (`download_root_folder`, saved on a list pick or when the typed
   name is left) and imports (`import_root_folder`, shared by add files/folder, saved when `chooseRootTag` is accepted; it wins
@@ -247,7 +273,9 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   `Scanner::isIgnoredFile` and its own `.xgsync-part`/`.xgsync-tmp`; an unreadable folder file and the gallery file at its path are left alone.
   Apply order: deletes → moves (swaps/cycles: a blocker steps aside under `.xgsync-tmp`, names restored on stop) → copies (chunked into
   `.xgsync-part`, source mtime kept, never over an existing file; a replaced old version is deleted only once the new one is complete) →
-  emptied folders `rmdir`ed, errors ignored. Deletes go through `Scanner::recycleFile` + `TrashPrompt::ask` (several). Target folders are
+  emptied folders `rmdir`ed, errors ignored. Room: before applying, `confirmRoom` with `FolderSync::bytesToCopy` per side
+  (nothing freed is counted: deletes go to the Recycle Bin); a failed copy when `FreeSpace::isOutOfSpace` ends that plan's
+  copies (`ApplyResult::outOfSpace`; a merge still tries the other side). Deletes go through `Scanner::recycleFile` + `TrashPrompt::ask` (several). Target folders are
   resolved to their on-disk spelling (`Folders`). Gallery side: moved records keep id/manual tags (`Scanner::moveRecord`; paths set to
   placeholders first, real ones at the end, since moves may swap paths), new files `Scanner::addRecord` (folder tags), changed keep the
   record; retag + deleteUnusedTags + sync, committed also when stopped. Progress in bytes; `BusyDialog::setSpinning` + "Перервати" via

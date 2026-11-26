@@ -114,7 +114,8 @@ photos with the same set of tags stay together, no matter which folder they are 
   the cover leaves the collection, the first photo becomes the cover again. A collection of videos
   or other files only shows its first file.
 - **Right click** on a collection opens the "Collection properties" window: name (the "Default"
-  button brings back the default name) and rating. **"Delete collection…"** moves all its files to
+  button brings back the default name) and rating, and also when it was created (its first file was
+  added to the gallery) and updated (its last change, see "Updated first" below). **"Delete collection…"** moves all its files to
   the Recycle Bin and removes them from the gallery, after one confirmation; the progress window has
   a **"Stop"** button (files already moved stay deleted, the rest stay in the collection). A file
   that can't go to the Recycle Bin (too big for it, or a drive without one) is never deleted silently:
@@ -148,6 +149,11 @@ photos with the same set of tags stay together, no matter which folder they are 
     with rating 90 comes before "Kate/Sea/2024" with rating 10;
   - "Newest first" — the files added to the gallery most recently come first (handy after
     adding a new batch of photos), then as in Classic;
+  - "Updated first" — the collections changed most recently come first, then as in Classic. A
+    collection changes when files come into it (added, downloaded, or given its tags) or leave it
+    (deleted, or their tags changed — then both collections count as changed), and when its rating
+    changes. Renaming a collection does **not** count, on purpose: otherwise "Rename all
+    collections…" would give the whole gallery one date;
   - "Largest first" — the biggest files first (handy for freeing up space), then as in Classic.
 - **"Hide other tags"** (the checkbox above the tag list) — the list keeps only the tags of the
   files found by the last search. `<no tags>` is always shown.
@@ -225,7 +231,11 @@ with it.
   skipped. If a file with the same name already exists but its content differs, the new copy gets
   the suffix `(1)`, `(2)`… At the end you see how many files were copied and how many duplicates
   were skipped. **"Stop"** in the progress window ends the copying after the current file; the files
-  copied so far stay in the gallery. Names that Windows reserves for devices (`CON`, `NUL`, `COM1`…) get a `_` in the
+  copied so far stay in the gallery. Before copying, the program checks the free space on the gallery's
+  drive: if the files may not fit, it asks whether to start anyway (duplicates aren't copied, so less
+  may be needed). If the drive fills up while copying, the import stops at that file; what was copied
+  stays in the gallery. The last 30 MB of the database's drive are never filled (see
+  [Room for the database](#room-for-the-database)). The list of files that couldn't be copied always says why. Names that Windows reserves for devices (`CON`, `NUL`, `COM1`…) get a `_` in the
   folder name (`CON_`), while the tag stays without it ("Con").
 - **Download from the Internet…** — the download manager, see
   [Downloading from the Internet](#downloading-from-the-internet).
@@ -329,8 +339,16 @@ a stop is still added to the gallery. A request with no data for 60 seconds fail
 (404 and the like) are not saved. In the end you see how many links were found, downloaded and
 failed, and which ones failed.
 
+Files are downloaded into a temporary folder first (usually on drive C:) and go into the gallery at the
+end. If less than 100 MB is free on the gallery's drive or on the temporary folder's, **"Start
+download"** warns and asks whether to really start. If a file can't be written to the temporary folder
+(the drive is full), the download stops at once, without further attempts, and what has been
+downloaded goes into the gallery. If the gallery's drive fills up while adding, the remaining files are
+not added. The download also stops before a file when what has been downloaded would leave the
+database's drive only its 30 MB reserve (see [Room for the database](#room-for-the-database)).
+
 **Failed files are tried again**, as many times as **"Attempts"** says. A file that fails for any
-reason (even 404) is put aside, and the rest of the list goes on. After the last file the program
+reason (even 404; except a file that couldn't be written on this computer, see above) is put aside, and the rest of the list goes on. After the last file the program
 waits, then tries the failed files again, into **the same folder**. The wait is what the server asked
 for in its `Retry-After` header (the longest of the failed files), 10 seconds if it didn't ask. If that
 is more than a minute, the program asks first whether to wait; **"No"** finishes as usual with what has
@@ -394,6 +412,10 @@ a folder inside it, or a folder that contains it.
 While the comparison or the sync runs, the rest of the program is locked; the progress window shows the
 current file, a percentage for big files and an animation. **"Stop"** asks first whether to really stop
 (the work waits meanwhile). What was done before stays; the file being copied at that moment is removed.
+Before the work starts, the program checks whether the files to copy fit on each drive and asks if they
+may not (deleted files go to the Recycle Bin and free no space). If a drive fills up, copying to it stops
+at that file; what was done stays. The database's 30 MB reserve is kept as well (see
+[Room for the database](#room-for-the-database)).
 Service files a gallery doesn't contain (`Thumbs.db`, `desktop.ini`, `*.db`, `*.ini`) are not compared
 and not touched; junction folders inside the chosen folder are not entered. A folder file that couldn't
 be read and the gallery file with the same path stay as they are.
@@ -428,6 +450,25 @@ gets too big), so duplicates share one, and it is
 deleted together with the last file that uses it. The folder needs no backup and can be deleted at
 any time: the program simply makes the thumbnails again. If the folder can't be created or written
 to (for example, on a write-protected USB stick), the program works without it, only slower.
+
+## Room for the database
+
+The database needs room of its own: while a change is being saved, SQLite keeps a journal next to it
+(`xgallery.sqlite-journal`) with the old version of what changes, so a crash or a power cut can't break
+the database. A big change (an update of the database by a new version, a rename of many tags) can make
+that journal large. So the last **30 MB** of the database's drive are kept for it. When only that much or
+less is free there:
+
+- adding to the gallery (files, a folder, an export into the gallery, a download) doesn't start and asks
+  you to free up space on that drive;
+- a sync with a folder can only be "Folder like the gallery": it adds nothing to the gallery;
+- new thumbnails are not saved in `thumbs` (the saved ones are still used).
+
+A job that is already running stops before the file that would eat into the reserve; what it added
+stays. Rotating a photo still works: it changes a file the gallery already has. In portable mode the
+galleries lie on the database's drive, so their files count towards it; with the database in AppData
+(drive C:) a gallery on another drive fills up only its own drive, but adding still stops when C: is
+down to 30 MB.
 
 ## License
 

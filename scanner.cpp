@@ -2,6 +2,7 @@
 
 #include "collections.h"
 #include "database.h"
+#include "freespace.h"
 #include "thumbcache.h"
 
 #include <QCoreApplication>
@@ -294,8 +295,8 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
     QSqlQuery insert(db);
     // One timestamp for the whole run, so "newest first" keeps a batch together.
     const qint64 addedAt = QDateTime::currentSecsSinceEpoch();
-    insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256, added_at) "
-                   "VALUES(?, ?, ?, ?, ?, ?, ?)");
+    insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256, added_at, updated_at) "
+                   "VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
     QSqlQuery update(db);
     update.prepare("UPDATE images SET size = ?, mtime = ?, sha256 = ? WHERE id = ?");
     TagWriter tagWriter(db, galleryId);
@@ -417,6 +418,7 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
         insert.addBindValue(file.mtime);
         insert.addBindValue(file.sha256);
         insert.addBindValue(addedAt);
+        insert.addBindValue(addedAt); // updated_at: new = just changed
         if (!insert.exec())
             return rollback(insert.lastError().text());
         // Folder tags only for new files: changed ones keep theirs (same path) and manual edits.
@@ -439,6 +441,11 @@ ScanStats doRescan(QPromise<ScanStats> &promise, QSqlDatabase &db, qint64 galler
     for (auto k = known.constBegin(); k != known.constEnd(); ++k) {
         if (seen.contains(k.key()) || movedFrom.contains(k.key()))
             continue;
+        {
+            QString error;
+            if (!Collections::removing(db, k->id, &moves, &error)) // its collection is touched by sync
+                return rollback(error);
+        }
         remove.addBindValue(k->id);
         if (!remove.exec())
             return rollback(remove.lastError().text());
@@ -565,8 +572,8 @@ qint64 addRecord(const QSqlDatabase &db, qint64 galleryId, const QString &relati
                  const QString &sha256, qint64 addedAt, QString *error)
 {
     QSqlQuery insert(db);
-    insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256, added_at) "
-                   "VALUES(?, ?, ?, ?, ?, ?, ?)");
+    insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256, added_at, updated_at) "
+                   "VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
     insert.addBindValue(galleryId);
     insert.addBindValue(relativePath);
     insert.addBindValue(QFileInfo(relativePath).fileName());
@@ -574,6 +581,7 @@ qint64 addRecord(const QSqlDatabase &db, qint64 galleryId, const QString &relati
     insert.addBindValue(mtime);
     insert.addBindValue(sha256);
     insert.addBindValue(addedAt);
+    insert.addBindValue(addedAt); // updated_at: new = just changed
     if (!insert.exec()) {
         *error = insert.lastError().text();
         return 0;
@@ -672,8 +680,8 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
     QSqlQuery insert(db);
     // One timestamp for the whole run, so "newest first" keeps a batch together.
     const qint64 addedAt = QDateTime::currentSecsSinceEpoch();
-    insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256, added_at) "
-                   "VALUES(?, ?, ?, ?, ?, ?, ?)");
+    insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256, added_at, updated_at) "
+                   "VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
     TagWriter tagWriter(db, galleryId);
     QList<Collections::Move> moves;
 
@@ -695,9 +703,12 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
             ++stats.ignored;
             continue;
         }
+        const auto failed = [&stats, &item](const QString &reason) {
+            stats.failed << QDir::toNativeSeparators(item.source) + QStringLiteral(" — ") + reason;
+        };
         const QString hash = sha256Of(item.source);
         if (hash.isEmpty()) {
-            stats.failed << QDir::toNativeSeparators(item.source);
+            failed(QCoreApplication::translate("Scanner", "не вдалося прочитати"));
             continue;
         }
         const QString key = contentKey(hash, source.size());
@@ -720,8 +731,12 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
             segments << safeFolderName(segment);
         }
         const QString targetDir = segments.join('/');
-        if (!inside || !root.mkpath(targetDir.isEmpty() ? "." : targetDir)) {
-            stats.failed << QDir::toNativeSeparators(item.source);
+        if (!inside) {
+            failed(QCoreApplication::translate("Scanner", "папка призначення поза галереєю"));
+            continue;
+        }
+        if (!root.mkpath(targetDir.isEmpty() ? "." : targetDir)) {
+            failed(QCoreApplication::translate("Scanner", "не вдалося створити папку"));
             continue;
         }
         const QDir dir(root.filePath(targetDir));
@@ -736,10 +751,24 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
             continue;
         }
 
+        // The database's own room (owner's rule): the copy and its record must leave the reserve free.
+        if (!FreeSpace::keepsDbReserve(dir.path(), source.size(), true)) {
+            stats.reserveReached = true;
+            break;
+        }
         const QString name = freeFileName(dir, fileName);
         const QString target = dir.filePath(name);
-        if (!QFile::copy(item.source, target)) {
-            stats.failed << QDir::toNativeSeparators(item.source);
+        QFile sourceFile(item.source);
+        if (!sourceFile.copy(target)) {
+            const QString reason = sourceFile.errorString();
+            QFile::remove(target); // a part copied so far (the name was free before): its room counts below
+            // No room for it: neither for the files after it. Stop; what is copied gets recorded.
+            if (FreeSpace::isOutOfSpace(dir.path(), source.size())) {
+                failed(QCoreApplication::translate("Scanner", "на диску галереї закінчилося місце"));
+                stats.outOfSpace = true;
+                break;
+            }
+            failed(reason);
             continue;
         }
         knownContent.insert(key); // the same content later in this batch is a duplicate
@@ -753,6 +782,7 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
         insert.addBindValue(copied.lastModified(QTimeZone::UTC).toMSecsSinceEpoch());
         insert.addBindValue(hash);
         insert.addBindValue(addedAt);
+        insert.addBindValue(addedAt); // updated_at: new = just changed
         QString error;
         const bool inserted = insert.exec();
         const qint64 newId = inserted ? insert.lastInsertId().toLongLong() : 0;
@@ -781,7 +811,8 @@ ImportStats doImport(QPromise<ImportStats> &promise, QSqlDatabase &db, qint64 ga
         return stats;
     }
     if (!db.commit()) {
-        stats.error = db.lastError().text();
+        stats.error = QCoreApplication::translate("Scanner", "Файли скопійовано, але записати їх у базу не вдалося "
+                                                            "(зроби рескан):\n%1").arg(db.lastError().text());
         db.rollback();
     }
     return stats;

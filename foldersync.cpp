@@ -2,6 +2,7 @@
 
 #include "collections.h"
 #include "database.h"
+#include "freespace.h"
 #include "thumbcache.h"
 
 #include <QCoreApplication>
@@ -353,6 +354,8 @@ public:
     }
     bool deleted(qint64 imageId, const QString &sha256, QString *error)
     {
+        if (!Collections::removing(m_db, imageId, &m_removals, error))
+            return false;
         QSqlQuery q(m_db);
         q.prepare("DELETE FROM images WHERE id = ? AND gallery_id = ?"); // image_tags: ON DELETE CASCADE
         q.addBindValue(imageId);
@@ -419,7 +422,7 @@ public:
                 break;
             m_retagged << id;
         }
-        QList<Collections::Move> moves;
+        QList<Collections::Move> moves = m_removals;
         if (!ok || !Collections::retag(m_db, m_retagged, &moves, error) || !Db::deleteUnusedTags(m_db, m_galleryId, error)
             || !Collections::sync(m_db, m_galleryId, moves, error)) {
             m_db.rollback();
@@ -458,6 +461,7 @@ private:
     // One timestamp for the whole run, so "newest first" keeps a batch together.
     const qint64 m_addedAt = QDateTime::currentSecsSinceEpoch();
     QList<qint64> m_retagged;
+    QList<Collections::Move> m_removals; // deleted records: their collections are touched by sync
     QStringList m_goneContent;
 };
 
@@ -790,6 +794,12 @@ void run(const Plan &plan, Progress &progress, Control *control, const Scanner::
             progress.add(step.size);
             continue;
         }
+        // The database's own room (owner's rule): files coming into the gallery get records, so its drive must
+        // keep the reserve whatever the gallery's drive; a folder copy only must not eat into it.
+        if (!FreeSpace::keepsDbReserve(partDir.path(), step.size, writer != nullptr)) {
+            result.reserveReached = true;
+            break;
+        }
         const QString part = partDir.filePath(freeName(partDir, nameOf(relative), PartSuffix));
         QString sha256;
         QString error;
@@ -800,6 +810,12 @@ void run(const Plan &plan, Progress &progress, Control *control, const Scanner::
             break;
         }
         if (outcome == CopyOutcome::Failed) {
+            // The part is gone already. No room for it: neither for the copies after it.
+            if (FreeSpace::isOutOfSpace(partDir.path(), step.size)) {
+                fail(step.target, tr("на диску закінчилося місце (%1)").arg(FreeSpace::driveOf(partDir.path())));
+                result.outOfSpace = true;
+                break;
+            }
             fail(step.target, error);
             continue;
         }
@@ -991,6 +1007,21 @@ void merge(QPromise<ApplyResult> &promise, qint64 galleryId, const QString &root
     }
     Db::close(connection);
     promise.addResult(result);
+}
+
+qint64 bytesToCopy(const Comparison &comparison, Direction direction, bool intoFolder)
+{
+    // The plans above: a side copies when it follows the other one, or in a merge.
+    const bool copies = direction == Direction::Merge
+                        || (direction == Direction::FolderLikeGallery) == intoFolder;
+    if (!copies)
+        return 0;
+    qint64 total = 0;
+    for (const File &file : intoFolder ? comparison.onlyInGallery : comparison.onlyInFolder)
+        total += file.size;
+    for (const Pair &pair : comparison.changed)
+        total += intoFolder ? pair.gallery.size : pair.folder.size;
+    return total;
 }
 
 } // namespace FolderSync

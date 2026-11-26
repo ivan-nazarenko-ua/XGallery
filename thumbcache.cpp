@@ -1,8 +1,10 @@
 #include "thumbcache.h"
 
 #include "database.h"
+#include "freespace.h"
 #include "mediafiles.h"
 
+#include <QDeadlineTimer>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -10,6 +12,8 @@
 #include <QSet>
 #include <QSqlQuery>
 #include <QVariant>
+
+#include <atomic>
 
 namespace {
 
@@ -28,6 +32,21 @@ bool isHash(const QString &sha256)
 QString fileOf(const QString &sha256)
 {
     return QDir(ThumbCache::folder()).filePath(sha256.left(2) + '/' + sha256 + ".png");
+}
+
+// The database's drive is down to its reserve (FreeSpace::dbReserveReached): then nothing is stored. Asked at most
+// every two seconds, a page of thumbnails asks once.
+bool atReserve()
+{
+    static std::atomic<qint64> checkedAt{-1}; // QDeadlineTimer::current() ms of the last check
+    static std::atomic_bool reached{false};
+    const qint64 now = QDeadlineTimer::current().deadline();
+    const qint64 last = checkedAt.load();
+    if (last < 0 || now - last >= 2000) {
+        reached = FreeSpace::dbReserveReached();
+        checkedAt = now;
+    }
+    return reached;
 }
 
 } // namespace
@@ -61,7 +80,7 @@ QImage load(const QString &sha256)
 
 void store(const QString &sha256, const QImage &thumbnail)
 {
-    if (!isHash(sha256) || thumbnail.isNull())
+    if (!isHash(sha256) || thumbnail.isNull() || atReserve())
         return;
     // Written aside and renamed: a half-written file is never read, and two workers making the
     // thumbnail of the same content (duplicates on one page) don't clash.

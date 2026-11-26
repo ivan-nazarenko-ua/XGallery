@@ -158,6 +158,7 @@ void HttpFetcher::onReadyRead()
     }
     if (m_output) {
         if (m_output->write(data) != data.size()) {
+            m_result.writeFailed = true;
             m_failure = tr("Не вдалося записати файл: %1").arg(m_output->errorString());
             m_reply->abort();
             return;

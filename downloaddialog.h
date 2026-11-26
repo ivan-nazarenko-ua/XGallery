@@ -86,6 +86,9 @@ private:
     void downloadNextFile();
     void onFileFetched(const HttpFetcher::Result &result);
     void fileFailed(const QString &reason, qint64 retryAfterMs = -1); // the current file
+    // The current file could not be written to the temporary folder (no room, most likely): it fails without
+    // another attempt, and the run stops (what is downloaded goes into the gallery).
+    void localWriteFailed(const QString &reason);
     void finishAttempt();     // the list is through: another attempt for the failed files, or the import
     void startNextAttempt();  // after the pause
     void showRetryCountdown();
@@ -147,6 +150,8 @@ private:
     int m_next = 0;     // position in m_queue
     int m_attempt = 1;
     bool m_retriesDeclined = false; // the user didn't want to wait for another attempt
+    QString m_writeError; // why the run stopped on a local write failure (localWriteFailed); empty: it didn't
+    bool m_reserveReached = false; // stopped before a file: the gallery would leave the DB drive only its reserve
     struct Failure
     {
         int index; // into m_links

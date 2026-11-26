@@ -3,7 +3,9 @@
 #include "mediafiles.h"
 #include "virtualpath.h"
 
+#include <QDateTime>
 #include <QHash>
+#include <QSet>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStringList>
@@ -154,8 +156,45 @@ bool retag(const QSqlDatabase &db, const QList<qint64> &imageIds, QList<Move> *m
     return true;
 }
 
+bool removing(const QSqlDatabase &db, qint64 imageId, QList<Move> *moves, QString *error)
+{
+    QSqlQuery q(db);
+    q.prepare("SELECT vpath_hash FROM images WHERE id = ?");
+    q.addBindValue(imageId);
+    if (!q.exec())
+        return fail(q, error);
+    if (q.next() && !q.value(0).isNull())
+        moves->append({q.value(0).toByteArray(), QByteArray()});
+    return true;
+}
+
+bool touch(const QSqlDatabase &db, qint64 galleryId, const QList<QByteArray> &hashes, QString *error)
+{
+    QSqlQuery q(db);
+    q.prepare("UPDATE images SET updated_at = ? WHERE gallery_id = ? AND vpath_hash = ?");
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    for (const QByteArray &hash : hashes) {
+        q.addBindValue(now);
+        q.addBindValue(galleryId);
+        q.addBindValue(hash);
+        if (!q.exec())
+            return fail(q, error);
+    }
+    return true;
+}
+
 bool sync(const QSqlDatabase &db, qint64 galleryId, const QList<Move> &moves, QString *error)
 {
+    // The collections files came to or left have changed: all their files are "updated" now
+    // (one left without files has nothing to touch).
+    QSet<QByteArray> changed;
+    for (const Move &move : moves)
+        for (const QByteArray &hash : {move.from, move.to})
+            if (!hash.isEmpty())
+                changed.insert(hash);
+    if (!touch(db, galleryId, changed.values(), error))
+        return false;
+
     QSqlQuery q(db);
 
     // Collections that have no files any more.

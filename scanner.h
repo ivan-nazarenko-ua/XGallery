@@ -58,9 +58,13 @@ struct ImportStats
     int copied = 0;
     int duplicates = 0;   // same content already in the gallery (or earlier in this batch)
     int ignored = 0;      // Thumbs.db, desktop.ini, ...
-    QStringList failed;   // files that could not be read or copied
+    QStringList failed;   // "source — reason" (native separators) of files that could not be read or copied
     QString error;        // fatal error; empty on success
     bool stopped = false; // the user stopped it: the files copied so far are in the gallery
+    bool outOfSpace = false; // stopped at the first copy the gallery's drive had no room for (the file is in
+                             // failed); the files copied before are in the gallery
+    bool reserveReached = false; // stopped before a copy that would have left the database's drive no more than
+                                 // FreeSpace::DbReserveBytes free; the files copied before are in the gallery
 };
 
 // Copies the files into the gallery and registers them in the DB, with the target folders

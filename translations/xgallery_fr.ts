@@ -82,6 +82,18 @@
         <source>Ім&apos;я автоматичне.</source>
         <translation>Le nom est automatique.</translation>
     </message>
+    <message>
+        <source>невідомо</source>
+        <translation>inconnue</translation>
+    </message>
+    <message>
+        <source>Створена:</source>
+        <translation>Créée :</translation>
+    </message>
+    <message>
+        <source>Оновлена:</source>
+        <translation>Modifiée :</translation>
+    </message>
 </context>
 <context>
     <name>DownloadDialog</name>
@@ -515,6 +527,42 @@ L&apos;essai %2 sur %3 commence dans %4</translation>
         <source>Повторні спроби скасовано: пауза була б надто довгою.</source>
         <translation>Nouveaux essais annulés : la pause aurait été trop longue.</translation>
     </message>
+    <message>
+        <source>%1 (%2) — вільно %3</source>
+        <translation>%1 (%2) — %3 libres</translation>
+    </message>
+    <message>
+        <source>тимчасова папка</source>
+        <translation>dossier temporaire</translation>
+    </message>
+    <message>
+        <source>галерея</source>
+        <translation>galerie</translation>
+    </message>
+    <message>
+        <source>На диску менше 100 МБ вільного місця:
+%1
+
+Коли місце закінчиться, завантаження зупиниться. Справді почати завантаження?</source>
+        <translation>Moins de 100 Mo d&apos;espace libre sur le disque :
+%1
+
+Quand l&apos;espace sera épuisé, le téléchargement s&apos;arrêtera. Lancer quand même le téléchargement ?</translation>
+    </message>
+    <message>
+        <source>На диску галереї закінчилося місце: решту файлів не додано.</source>
+        <translation>Le disque de la galerie est plein : les fichiers restants n&apos;ont pas été ajoutés.</translation>
+    </message>
+    <message>
+        <source>Не вдалося записати файл у тимчасову папку (%1): %2
+Завантаження зупинено без повторних спроб, уже завантажене додається в галерею.</source>
+        <translation>Impossible d&apos;écrire un fichier dans le dossier temporaire (%1) : %2
+Le téléchargement a été arrêté sans nouvelles tentatives ; ce qui a été téléchargé est ajouté à la galerie.</translation>
+    </message>
+    <message>
+        <source>Решту посилань не завантажено.</source>
+        <translation>Les liens restants n&apos;ont pas été téléchargés.</translation>
+    </message>
 </context>
 <context>
     <name>DownloadProfiles</name>
@@ -689,6 +737,25 @@ Clic droit sur un groupe → « Ignorer » : le groupe n&apos;est plus affiché 
     <message>
         <source>не вдалося створити папку</source>
         <translation>impossible de créer le dossier</translation>
+    </message>
+    <message>
+        <source>на диску закінчилося місце (%1)</source>
+        <translation>le disque est plein (%1)</translation>
+    </message>
+</context>
+<context>
+    <name>FreeSpace</name>
+    <message>
+        <source>На диску %1 (там база даних) вільно лише %2. Останні %3 лишаються для самої бази, тому додавати файли в галерею зараз не можна.
+
+Звільніть місце на цьому носії.</source>
+        <translation>Le disque %1 (celui de la base de données) n&apos;a plus que %2 de libre. Les derniers %3 sont réservés à la base elle-même : impossible d&apos;ajouter des fichiers à la galerie pour l&apos;instant.
+
+Libérez de l&apos;espace sur ce support.</translation>
+    </message>
+    <message>
+        <source>На диску %1 (там база даних) лишився тільки запас для бази (%2): додавання зупинено, уже додане залишилось. Звільніть місце на цьому носії.</source>
+        <translation>Il ne reste sur le disque %1 (celui de la base de données) que la réserve de la base (%2) : l&apos;ajout a été arrêté, ce qui a été ajouté reste. Libérez de l&apos;espace sur ce support.</translation>
     </message>
 </context>
 <context>
@@ -1799,20 +1866,6 @@ Si la case est décochée, la prochaine analyse retire de la base les fichiers t
         <translation>Télécharger depuis Internet</translation>
     </message>
     <message>
-        <source>Порядок знайдених файлів. Колекція стоїть там, де її перший файл.
-Класичне: за оцінкою колекції (більші спочатку), потім за ім&apos;ям колекції, потім за її
-тегами (за абеткою через «/»); останніми завжди ім&apos;я файлу.
-Спочатку новіші: за датою додавання в галерею, потім як класичне.
-Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.
-Усередині відкритої колекції файли завжди йдуть за ім&apos;ям.</source>
-        <translation>Ordre des fichiers trouvés. Une collection se place là où se trouve son premier fichier.
-Classique : par note de la collection (les plus hautes d&apos;abord), puis par nom de la collection, puis par ses
-tags (par ordre alphabétique, joints par « / ») ; le nom du fichier vient toujours en dernier.
-Plus récents d&apos;abord : par date d&apos;ajout à la galerie, puis comme classique.
-Plus grands d&apos;abord : par taille de fichier (les plus grands d&apos;abord), puis comme classique.
-Dans une collection ouverte, les fichiers sont toujours classés par nom.</translation>
-    </message>
-    <message>
         <source>Зачекайте, доки завершиться поточна операція, і спробуйте ще раз.</source>
         <translation>Attendez la fin de l&apos;opération en cours, puis réessayez.</translation>
     </message>
@@ -2192,6 +2245,60 @@ Lancez une réanalyse.</translation>
 Ajoutés à la galerie : %2
 Avec un nouveau nom (« nom (1) ») : %3</translation>
     </message>
+    <message>
+        <source>Спочатку оновлені</source>
+        <translation>Modifiés d&apos;abord</translation>
+    </message>
+    <message>
+        <source>Порядок знайдених файлів. Колекція стоїть там, де її перший файл.
+Класичне: за оцінкою колекції (більші спочатку), потім за ім&apos;ям колекції, потім за її
+тегами (за абеткою через «/»); останніми завжди ім&apos;я файлу.
+Спочатку новіші: за датою додавання в галерею, потім як класичне.
+Спочатку оновлені: за датою останньої зміни колекції (файли в неї додано
+чи з неї прибрано, змінено оцінку; ім&apos;я не рахується), потім як класичне.
+Спершу більші: за розміром файлу (найбільші спочатку), потім як класичне.
+Усередині відкритої колекції файли завжди йдуть за ім&apos;ям.</source>
+        <translation>Ordre des fichiers trouvés. Une collection se place là où se trouve son premier fichier.
+Classique : par note de la collection (les plus hautes d&apos;abord), puis par nom de la collection, puis par ses
+tags (par ordre alphabétique, joints par « / ») ; le nom du fichier vient toujours en dernier.
+Plus récents d&apos;abord : par date d&apos;ajout à la galerie, puis comme classique.
+Modifiés d&apos;abord : par date de la dernière modification de la collection (fichiers ajoutés ou
+retirés, note changée ; le nom ne compte pas), puis comme classique.
+Plus grands d&apos;abord : par taille de fichier (les plus grands d&apos;abord), puis comme classique.
+Dans une collection ouverte, les fichiers sont toujours classés par nom.</translation>
+    </message>
+    <message>
+        <source>На диску закінчилося місце: копіювання зупинено, уже зроблене залишилось.</source>
+        <translation>Un disque est plein : la copie a été arrêtée, ce qui a été fait reste.</translation>
+    </message>
+    <message>
+        <source>%1 — потрібно %2, вільно %3</source>
+        <translation>%1 — %2 nécessaires, %3 libres</translation>
+    </message>
+    <message>
+        <source>Може не вистачити місця на диску:</source>
+        <translation>L&apos;espace disque risque de manquer :</translation>
+    </message>
+    <message>
+        <source>Почати все одно? Коли місце закінчиться, копіювання зупиниться, а вже скопійоване залишиться.</source>
+        <translation>Commencer quand même ? Quand l&apos;espace sera épuisé, la copie s&apos;arrêtera, et ce qui a été copié restera.</translation>
+    </message>
+    <message>
+        <source>Дублікати не копіюються, тож насправді може знадобитися менше.</source>
+        <translation>Les doublons ne sont pas copiés : il en faudra peut-être moins en réalité.</translation>
+    </message>
+    <message>
+        <source>На диску галереї закінчилося місце, додавання зупинено. Скопійовані файли залишились у галереї.</source>
+        <translation>Le disque de la galerie est plein, l&apos;ajout a été arrêté. Les fichiers copiés restent dans la galerie.</translation>
+    </message>
+    <message>
+        <source>Можна лише «Папку — як галерею»: вона нічого не додає в галерею.</source>
+        <translation>Seul « Dossier comme la galerie » est possible : il n&apos;ajoute rien à la galerie.</translation>
+    </message>
+    <message>
+        <source>(на диску бази даних останні %1 лишаються для неї й тут не враховані)</source>
+        <translation>(sur le disque de la base de données, les derniers %1 lui sont réservés et ne sont pas comptés ici)</translation>
+    </message>
 </context>
 <context>
     <name>Scanner</name>
@@ -2304,6 +2411,22 @@ Continuer la suppression des autres fichiers ?</translation>
     <message>
         <source>Продовжити</source>
         <translation>Continuer</translation>
+    </message>
+    <message>
+        <source>не вдалося прочитати</source>
+        <translation>lecture impossible</translation>
+    </message>
+    <message>
+        <source>папка призначення поза галереєю</source>
+        <translation>le dossier cible est hors de la galerie</translation>
+    </message>
+    <message>
+        <source>не вдалося створити папку</source>
+        <translation>impossible de créer le dossier</translation>
+    </message>
+    <message>
+        <source>на диску галереї закінчилося місце</source>
+        <translation>le disque de la galerie est plein</translation>
     </message>
 </context>
 <context>

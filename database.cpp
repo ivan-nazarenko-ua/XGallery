@@ -211,6 +211,14 @@ bool setSetting(const QString &key, const QString &value)
 bool repairCollections()
 {
     QSqlDatabase db = mainDb();
+    {
+        // Files an older version added (it doesn't know updated_at: 0) changed when they were added.
+        QSqlQuery q(db);
+        if (!q.exec("UPDATE images SET updated_at = added_at WHERE updated_at < added_at")) {
+            g_lastError = q.lastError().text();
+            return false;
+        }
+    }
     QHash<qint64, QList<qint64>> unplaced; // gallery -> files without a virtual path
     QSet<qint64> galleries;
     {
@@ -630,6 +638,9 @@ static QString orderTerms(SortOrder order)
     case SortOrder::LargestFirst:
         firstKey = "i.size DESC, ";
         break;
+    case SortOrder::UpdatedFirst:
+        firstKey = "i.updated_at DESC, ";
+        break;
     }
     return firstKey + "ic.rating DESC, ic.name_key, i.vpath_key, i.name COLLATE NOCASE, i.id";
 }
@@ -747,14 +758,21 @@ QList<CollectionRecord> searchCollections(qint64 galleryId, const TagQuery &quer
 CollectionRecord collection(qint64 galleryId, qint64 collectionId)
 {
     QSqlQuery q(mainDb());
-    q.prepare(QString("SELECT %1, (SELECT COUNT(*) FROM images i WHERE i.gallery_id = c.gallery_id "
-                      "AND i.vpath_hash = c.vpath_hash) FROM collections c WHERE c.id = ? AND c.gallery_id = ?")
+    q.prepare(QString("SELECT %1, f.files, f.created, f.updated FROM collections c, "
+                      "(SELECT COUNT(*) AS files, MIN(i.added_at) AS created, MAX(i.updated_at) AS updated "
+                      " FROM images i JOIN collections c2 ON c2.id = ? "
+                      " WHERE i.gallery_id = c2.gallery_id AND i.vpath_hash = c2.vpath_hash) f "
+                      "WHERE c.id = ? AND c.gallery_id = ?")
                   .arg(CollectionColumns));
+    q.addBindValue(collectionId);
     q.addBindValue(collectionId);
     q.addBindValue(galleryId);
     if (!exec(q) || !q.next())
         return {};
-    return collectionFrom(q);
+    CollectionRecord record = collectionFrom(q);
+    record.createdAt = q.value(8).toLongLong();
+    record.updatedAt = q.value(9).toLongLong();
+    return record;
 }
 
 bool isCollectionCover(qint64 galleryId, qint64 imageId)
@@ -781,16 +799,36 @@ bool setCollectionCover(qint64 galleryId, qint64 imageId)
 
 bool updateCollection(qint64 galleryId, qint64 collectionId, const QString &name, bool nameManual, int rating)
 {
-    const QString virtualPath = collection(galleryId, collectionId).virtualPath;
-    QSqlQuery q(mainDb());
+    const CollectionRecord before = collection(galleryId, collectionId);
+    rating = qBound(Collections::MinRating, rating, Collections::MaxRating);
+    QSqlDatabase db = mainDb();
+    if (!db.transaction()) {
+        g_lastError = db.lastError().text();
+        return false;
+    }
+    QSqlQuery q(db);
     q.prepare("UPDATE collections SET name = ?, name_key = ?, name_manual = ?, rating = ? WHERE id = ? AND gallery_id = ?");
     q.addBindValue(name.isNull() ? QStringLiteral("") : name);
-    q.addBindValue(Collections::nameKey(name, virtualPath));
+    q.addBindValue(Collections::nameKey(name, before.virtualPath));
     q.addBindValue(nameManual ? 1 : 0);
-    q.addBindValue(qBound(Collections::MinRating, rating, Collections::MaxRating));
+    q.addBindValue(rating);
     q.addBindValue(collectionId);
     q.addBindValue(galleryId);
-    return exec(q);
+    bool ok = exec(q);
+    if (ok && before.id != 0 && before.rating != rating) {
+        q.prepare("SELECT vpath_hash FROM collections WHERE id = ?");
+        q.addBindValue(collectionId);
+        ok = exec(q) && q.next();
+        const QByteArray hash = ok ? q.value(0).toByteArray() : QByteArray();
+        q.finish();
+        ok = ok && Collections::touch(db, galleryId, {hash}, &g_lastError);
+    }
+    if (ok && db.commit())
+        return true;
+    if (ok)
+        g_lastError = db.lastError().text();
+    db.rollback();
+    return false;
 }
 
 int renameCollections(qint64 galleryId, bool onlyAutomatic)
@@ -1180,8 +1218,11 @@ bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds)
                 hashes << q.value(0).toString();
             q.finish();
         }
+        QList<Collections::Move> moves; // the collections that lose files: touched by sync
         q.prepare("DELETE FROM images WHERE id = ? AND gallery_id = ?"); // image_tags: ON DELETE CASCADE
         for (qint64 id : ok ? imageIds : QList<qint64>{}) {
+            if (!(ok = Collections::removing(db, id, &moves, &g_lastError)))
+                break;
             q.addBindValue(id);
             q.addBindValue(galleryId);
             if (!(ok = exec(q)))
@@ -1189,7 +1230,7 @@ bool deleteImages(qint64 galleryId, const QList<qint64> &imageIds)
         }
         if (ok)
             ok = deleteUnusedTags(db, galleryId, &g_lastError)
-                 && Collections::sync(db, galleryId, {}, &g_lastError); // emptied collections go away
+                 && Collections::sync(db, galleryId, moves, &g_lastError); // emptied collections go away
     }
     if (ok && db.commit()) {
         ThumbCache::removeUnused(db, hashes);

@@ -660,6 +660,15 @@ bool toV16DownloadAttempts(Sql &s)
     return s.exec("ALTER TABLE download_profiles ADD COLUMN attempts INTEGER NOT NULL DEFAULT 3");
 }
 
+// ---- v16 -> v17: when a file (and so its collection) last changed ---------------------------
+// images.updated_at: set to added_at on insert; Collections::sync sets it for all files of a collection
+// that got or lost files, Db::updateCollection when the rating changes. Existing files: their added_at.
+bool toV17UpdatedAt(Sql &s)
+{
+    return s.exec("ALTER TABLE images ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0")
+           && s.exec("UPDATE images SET updated_at = added_at");
+}
+
 } // namespace
 
 struct Migrations::Step
@@ -754,6 +763,7 @@ static const QList<Migrations::Step> &steps()
         {toV14ManualNames, false},
         {toV15IgnoredDuplicates, false},
         {toV16DownloadAttempts, false},
+        {toV17UpdatedAt, false},
     };
     return list;
 }

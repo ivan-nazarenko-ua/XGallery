@@ -2,6 +2,7 @@
 
 #include "busyspinner.h"
 #include "downloadnames.h"
+#include "freespace.h"
 #include "htmllinks.h"
 #include "tagpickerdialog.h"
 
@@ -671,6 +672,34 @@ void DownloadDialog::start()
                                                       .arg(QDir::toNativeSeparators(m_gallery.rootFolder)));
         return;
     }
+    // The database's own room (owner's rule): at the reserve, nothing is downloaded into the gallery.
+    if (FreeSpace::dbReserveReached()) {
+        QMessageBox::warning(this, windowTitle(), FreeSpace::reserveRefusal());
+        return;
+    }
+    // Files go to the temporary folder first, then into the gallery: little room on either drive is asked about.
+    {
+        QStringList low;
+        const QString temp = QDir::tempPath();
+        for (const QString &path : {m_gallery.rootFolder, temp}) {
+            if (path == temp && FreeSpace::sameDrive(temp, m_gallery.rootFolder))
+                break;
+            const qint64 free = FreeSpace::available(path);
+            if (free >= 0 && free < FreeSpace::LowSpaceBytes)
+                low << tr("%1 (%2) — вільно %3")
+                           .arg(FreeSpace::driveOf(path),
+                                path == temp ? tr("тимчасова папка") : tr("галерея"),
+                                QLocale().formattedDataSize(free));
+        }
+        if (!low.isEmpty()
+            && QMessageBox::warning(this, windowTitle(),
+                                    tr("На диску менше 100 МБ вільного місця:\n%1\n\nКоли місце закінчиться, "
+                                       "завантаження зупиниться. Справді почати завантаження?")
+                                        .arg(low.join('\n')),
+                                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+                   != QMessageBox::Yes)
+            return;
+    }
     m_tempDir = std::make_unique<QTemporaryDir>();
     if (!m_tempDir->isValid()) {
         QMessageBox::warning(this, windowTitle(), tr("Не вдалося створити тимчасову папку:\n%1")
@@ -687,6 +716,8 @@ void DownloadDialog::start()
     m_next = 0;
     m_attempt = 1;
     m_retriesDeclined = false;
+    m_writeError.clear();
+    m_reserveReached = false;
     m_failed.clear();
     m_retrying.clear();
     m_items.clear();
@@ -717,6 +748,10 @@ void DownloadDialog::onPageFetched(const HttpFetcher::Result &result)
         m_file->close();
     if (result.aborted) {
         finishRun(tr("Завантаження зупинено."), false);
+        return;
+    }
+    if (result.ok && m_file && m_file->error() != QFileDevice::NoError) { // close() writes the last bytes
+        finishRun(tr("Не вдалося зберегти сторінку:\n%1").arg(m_file->errorString()), true);
         return;
     }
     if (!result.ok) {
@@ -789,6 +824,15 @@ void DownloadDialog::fileFailed(const QString &reason, qint64 retryAfterMs)
     scheduleNextFile();
 }
 
+void DownloadDialog::localWriteFailed(const QString &reason)
+{
+    m_failed.append({m_queue.at(m_next), reason, 0});
+    ++m_next;
+    m_progress->setValue(m_next);
+    m_writeError = reason;
+    importDownloads(); // no more files, no other attempt
+}
+
 void DownloadDialog::finishAttempt()
 {
     if (m_failed.isEmpty() || m_attempt >= m_runProfile.attempts) {
@@ -859,20 +903,30 @@ void DownloadDialog::startNextAttempt()
 void DownloadDialog::downloadNextFile()
 {
     m_spinner->stop();
+    // The database's own room (owner's rule): what is downloaded so far must still fit into the gallery with the
+    // reserve left, else the run stops here and that is imported.
+    qint64 downloaded = 0;
+    for (const Scanner::ImportItem &item : std::as_const(m_items))
+        downloaded += QFileInfo(item.source).size();
+    if (!FreeSpace::keepsDbReserve(m_gallery.rootFolder, downloaded, true)) {
+        m_reserveReached = true;
+        importDownloads();
+        return;
+    }
     const int index = m_queue.at(m_next);
     const QUrl url = m_links.at(index);
     // A folder per file: the name it gets later can't collide with another download's.
     // Another attempt of the file reuses its (empty) folder.
     const QString folder = QString::number(index);
     if (!QDir(m_tempDir->path()).mkpath(folder)) {
-        fileFailed(tr("не вдалося створити тимчасову папку"));
+        localWriteFailed(tr("не вдалося створити тимчасову папку"));
         return;
     }
     m_file = std::make_unique<QFile>(QDir(m_tempDir->filePath(folder)).filePath(QStringLiteral("download.part")));
     if (!m_file->open(QIODevice::WriteOnly)) {
         const QString error = m_file->errorString();
         m_file.reset();
-        fileFailed(error);
+        localWriteFailed(error);
         return;
     }
     const QString header = fileHeader();
@@ -895,6 +949,15 @@ void DownloadDialog::onFileFetched(const HttpFetcher::Result &result)
         m_file->remove();
         m_file.reset();
         importDownloads();
+        return;
+    }
+    // The last buffered bytes are written by close(): a full drive may show only there.
+    const bool writeFailed = result.writeFailed || (result.ok && m_file->error() != QFileDevice::NoError);
+    if (writeFailed) {
+        const QString error = m_file->errorString();
+        m_file->remove();
+        m_file.reset();
+        localWriteFailed(error);
         return;
     }
     if (!result.ok) {
@@ -959,13 +1022,18 @@ void DownloadDialog::importDownloads()
         emit filesAdded();
         QString message = downloadSummary();
         message += "\n" + tr("Додано в галерею — %1 (папка «%2»).").arg(stats.copied).arg(m_targetDir);
+        if (stats.outOfSpace)
+            message += "\n" + tr("На диску галереї закінчилося місце: решту файлів не додано.");
+        if (stats.reserveReached && !m_reserveReached)
+            message += "\n\n" + FreeSpace::reserveStop();
         if (stats.ignored > 0)
             message += "\n" + tr("Пропущено службових файлів (Thumbs.db, desktop.ini тощо) — %1.").arg(stats.ignored);
         if (!stats.failed.isEmpty())
             message += "\n\n" + tr("Не вдалося скопіювати:\n%1").arg(stats.failed.join('\n'));
         if (!stats.error.isEmpty())
             message += "\n\n" + stats.error;
-        finishRun(message, !failures().isEmpty() || !stats.failed.isEmpty() || !stats.error.isEmpty());
+        finishRun(message, !failures().isEmpty() || !stats.failed.isEmpty() || !stats.error.isEmpty()
+                               || stats.reserveReached || m_reserveReached);
     });
     const qint64 galleryId = m_gallery.id;
     const QString root = m_gallery.rootFolder;
@@ -989,6 +1057,13 @@ QString DownloadDialog::downloadSummary() const
     QString message;
     if (m_stopped)
         message = tr("Завантаження зупинено.") + "\n";
+    if (!m_writeError.isEmpty())
+        message = tr("Не вдалося записати файл у тимчасову папку (%1): %2\nЗавантаження зупинено без повторних "
+                     "спроб, уже завантажене додається в галерею.")
+                      .arg(QDir::toNativeSeparators(m_tempDir ? m_tempDir->path() : QDir::tempPath()), m_writeError)
+                  + "\n\n";
+    if (m_reserveReached)
+        message = FreeSpace::reserveStop() + "\n" + tr("Решту посилань не завантажено.") + "\n\n";
     if (m_runProfile.mode == DownloadProfile::Mode::Page)
         return message + tr("Сторінку завантажено.");
     message += tr("Знайдено посилань — %1, завантажено — %2, з помилкою — %3.")
