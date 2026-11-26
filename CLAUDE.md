@@ -197,7 +197,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (`m_selectedIds`) kept across pages/searches, cleared by "Зняти всі" or a gallery switch; "Обрати всі"
   ticks every file of the open collection (`m_selectableIds`, filled by `loadPage`), "Обрати сторінку" the current page only;
   each is enabled only while it would tick something. Right click on a file with 2+ selected → `Db::imagesByIds` + `Db::applyTagChanges`.
-  Double click on a tag in the metadata dialog adds it to "Містить" without searching.
+  Double click on a tag in the metadata dialog adds it to "Містить" without searching. Double click on a tag in the main
+  tag list replaces "Містить" with it and searches (owner's rule); its right-click menu still adds.
 - **Tag groups**: table `tag_groups` (gallery_id, name, position = user order; names unique per gallery only in the dialog);
   `tags.group_id` (NULL = no group, ON DELETE SET NULL; `Db::saveTagGroups` also nulls it explicitly). Edited in `GalleryDialog`
   (saved on its Save via `Db::saveTagGroups`), a tag is moved via the tag list's right-click menu "Група" (`Db::setTagGroup`).

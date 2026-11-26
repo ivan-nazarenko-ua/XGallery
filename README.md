@@ -139,7 +139,8 @@ photos with the same set of tags stay together, no matter which folder they are 
 - **"Exact"** (the checkbox next to "Contains tags") — finds only files that have exactly these
   tags and no others. The "Does not contain" field is disabled in this mode. If "Contains tags"
   is empty, files without tags are found.
-- Double-clicking a tag in the list on the left adds it to "Contains tags". Right-clicking lets
+- Double-clicking a tag in the list on the left puts it into "Contains tags" in place of what was
+  there and searches. Right-clicking lets
   you choose where to add the tag, and also **rename** it. If a tag with the new name already
   exists, nothing is renamed.
 - **Sorting** puts the found files in order; each collection stands where its first file is.

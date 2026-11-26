@@ -166,7 +166,8 @@ restent groupées, quel que soit le dossier où elles se trouvent.
 - **« Strict »** (la case à côté de « Contient les tags ») — ne trouve que les fichiers qui ont
   exactement ces tags et aucun autre. Le champ « Ne contient pas » est désactivé dans ce mode. Si
   « Contient les tags » est vide, ce sont les fichiers sans tags qui sont trouvés.
-- Un double-clic sur un tag dans la liste de gauche l'ajoute à « Contient les tags ». Un clic
+- Un double-clic sur un tag dans la liste de gauche le met dans « Contient les tags » à la place de
+  ce qui s'y trouvait et lance la recherche. Un clic
   droit permet de choisir où ajouter le tag, et aussi de le **renommer**. Si un tag portant le
   nouveau nom existe déjà, rien n'est renommé.
 - **Le tri** ordonne les fichiers trouvés ; chaque collection se place là où se trouve son premier

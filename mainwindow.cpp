@@ -346,6 +346,8 @@ void MainWindow::buildUi()
     connect(m_tagList, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
         if (item->data(GroupHeaderRole).toBool())
             return;
+        // Replaces what "Містить" holds (owner's rule); adding is in the right-click menu.
+        m_includeEdit->clear();
         addTagToEdit(m_includeEdit, item->text());
         applySearch();
     });
@@ -480,7 +482,7 @@ void MainWindow::retranslateUi()
     m_hideForeignTagsCheck->setToolTip(tr("Показувати лише теги файлів, знайдених останнім пошуком"));
     m_tagFilterEdit->setPlaceholderText(tr("Фільтр тегів…"));
     m_tagFilterEdit->setToolTip(tr("Показувати у списку лише теги, що містять цей текст (регістр не враховується)"));
-    m_tagList->setToolTip(tr("Подвійний клік — додати до «Містить».\n"
+    m_tagList->setToolTip(tr("Подвійний клік — шукати лише цей тег (замінює вміст «Містить»).\n"
                              "Правий клік — вибрати, куди додати."));
     for (QCheckBox *check : std::as_const(m_thumbChecks))
         check->setToolTip(tr("Обрати для групового редагування тегів (правий клік на будь-якому прев'ю)"));

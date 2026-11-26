@@ -1278,12 +1278,6 @@ The &quot;Does not contain&quot; field is ignored then.</translation>
         <translation>Show only the tags containing this text in the list (case-insensitive)</translation>
     </message>
     <message>
-        <source>Подвійний клік — додати до «Містить».
-Правий клік — вибрати, куди додати.</source>
-        <translation>Double click: add to &quot;Contains&quot;.
-Right click: choose where to add.</translation>
-    </message>
-    <message>
         <source>Обрати для групового редагування тегів (правий клік на будь-якому прев&apos;ю)</source>
         <translation>Select for bulk tag editing (right click on any thumbnail)</translation>
     </message>
@@ -2298,6 +2292,12 @@ Inside an open collection the files always go by name.</translation>
     <message>
         <source>(на диску бази даних останні %1 лишаються для неї й тут не враховані)</source>
         <translation>(on the database&apos;s drive the last %1 are kept for it and not counted here)</translation>
+    </message>
+    <message>
+        <source>Подвійний клік — шукати лише цей тег (замінює вміст «Містить»).
+Правий клік — вибрати, куди додати.</source>
+        <translation>Double click: search for this tag only (replaces &quot;Contains&quot;).
+Right click: choose where to add.</translation>
     </message>
 </context>
 <context>

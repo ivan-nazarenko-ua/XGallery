@@ -1278,12 +1278,6 @@ Le champ « Ne contient pas » est alors ignoré.</translation>
         <translation>Afficher dans la liste uniquement les tags contenant ce texte (sans tenir compte de la casse)</translation>
     </message>
     <message>
-        <source>Подвійний клік — додати до «Містить».
-Правий клік — вибрати, куди додати.</source>
-        <translation>Double-clic : ajouter à « Contient ».
-Clic droit : choisir où ajouter.</translation>
-    </message>
-    <message>
         <source>Обрати для групового редагування тегів (правий клік на будь-якому прев&apos;ю)</source>
         <translation>Sélectionner pour la modification groupée des tags (clic droit sur n&apos;importe quelle vignette)</translation>
     </message>
@@ -2298,6 +2292,12 @@ Dans une collection ouverte, les fichiers sont toujours classés par nom.</trans
     <message>
         <source>(на диску бази даних останні %1 лишаються для неї й тут не враховані)</source>
         <translation>(sur le disque de la base de données, les derniers %1 lui sont réservés et ne sont pas comptés ici)</translation>
+    </message>
+    <message>
+        <source>Подвійний клік — шукати лише цей тег (замінює вміст «Містить»).
+Правий клік — вибрати, куди додати.</source>
+        <translation>Double-clic : chercher ce tag seul (remplace « Contient »).
+Clic droit : choisir où ajouter.</translation>
     </message>
 </context>
 <context>
