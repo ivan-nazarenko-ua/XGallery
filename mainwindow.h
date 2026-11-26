@@ -6,9 +6,11 @@
 #include <QTimer>
 
 #include "database.h"
+#include "foldersync.h"
 #include "scanner.h"
 
 #include <functional>
+#include <memory>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -67,6 +69,7 @@ private slots:
     void addFilesToGallery();
     void addFolderToGallery();
     void downloadFromInternet();
+    void syncWithFolder(); // a folder compared with the gallery, then one made like the other (FolderSync)
     void showTagMenu(const QPoint &pos);
     void renameTag(const QString &oldName);
     void setTagGroup(const QString &tag, qint64 groupId); // 0: no group
@@ -92,6 +95,15 @@ private:
     static constexpr int CompactWidth = 900;
     void reloadGalleries(qint64 selectId);
     void askForRescan(const QString &question);
+    // Rescan in a worker; done gets the stats once the grid and tag list are reloaded.
+    void runRescan(const Gallery &gallery, std::function<void(const ScanStats &)> done);
+    // "Синхронізувати з папкою", after the rescan: compare, ask what to do, do it.
+    void compareWithFolder(const Gallery &gallery, const QString &folder, FolderSync::Mode mode);
+    void chooseSyncAction(const Gallery &gallery, const QString &folder, const FolderSync::Comparison &comparison);
+    void runFolderSync(const Gallery &gallery, const QString &folder, const FolderSync::Comparison &comparison,
+                       FolderSync::Direction direction);
+    // The busy dialog of a FolderSync job: spinner, "Перервати" that pauses the job while asking `question`.
+    void offerSyncStop(const std::shared_ptr<FolderSync::Control> &control, const QString &question);
     const Gallery *currentGallery() const;
     QStringList galleryNamesExcept(qint64 galleryId) const;
     Db::SortOrder sortOrder() const;
@@ -162,6 +174,7 @@ private:
     QAction *m_addFilesAction = nullptr;
     QAction *m_addFolderAction = nullptr;
     QAction *m_downloadAction = nullptr;
+    QAction *m_syncFolderAction = nullptr;
     QAction *m_duplicatesAction = nullptr;
     QAction *m_junkAction = nullptr;
     QAction *m_renameCollectionsAction = nullptr;

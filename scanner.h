@@ -2,6 +2,7 @@
 #define SCANNER_H
 
 #include <QPromise>
+#include <QSqlDatabase>
 #include <QString>
 #include <QStringList>
 
@@ -134,6 +135,23 @@ bool isValidFolderName(const QString &name);
 // onFile returns false to stop the walk; then forEachFile returns false too. Worker-thread safe.
 bool forEachFile(const QString &folder, bool followLinks,
                  const std::function<bool(const QString &path)> &onFile);
+// The same walk, with what the folder listing already knows about each file (size, ...).
+bool forEachFileInfo(const QString &folder, bool followLinks,
+                     const std::function<bool(const QFileInfo &info)> &onFile);
+
+// --- Records for jobs that change gallery files themselves (FolderSync) -------------------
+// All of them work in the caller's transaction on `db`; afterwards call Collections::retag for the
+// added/moved records, then Db::deleteUnusedTags and Collections::sync.
+
+// The tags the folders between the root and the file give (as rescan gives them).
+QStringList folderTags(const QString &relativePath);
+// Records a file now at relativePath (folder tags only). The new id, 0 on an error.
+qint64 addRecord(const QSqlDatabase &db, qint64 galleryId, const QString &relativePath, qint64 size, qint64 mtime,
+                 const QString &sha256, qint64 addedAt, QString *error);
+// The record's file now lies at newPath: path and name follow, the old path's folder tags are swapped for the
+// new path's ones (manual tags stay), like rescan does for a moved file.
+bool moveRecord(const QSqlDatabase &db, qint64 galleryId, qint64 imageId, const QString &oldPath,
+                const QString &newPath, qint64 mtime, QString *error);
 
 struct JunkScan
 {

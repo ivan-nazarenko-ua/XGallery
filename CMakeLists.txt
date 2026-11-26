@@ -69,6 +69,8 @@ set(PROJECT_SOURCES
         httpfetcher.cpp
         downloaddialog.h
         downloaddialog.cpp
+        foldersync.h
+        foldersync.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

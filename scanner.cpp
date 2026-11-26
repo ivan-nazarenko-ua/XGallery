@@ -514,6 +514,12 @@ bool isValidFolderName(const QString &name)
 bool forEachFile(const QString &folder, bool followLinks,
                  const std::function<bool(const QString &path)> &onFile)
 {
+    return forEachFileInfo(folder, followLinks, [&onFile](const QFileInfo &info) { return onFile(info.filePath()); });
+}
+
+bool forEachFileInfo(const QString &folder, bool followLinks,
+                     const std::function<bool(const QFileInfo &info)> &onFile)
+{
     // Folder by folder: QDirIterator's own recursion skips symlinks but walks into junctions,
     // and knows nothing of loops.
     QSet<QString> walked; // folderIdentity of every folder walked
@@ -542,12 +548,72 @@ bool forEachFile(const QString &folder, bool followLinks,
                     pending << info.absoluteFilePath();
                 else if (followLinks)
                     links << info.absoluteFilePath();
-            } else if (!onFile(info.filePath())) {
+            } else if (!onFile(info)) {
                 return false;
             }
         }
     }
     return true;
+}
+
+QStringList folderTags(const QString &relativePath)
+{
+    return tagsFromRelativePath(relativePath);
+}
+
+qint64 addRecord(const QSqlDatabase &db, qint64 galleryId, const QString &relativePath, qint64 size, qint64 mtime,
+                 const QString &sha256, qint64 addedAt, QString *error)
+{
+    QSqlQuery insert(db);
+    insert.prepare("INSERT INTO images(gallery_id, path, name, size, mtime, sha256, added_at) "
+                   "VALUES(?, ?, ?, ?, ?, ?, ?)");
+    insert.addBindValue(galleryId);
+    insert.addBindValue(relativePath);
+    insert.addBindValue(QFileInfo(relativePath).fileName());
+    insert.addBindValue(size);
+    insert.addBindValue(mtime);
+    insert.addBindValue(sha256);
+    insert.addBindValue(addedAt);
+    if (!insert.exec()) {
+        *error = insert.lastError().text();
+        return 0;
+    }
+    const qint64 id = insert.lastInsertId().toLongLong();
+    TagWriter tagWriter(db, galleryId);
+    return tagWriter.addTags(id, tagsFromRelativePath(relativePath), error) ? id : 0;
+}
+
+bool moveRecord(const QSqlDatabase &db, qint64 galleryId, qint64 imageId, const QString &oldPath,
+                const QString &newPath, qint64 mtime, QString *error)
+{
+    QSqlQuery move(db);
+    move.prepare("UPDATE images SET path = ?, name = ?, mtime = ? WHERE id = ? AND gallery_id = ?");
+    move.addBindValue(newPath);
+    move.addBindValue(QFileInfo(newPath).fileName());
+    move.addBindValue(mtime);
+    move.addBindValue(imageId);
+    move.addBindValue(galleryId);
+    if (!move.exec()) {
+        *error = move.lastError().text();
+        return false;
+    }
+    QSqlQuery dropFolderTag(db);
+    dropFolderTag.prepare("DELETE FROM image_tags WHERE image_id = ? AND tag_id IN "
+                          "(SELECT id FROM tags WHERE gallery_id = ? AND name = ?)");
+    const QStringList newFolders = tagsFromRelativePath(newPath);
+    for (const QString &folder : tagsFromRelativePath(oldPath)) {
+        if (newFolders.contains(folder))
+            continue;
+        dropFolderTag.addBindValue(imageId);
+        dropFolderTag.addBindValue(galleryId);
+        dropFolderTag.addBindValue(folder);
+        if (!dropFolderTag.exec()) {
+            *error = dropFolderTag.lastError().text();
+            return false;
+        }
+    }
+    TagWriter tagWriter(db, galleryId);
+    return tagWriter.addTags(imageId, newFolders, error);
 }
 
 bool isValidFileName(const QString &name)

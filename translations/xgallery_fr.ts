@@ -645,6 +645,53 @@ Clic droit sur un groupe → « Ignorer » : le groupe n&apos;est plus affiché 
     </message>
 </context>
 <context>
+    <name>FolderSync</name>
+    <message>
+        <source>Читаю папку…</source>
+        <translation>Lecture du dossier…</translation>
+    </message>
+    <message>
+        <source>Читаю папку… знайдено файлів: %1</source>
+        <translation>Lecture du dossier… fichiers trouvés : %1</translation>
+    </message>
+    <message>
+        <source>Перевіряю вміст: %1 з %2
+%3</source>
+        <translation>Vérification du contenu : %1 sur %2
+%3</translation>
+    </message>
+    <message>
+        <source>Видаляю %1 з %2
+%3</source>
+        <translation>Suppression %1 sur %2
+%3</translation>
+    </message>
+    <message>
+        <source>Переміщую %1 з %2
+%3</source>
+        <translation>Déplacement %1 sur %2
+%3</translation>
+    </message>
+    <message>
+        <source>не вдалося створити папку для %1</source>
+        <translation>impossible de créer le dossier pour %1</translation>
+    </message>
+    <message>
+        <source>на місці вже є інший файл</source>
+        <translation>un autre fichier s&apos;y trouve déjà</translation>
+    </message>
+    <message>
+        <source>Копіюю %1 з %2
+%3</source>
+        <translation>Copie %1 sur %2
+%3</translation>
+    </message>
+    <message>
+        <source>не вдалося створити папку</source>
+        <translation>impossible de créer le dossier</translation>
+    </message>
+</context>
+<context>
     <name>GalleryDialog</name>
     <message>
         <source>Дозволити збільшення зображень</source>
@@ -1892,6 +1939,258 @@ Les noms donnés à la main peuvent être conservés ou remplacés eux aussi. Le
     <message>
         <source>Перейменовано колекцій: %1</source>
         <translation>Collections renommées : %1</translation>
+    </message>
+    <message>
+        <source>Син&amp;хронізувати з папкою…</source>
+        <translation>S&amp;ynchroniser avec un dossier…</translation>
+    </message>
+    <message>
+        <source>Синхронізація з папкою</source>
+        <translation>Synchronisation avec un dossier</translation>
+    </message>
+    <message>
+        <source>Папка галереї недоступна:
+%1</source>
+        <translation>Le dossier de la galerie est inaccessible :
+%1</translation>
+    </message>
+    <message>
+        <source>Обери папку для синхронізації з галереєю</source>
+        <translation>Choisissez le dossier à synchroniser avec la galerie</translation>
+    </message>
+    <message>
+        <source>Ця папка не може бути другою галереєю: вона є папкою галереї, лежить усередині неї або містить її.
+
+Галерея: %1
+Папка: %2</source>
+        <translation>Ce dossier ne peut pas être une deuxième galerie : c&apos;est le dossier de la galerie, il s&apos;y trouve ou il le contient.
+
+Galerie : %1
+Dossier : %2</translation>
+    </message>
+    <message>
+        <source>Як порівнювати папку з галереєю?</source>
+        <translation>Comment comparer le dossier avec la galerie ?</translation>
+    </message>
+    <message>
+        <source>Швидко: файл із тим самим шляхом відносно папки, тим самим ім&apos;ям і розміром вважається тим самим, його вміст не читається.
+
+Надійно: однаковими вважаються лише файли з однаковою sha256, тож файли папки читаються повністю. Для великої мережевої папки це довго.
+
+В обох режимах файл папки читається, лише якщо в галереї є файл такого самого розміру: інший розмір — точно інший вміст. Вміст файлів галереї береться з бази, тож спершу буде рескан галереї. Час зміни файлів не порівнюється: на іншому комп&apos;ютері годинник може йти інакше.</source>
+        <translation>Rapide : un fichier ayant le même chemin relatif au dossier, le même nom et la même taille est considéré comme le même ; son contenu n&apos;est pas lu.
+
+Fiable : seuls les fichiers ayant le même sha256 sont considérés comme identiques, les fichiers du dossier sont donc lus entièrement. Pour un grand dossier réseau, cela prend du temps.
+
+Dans les deux modes, un fichier du dossier n&apos;est lu que si la galerie a un fichier de la même taille : une autre taille signifie un autre contenu. Le contenu des fichiers de la galerie vient de la base, la galerie est donc d&apos;abord réanalysée. Les dates de modification ne sont pas comparées : l&apos;horloge d&apos;un autre ordinateur peut être décalée.</translation>
+    </message>
+    <message>
+        <source>Швидко</source>
+        <translation>Rapide</translation>
+    </message>
+    <message>
+        <source>Надійно</source>
+        <translation>Fiable</translation>
+    </message>
+    <message>
+        <source>Порівнюю папку з галереєю…</source>
+        <translation>Comparaison du dossier avec la galerie…</translation>
+    </message>
+    <message>
+        <source>Перервати порівняння?</source>
+        <translation>Interrompre la comparaison ?</translation>
+    </message>
+    <message>
+        <source>Порівняння з папкою перервано.</source>
+        <translation>Comparaison avec le dossier interrompue.</translation>
+    </message>
+    <message>
+        <source>Порівняти не вдалося:
+%1</source>
+        <translation>La comparaison a échoué :
+%1</translation>
+    </message>
+    <message>
+        <source>Галерея: %1
+Папка: %2</source>
+        <translation>Galerie : %1
+Dossier : %2</translation>
+    </message>
+    <message>
+        <source>Синхронізовано (на своїх місцях): %1
+Переміщено (лежать в інших папках): %2
+Змінено (той самий шлях, інший вміст): %3
+Є лише в галереї: %4
+Є лише в папці: %5</source>
+        <translation>Synchronisés (à leur place) : %1
+Déplacés (dans d&apos;autres dossiers) : %2
+Modifiés (même chemin, autre contenu) : %3
+Seulement dans la galerie : %4
+Seulement dans le dossier : %5</translation>
+    </message>
+    <message>
+        <source>Не вдалося прочитати (їх не буде змінено): %1</source>
+        <translation>Illisibles (ils ne seront pas modifiés) : %1</translation>
+    </message>
+    <message>
+        <source>%1 (у галереї: %2)</source>
+        <translation>%1 (dans la galerie : %2)</translation>
+    </message>
+    <message>
+        <source>Переміщено (шлях у папці, у дужках — у галереї):</source>
+        <translation>Déplacés (chemin dans le dossier, entre parenthèses dans la galerie) :</translation>
+    </message>
+    <message>
+        <source>Змінено:</source>
+        <translation>Modifiés :</translation>
+    </message>
+    <message>
+        <source>Є лише в галереї:</source>
+        <translation>Seulement dans la galerie :</translation>
+    </message>
+    <message>
+        <source>Є лише в папці:</source>
+        <translation>Seulement dans le dossier :</translation>
+    </message>
+    <message>
+        <source>Не вдалося прочитати:</source>
+        <translation>Illisibles :</translation>
+    </message>
+    <message>
+        <source>Відмінностей немає.</source>
+        <translation>Aucune différence.</translation>
+    </message>
+    <message>
+        <source>Що зробити?
+
+«Папку — як галерею»: з папки буде видалено файлів: %1, переміщено: %2, скопійовано туди: %3, замінено: %4.
+
+«Галерею — як папку»: з галереї буде видалено файлів: %3, переміщено: %2, додано з папки: %1, замінено: %4. Переміщені файли зберігають свої теги.
+
+Видалене й замінене йде в Кошик; якщо Кошика там немає, програма спитає.</source>
+        <translation>Que faire ?
+
+« Dossier comme la galerie » : fichiers supprimés du dossier : %1, déplacés : %2, copiés dedans : %3, remplacés : %4.
+
+« Galerie comme le dossier » : fichiers supprimés de la galerie : %3, déplacés : %2, ajoutés depuis le dossier : %1, remplacés : %4. Les fichiers déplacés gardent leurs tags.
+
+Les fichiers supprimés et remplacés vont dans la Corbeille ; s&apos;il n&apos;y en a pas, le programme demande.</translation>
+    </message>
+    <message>
+        <source>Нічого не робити</source>
+        <translation>Ne rien faire</translation>
+    </message>
+    <message>
+        <source>Папку — як галерею</source>
+        <translation>Dossier comme la galerie</translation>
+    </message>
+    <message>
+        <source>Галерею — як папку</source>
+        <translation>Galerie comme le dossier</translation>
+    </message>
+    <message>
+        <source>Галерея — джерело істини: папка стане такою самою, як галерея</source>
+        <translation>La galerie fait foi : le dossier devient identique à la galerie</translation>
+    </message>
+    <message>
+        <source>Папка — джерело істини: галерея стане такою самою, як папка</source>
+        <translation>Le dossier fait foi : la galerie devient identique au dossier</translation>
+    </message>
+    <message>
+        <source>З галереї буде видалено файлів: %1, замінено: %2 (старі версії теж видаляються).</source>
+        <translation>Fichiers à supprimer de la galerie : %1, à remplacer : %2 (les anciennes versions sont aussi supprimées).</translation>
+    </message>
+    <message>
+        <source>З папки буде видалено файлів: %1, замінено: %2 (старі версії теж видаляються).</source>
+        <translation>Fichiers à supprimer du dossier : %1, à remplacer : %2 (les anciennes versions sont aussi supprimées).</translation>
+    </message>
+    <message>
+        <source>Усе це піде в Кошик; якщо Кошика немає, програма спитає.
+
+Продовжити?</source>
+        <translation>Tout cela va dans la Corbeille ; s&apos;il n&apos;y en a pas, le programme demande.
+
+Continuer ?</translation>
+    </message>
+    <message>
+        <source>Змінюю галерею за папкою…</source>
+        <translation>Mise de la galerie en conformité avec le dossier…</translation>
+    </message>
+    <message>
+        <source>Змінюю папку за галереєю…</source>
+        <translation>Mise du dossier en conformité avec la galerie…</translation>
+    </message>
+    <message>
+        <source>Перервати синхронізацію?
+
+Уже зроблене залишиться, а файл, що копіюється зараз, буде прибрано.</source>
+        <translation>Interrompre la synchronisation ?
+
+Ce qui est fait reste fait ; le fichier en cours de copie est retiré.</translation>
+    </message>
+    <message>
+        <source>Синхронізацію перервано. Уже зроблене залишилось.</source>
+        <translation>Synchronisation interrompue. Ce qui a été fait reste fait.</translation>
+    </message>
+    <message>
+        <source>Синхронізацію завершено.</source>
+        <translation>Synchronisation terminée.</translation>
+    </message>
+    <message>
+        <source>Видалено в Кошик: %1
+Переміщено: %2
+Скопійовано: %3
+Замінено: %4
+Прибрано пустих папок: %5</source>
+        <translation>Mis à la Corbeille : %1
+Déplacés : %2
+Copiés : %3
+Remplacés : %4
+Dossiers vides supprimés : %5</translation>
+    </message>
+    <message>
+        <source>Видалено остаточно, без Кошика (з вашої згоди): %1</source>
+        <translation>Supprimés définitivement, sans Corbeille (avec votre accord) : %1</translation>
+    </message>
+    <message>
+        <source>Не вдалося:
+%1</source>
+        <translation>Échecs :
+%1</translation>
+    </message>
+    <message>
+        <source>Файли змінено, але записати зміни в базу не вдалося:
+%1
+
+Зроби рескан.</source>
+        <translation>Les fichiers ont été modifiés, mais la base n&apos;a pas pu être mise à jour :
+%1
+
+Lancez une réanalyse.</translation>
+    </message>
+    <message>
+        <source>«Об&apos;єднати»: у папку буде скопійовано файлів: %1, у галерею додано: %2 (з тегами з їхніх папок). Нічого не видаляється й не переміщується; якщо ім&apos;я вже зайняте (змінені файли), копія отримує «ім&apos;я (1)».</source>
+        <translation>« Fusionner » : fichiers copiés dans le dossier : %1, ajoutés à la galerie : %2 (avec les tags de leurs dossiers). Rien n&apos;est supprimé ni déplacé ; si le nom est déjà pris (fichiers modifiés), la copie reçoit « nom (1) ».</translation>
+    </message>
+    <message>
+        <source>Об&apos;єднати</source>
+        <translation>Fusionner</translation>
+    </message>
+    <message>
+        <source>Кожна сторона отримає файли, яких у неї немає; нічого не видаляється</source>
+        <translation>Chaque côté reçoit les fichiers qui lui manquent ; rien n&apos;est supprimé</translation>
+    </message>
+    <message>
+        <source>Об&apos;єдную галерею з папкою…</source>
+        <translation>Fusion de la galerie avec le dossier…</translation>
+    </message>
+    <message>
+        <source>Скопійовано в папку: %1
+Додано в галерею: %2
+З новим ім&apos;ям («ім&apos;я (1)»): %3</source>
+        <translation>Copiés dans le dossier : %1
+Ajoutés à la galerie : %2
+Avec un nouveau nom (« nom (1) ») : %3</translation>
     </message>
 </context>
 <context>

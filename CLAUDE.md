@@ -26,7 +26,8 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   (`ole32 shell32 uuid`, for Explorer thumbnails) are linked under `if(WIN32)`.
 - There are no unit tests in the repo. Verify logic with a throwaway console program in the
   scratchpad that compiles the needed `.cpp` files (`database`, `migrations`, `scanner`,
-  `mediafiles`, `imagerotation`, `virtualpath`, `collections`, `thumbcache`; for downloads also `downloadprofile`,
+  `mediafiles`, `imagerotation`, `virtualpath`, `collections`, `thumbcache`; for folder sync also `foldersync`
+  (stub `Scanner::recycleFile` by compiling `scanner.cpp` with `recycleFile=realRecycleFile`, so nothing reaches the Recycle Bin); for downloads also `downloadprofile`,
   `htmllinks`, `downloadnames`, `httpfetcher` + Qt Network; HTTP is tested against a local Python `http.server`) and sets `QCoreApplication::setApplicationName("XGalleryScanTest")`
   so it never touches the real DB. Delete `%APPDATA%\XGalleryScanTest` afterwards.
 - Do not put test files into the user's Recycle Bin, and do not read the user's personal files.
@@ -52,6 +53,7 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
 | `htmllinks.*` | Regex tag tokenizer (no WebKit): profile → strings → links; entities; page charset (Windows code pages when Qt has no ICU) |
 | `downloadnames.*` | Next `NNN-collection` folder, file name from a link, `file_NNN.ext`, `page_N.html/bin`, extension from Content-Type |
 | `httpfetcher.*` | One GET at a time over `QNetworkAccessManager`: manual redirects, credentials only for the page's host, 60 s transfer timeout; `retryAfterMs` (Retry-After: seconds or HTTP date vs. the answer's Date) |
+| `foldersync.*` | `FolderSync::` — "Синхронізувати з папкою": `compare` (worker) and `applyToFolder` / `applyToGallery` / `merge` (worker; the gallery side writes records in one transaction) |
 | `busyspinner.*` | `BusySpinner`: a circle of dots running round, hidden while stopped (download manager's pauses) |
 | `wrappedtext.*` | `WrappedText::layout`: text wrapped at word boundaries, else anywhere (main tag list, tag picker) |
 | `trashprompt.*` | `TrashPrompt::ask`: the question when a file can't go to the Recycle Bin (delete permanently / all such / continue / stop) |
@@ -235,6 +237,24 @@ C:\Qt\Tools\CMake_64\bin\cmake.exe --build .
   marks such files `ignored` (path and sha256 both match); shown with "[пропущено]" before the path, still checkable for deletion.
   A group of ignored files only is shown only with "Показати пропущені дублікати" (not saved, off at start). Moved/changed files
   no longer match; entries no record matches are dropped when the dialog opens (`Db::pruneIgnoredDuplicates`).
+- **Folder sync** (`foldersync.*`, File menu "Синхронізувати з папкою…", `MainWindow::syncWithFolder`): the chosen folder is the root of a
+  "second gallery" (same relative paths, case ignored everywhere: `pathKey` = case fold); refused if it is, is inside or contains the
+  gallery root. Flow: mode question (Quick / Reliable) → rescan (`runRescan`) → `compare` → result box ("Нічого не робити" /
+  "Папку — як галерею" / "Галерею — як папку") → a second yes/no if anything is deleted or replaced → apply. Owner's rule: Quick = same
+  path + size counts as synced unread, Reliable = sha256 always; mtime is never compared (other machine's clock). Both read only folder
+  files whose size some unmatched gallery file has; gallery sha256 comes from the DB. Matching: path (+content) → same content elsewhere
+  (`moved`, same file name preferred) → same path left on both sides (`changed`) → only in one. Folder walk never follows links and skips
+  `Scanner::isIgnoredFile` and its own `.xgsync-part`/`.xgsync-tmp`; an unreadable folder file and the gallery file at its path are left alone.
+  Apply order: deletes → moves (swaps/cycles: a blocker steps aside under `.xgsync-tmp`, names restored on stop) → copies (chunked into
+  `.xgsync-part`, source mtime kept, never over an existing file; a replaced old version is deleted only once the new one is complete) →
+  emptied folders `rmdir`ed, errors ignored. Deletes go through `Scanner::recycleFile` + `TrashPrompt::ask` (several). Target folders are
+  resolved to their on-disk spelling (`Folders`). Gallery side: moved records keep id/manual tags (`Scanner::moveRecord`; paths set to
+  placeholders first, real ones at the end, since moves may swap paths), new files `Scanner::addRecord` (folder tags), changed keep the
+  record; retag + deleteUnusedTags + sync, committed also when stopped. Progress in bytes; `BusyDialog::setSpinning` + "Перервати" via
+  `setStopConfirmation` (the job pauses on `Control::pause` while asked).
+  "Об'єднати" (`FolderSync::merge`, `Direction::Merge`, owner's rule): only copies, first gallery → folder, then folder → gallery
+  (recorded with folder tags), each at the source's relative path; onlyInGallery / onlyInFolder plus the other side's version of each
+  `changed` file; a taken name → `name (1).ext` (`numberedName`, like import); nothing deleted or moved, no second question.
 - "Сховати чужі теги": the tag list shows `Db::tagsOfSearch` (tags of the last search's results).
 - Tag filter field (`m_tagFilterEdit`, under that checkbox): always hides list entries not containing its text
   (case-insensitive); the `<без тегів>` service entry always stays. Only the user changes the text; it is not saved between runs.

@@ -1,5 +1,7 @@
 #include "busydialog.h"
 
+#include "busyspinner.h"
+
 #include <QCloseEvent>
 #include <QLabel>
 #include <QHBoxLayout>
@@ -12,6 +14,7 @@ BusyDialog::BusyDialog(QWidget *parent)
     , m_label(new QLabel(this))
     , m_bar(new QProgressBar(this))
     , m_stopButton(new QPushButton(this))
+    , m_spinner(new BusySpinner(this))
 {
     setWindowTitle(tr("Зачекай…"));
     setModal(true);
@@ -24,6 +27,8 @@ BusyDialog::BusyDialog(QWidget *parent)
     m_stopButton->setAutoDefault(false);
     m_stopButton->hide();
     connect(m_stopButton, &QPushButton::clicked, this, [this] {
+        if (m_confirmStop && !m_confirmStop())
+            return;
         m_stopButton->setEnabled(false);
         m_stopButton->setText(tr("Зупиняю…"));
         if (m_onStop)
@@ -34,8 +39,12 @@ BusyDialog::BusyDialog(QWidget *parent)
     buttonRow->addWidget(m_stopButton);
     buttonRow->addStretch(1);
 
+    auto *textRow = new QHBoxLayout;
+    textRow->addWidget(m_spinner, 0, Qt::AlignTop);
+    textRow->addWidget(m_label, 1);
+
     auto *layout = new QVBoxLayout(this);
-    layout->addWidget(m_label);
+    layout->addLayout(textRow);
     layout->addWidget(m_bar);
     layout->addLayout(buttonRow);
 }
@@ -43,9 +52,23 @@ BusyDialog::BusyDialog(QWidget *parent)
 void BusyDialog::setStopHandler(std::function<void()> onStop)
 {
     m_onStop = std::move(onStop);
+    m_confirmStop = {};
     m_stopButton->setText(tr("Перервати"));
     m_stopButton->setEnabled(true);
     m_stopButton->setVisible(bool(m_onStop));
+}
+
+void BusyDialog::setStopConfirmation(std::function<bool()> confirm)
+{
+    m_confirmStop = std::move(confirm);
+}
+
+void BusyDialog::setSpinning(bool spinning)
+{
+    if (spinning)
+        m_spinner->start();
+    else
+        m_spinner->stop();
 }
 
 void BusyDialog::setText(const QString &text)

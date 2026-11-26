@@ -265,6 +265,9 @@ programme vous demande quoi en faire.
   lui (« Con »).
 - **Télécharger depuis Internet…** — le gestionnaire de téléchargement, voir
   [Téléchargement depuis Internet](#téléchargement-depuis-internet).
+- **Synchroniser avec un dossier…** — compare la galerie avec un autre dossier (une copie sur un
+  serveur, par exemple) et, si vous le souhaitez, rend l'un identique à l'autre ou les fusionne, voir
+  [Synchronisation avec un dossier](#synchronisation-avec-un-dossier).
 - **Rechercher les doublons…** — des groupes de fichiers au contenu identique. Après le chemin de
   chaque fichier, sa collection est indiquée entre parenthèses ; son info-bulle montre le chemin
   virtuel complet (ses tags). Cochez ceux qui
@@ -398,6 +401,63 @@ Les dossiers (racine et `006-collection`) ne donnent aucun tag aux fichiers tél
 analyse ne les ajoute pas non plus, car les fichiers sont déjà connus ; ils ne deviennent des tags
 que si la galerie est recréée à partir de son dossier (et, comme toujours, un fichier déplacé
 reçoit les tags de ses nouveaux dossiers).
+
+## Synchronisation avec un dossier
+
+**Fichier → Synchroniser avec un dossier…** compare la galerie avec n'importe quel autre dossier, par
+exemple une copie de l'archive sur un lecteur réseau ou une clé USB. Le dossier choisi est traité comme
+le dossier racine d'une deuxième galerie : le fichier `Mer/2024/photo.jpg` de la galerie doit s'y
+trouver sous `Mer\2024\photo.jpg`. La casse des chemins est ignorée : « Mer » et « mer » sont le même
+dossier. Le dossier ne peut pas être le dossier de la galerie lui-même, un dossier qui s'y trouve ni un
+dossier qui le contient.
+
+1. Choisissez le dossier.
+2. Choisissez comment comparer :
+   - **« Rapide »** — un fichier ayant le même chemin, le même nom et la même taille est considéré comme
+     le même ; son contenu n'est pas lu ;
+   - **« Fiable »** — seuls les fichiers ayant la même somme de contrôle (sha256) sont considérés comme
+     identiques, les fichiers du dossier sont donc lus entièrement. Pour un grand dossier réseau, cela
+     prend du temps.
+
+   Dans les deux modes, un fichier du dossier n'est lu que si la galerie a un fichier (pas encore
+   apparié) de la même taille : une autre taille signifie un autre contenu. Ainsi, les fichiers déplacés
+   sont trouvés sans tout lire. Les dates de modification ne sont pas comparées : l'horloge d'un autre
+   ordinateur peut être décalée. Le contenu des fichiers de la galerie vient de la base, le programme
+   réanalyse donc d'abord la galerie.
+3. Le programme indique combien de fichiers sont **synchronisés** (à leur place), **déplacés** (même
+   contenu dans un autre dossier), **modifiés** (même chemin, autre contenu), **seulement dans la
+   galerie** et **seulement dans le dossier**. Les listes complètes sont dans les détails (bouton en bas
+   de la fenêtre). Ensuite, au choix :
+   - **« Ne rien faire »** — seulement voir les différences ;
+   - **« Dossier comme la galerie »** (la galerie fait foi) : les fichiers absents de la galerie sont
+     supprimés du dossier, les fichiers déplacés vont là où ils sont dans la galerie, les manquants sont
+     copiés, les modifiés sont remplacés par la version de la galerie ;
+   - **« Galerie comme le dossier »** (le dossier fait foi) : la même chose dans l'autre sens. Les
+     fichiers déplacés gardent leurs tags (les tags issus des noms de dossiers changent pour les
+     nouveaux), les nouveaux fichiers sont ajoutés avec les tags de leurs dossiers, les modifiés gardent
+     leurs tags, les fichiers en trop sont supprimés de la galerie ;
+   - **« Fusionner »** : chaque côté reçoit les fichiers qui lui manquent. Les fichiers présents seulement
+     dans le dossier sont ajoutés à la galerie avec les tags de leurs dossiers, ceux présents seulement
+     dans la galerie sont copiés dans le dossier, toujours au même chemin que dans la source. Rien n'est
+     supprimé ni déplacé (les fichiers déplacés restent à leurs places différentes). Si le dossier cible
+     a déjà un fichier de ce nom (c'est le cas des fichiers modifiés : chaque côté reçoit la version de
+     l'autre), la copie reçoit un suffixe comme sous Windows : `photo (1).jpg`, `photo (2).jpg`…
+
+   Si quelque chose doit être supprimé ou remplacé (seulement pour les deux premiers choix), le programme
+   redemande confirmation. Les fichiers
+   supprimés et les anciennes versions des fichiers remplacés vont dans la **Corbeille** ; s'il n'y en a
+   pas (comme sur beaucoup de lecteurs réseau), le programme demande s'il faut les supprimer
+   définitivement. Une nouvelle version est d'abord entièrement copiée à côté de l'ancienne, et
+   seulement ensuite l'ancienne est supprimée. Les dossiers devenus vides sont supprimés si Windows le
+   permet (sinon ils restent).
+
+Pendant la comparaison ou la synchronisation, le reste du programme est bloqué ; la fenêtre de
+progression montre le fichier en cours, un pourcentage pour les gros fichiers et une animation.
+**« Interrompre »** demande d'abord s'il faut vraiment arrêter (le travail attend pendant ce temps). Ce
+qui a été fait reste fait ; le fichier en cours de copie est retiré. Les fichiers de service qu'une
+galerie ne contient pas (`Thumbs.db`, `desktop.ini`, `*.db`, `*.ini`) ne sont ni comparés ni touchés ;
+le programme n'entre pas dans les dossiers junction du dossier choisi. Un fichier du dossier illisible et
+le fichier de la galerie ayant le même chemin restent tels quels.
 
 ## Mode portable (pour une clé USB)
 

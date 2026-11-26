@@ -5,6 +5,7 @@
 #include "collectiondialog.h"
 #include "downloaddialog.h"
 #include "duplicatesdialog.h"
+#include "foldersync.h"
 #include "gallerydialog.h"
 #include "i18n.h"
 #include "imagemetadialog.h"
@@ -201,6 +202,7 @@ void MainWindow::buildUi()
     m_addFilesAction = m_fileMenu->addAction(QString(), this, &MainWindow::addFilesToGallery);
     m_addFolderAction = m_fileMenu->addAction(QString(), this, &MainWindow::addFolderToGallery);
     m_downloadAction = m_fileMenu->addAction(QString(), this, &MainWindow::downloadFromInternet);
+    m_syncFolderAction = m_fileMenu->addAction(QString(), this, &MainWindow::syncWithFolder);
     m_fileMenu->addSeparator();
     m_duplicatesAction = m_fileMenu->addAction(QString(), this, &MainWindow::findDuplicates);
     m_junkAction = m_fileMenu->addAction(QString(), this, &MainWindow::deleteJunk);
@@ -433,6 +435,7 @@ void MainWindow::retranslateUi()
     m_addFilesAction->setText(tr("Додати &файли в галерею…"));
     m_addFolderAction->setText(tr("Додати п&апку в галерею…"));
     m_downloadAction->setText(tr("Завантажити з &інтернету…"));
+    m_syncFolderAction->setText(tr("Син&хронізувати з папкою…"));
     m_duplicatesAction->setText(tr("Знайти &дублікати…"));
     m_junkAction->setText(tr("Видалити &сміття…"));
     m_renameCollectionsAction->setText(tr("&Перейменувати всі колекції…"));
@@ -669,12 +672,7 @@ void MainWindow::startRescan()
         return;
     }
 
-    auto *watcher = new QFutureWatcher<ScanStats>(this);
-    runBusy(watcher, tr("Рескан…"));
-    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher] {
-        const ScanStats stats = watcher->future().resultCount() > 0 ? watcher->result() : ScanStats{};
-        reloadTags();
-        loadPage(0);
+    runRescan(*gallery, [this](const ScanStats &stats) {
         if (!stats.error.isEmpty()) {
             QMessageBox::warning(this, tr("Рескан"), tr("Рескан не вдався:\n%1").arg(stats.error));
             return;
@@ -686,9 +684,21 @@ void MainWindow::startRescan()
             message += tr(", не вдалося прочитати: %1").arg(stats.failed);
         statusBar()->showMessage(tr("Рескан завершено. ") + message);
     });
+}
 
-    const qint64 galleryId = gallery->id;
-    const QString root = gallery->rootFolder;
+void MainWindow::runRescan(const Gallery &gallery, std::function<void(const ScanStats &)> done)
+{
+    auto *watcher = new QFutureWatcher<ScanStats>(this);
+    runBusy(watcher, tr("Рескан…"));
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, done] {
+        const ScanStats stats = watcher->future().resultCount() > 0 ? watcher->result() : ScanStats{};
+        reloadTags();
+        loadPage(0);
+        done(stats);
+    });
+
+    const qint64 galleryId = gallery.id;
+    const QString root = gallery.rootFolder;
     const bool followLinks = m_followLinksAction->isChecked();
     watcher->setFuture(QtConcurrent::run([galleryId, root, followLinks](QPromise<ScanStats> &promise) {
         Scanner::rescan(promise, galleryId, root, followLinks);
@@ -2182,6 +2192,316 @@ void MainWindow::downloadFromInternet()
     dialog.exec();
 }
 
+namespace {
+
+// The folder with links resolved, '/'-separated.
+QString resolvedFolder(const QString &folder)
+{
+    const QFileInfo info(folder);
+    const QString canonical = info.canonicalFilePath();
+    return QDir::cleanPath(canonical.isEmpty() ? info.absoluteFilePath() : canonical);
+}
+
+// The same folder, or one inside it (case ignored, as on Windows).
+bool isSameOrInside(const QString &folder, const QString &parent)
+{
+    const QString prefix = parent.endsWith('/') ? parent : parent + '/';
+    return folder.compare(parent, Qt::CaseInsensitive) == 0 || folder.startsWith(prefix, Qt::CaseInsensitive);
+}
+
+// One comparison category for the details text: native separators, at most a thousand paths.
+QString pathList(const QString &title, const QStringList &paths)
+{
+    if (paths.isEmpty())
+        return {};
+    constexpr int Shown = 1000;
+    QStringList lines;
+    for (const QString &path : paths.mid(0, Shown))
+        lines << "  " + QDir::toNativeSeparators(path);
+    if (paths.size() > Shown)
+        lines << "  " + QCoreApplication::translate("MainWindow", "… і ще %1").arg(paths.size() - Shown);
+    return title + '\n' + lines.join('\n') + "\n\n";
+}
+
+} // namespace
+
+void MainWindow::syncWithFolder()
+{
+    const Gallery *gallery = currentGallery();
+    if (isBusy())
+        return;
+    const QString title = tr("Синхронізація з папкою");
+    if (!gallery) {
+        QMessageBox::information(this, title, tr("Спершу створи галерею."));
+        return;
+    }
+    if (!QFileInfo(gallery->rootFolder).isDir()) {
+        QMessageBox::warning(this, title,
+                             tr("Папка галереї недоступна:\n%1").arg(QDir::toNativeSeparators(gallery->rootFolder)));
+        return;
+    }
+    const QString chosen = QFileDialog::getExistingDirectory(this, tr("Обери папку для синхронізації з галереєю"));
+    if (chosen.isEmpty())
+        return;
+    const QString folder = resolvedFolder(chosen);
+    const QString root = resolvedFolder(gallery->rootFolder);
+    if (isSameOrInside(folder, root) || isSameOrInside(root, folder)) {
+        QMessageBox::warning(this, title,
+                             tr("Ця папка не може бути другою галереєю: вона є папкою галереї, лежить усередині неї "
+                                "або містить її.\n\nГалерея: %1\nПапка: %2")
+                                 .arg(QDir::toNativeSeparators(root), QDir::toNativeSeparators(folder)));
+        return;
+    }
+
+    QMessageBox modeBox(QMessageBox::Question, title, tr("Як порівнювати папку з галереєю?"), QMessageBox::NoButton,
+                        this);
+    modeBox.setInformativeText(
+        tr("Швидко: файл із тим самим шляхом відносно папки, тим самим ім'ям і розміром вважається тим самим, "
+           "його вміст не читається.\n\n"
+           "Надійно: однаковими вважаються лише файли з однаковою sha256, тож файли папки читаються повністю. "
+           "Для великої мережевої папки це довго.\n\n"
+           "В обох режимах файл папки читається, лише якщо в галереї є файл такого самого розміру: інший розмір — "
+           "точно інший вміст. Вміст файлів галереї береться з бази, тож спершу буде рескан галереї. "
+           "Час зміни файлів не порівнюється: на іншому комп'ютері годинник може йти інакше."));
+    QPushButton *quick = modeBox.addButton(tr("Швидко"), QMessageBox::AcceptRole);
+    QPushButton *reliable = modeBox.addButton(tr("Надійно"), QMessageBox::AcceptRole);
+    QPushButton *cancel = modeBox.addButton(QMessageBox::Cancel);
+    modeBox.setDefaultButton(quick);
+    modeBox.setEscapeButton(cancel);
+    modeBox.exec();
+    if (modeBox.clickedButton() != quick && modeBox.clickedButton() != reliable)
+        return;
+    const FolderSync::Mode mode = modeBox.clickedButton() == quick ? FolderSync::Mode::Quick
+                                                                   : FolderSync::Mode::Reliable;
+
+    const Gallery target = *gallery;
+    runRescan(target, [this, target, folder, mode, title](const ScanStats &stats) {
+        if (!stats.error.isEmpty()) {
+            QMessageBox::warning(this, title, tr("Рескан не вдався:\n%1").arg(stats.error));
+            return;
+        }
+        compareWithFolder(target, folder, mode);
+    });
+}
+
+void MainWindow::offerSyncStop(const std::shared_ptr<FolderSync::Control> &control, const QString &question)
+{
+    m_busyDialog->setSpinning(true);
+    m_busyDialog->setStopHandler([control] { control->stop = true; });
+    // The job waits while the user thinks: a click by mistake changes nothing.
+    m_busyDialog->setStopConfirmation([this, control, question] {
+        control->pause = true;
+        const bool stop = QMessageBox::question(m_busyDialog, tr("Синхронізація з папкою"), question,
+                                                QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+                          == QMessageBox::Yes;
+        if (stop)
+            control->stop = true;
+        control->pause = false;
+        return stop;
+    });
+}
+
+void MainWindow::compareWithFolder(const Gallery &gallery, const QString &folder, FolderSync::Mode mode)
+{
+    auto control = std::make_shared<FolderSync::Control>();
+    auto *watcher = new QFutureWatcher<FolderSync::Comparison>(this);
+    runBusy(watcher, tr("Порівнюю папку з галереєю…"));
+    offerSyncStop(control, tr("Перервати порівняння?"));
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, gallery, folder] {
+        const FolderSync::Comparison comparison = watcher->future().resultCount() > 0 ? watcher->result()
+                                                                                      : FolderSync::Comparison{};
+        if (comparison.stopped) {
+            statusBar()->showMessage(tr("Порівняння з папкою перервано."), 8000);
+            return;
+        }
+        if (!comparison.error.isEmpty()) {
+            QMessageBox::warning(this, tr("Синхронізація з папкою"),
+                                 tr("Порівняти не вдалося:\n%1").arg(comparison.error));
+            return;
+        }
+        chooseSyncAction(gallery, folder, comparison);
+    });
+    const qint64 galleryId = gallery.id;
+    watcher->setFuture(QtConcurrent::run([galleryId, folder, mode, control](QPromise<FolderSync::Comparison> &promise) {
+        FolderSync::compare(promise, galleryId, folder, mode, control.get());
+    }));
+}
+
+void MainWindow::chooseSyncAction(const Gallery &gallery, const QString &folder,
+                                  const FolderSync::Comparison &comparison)
+{
+    const QString title = tr("Синхронізація з папкою");
+    const FolderSync::Comparison &c = comparison;
+    QString text = tr("Галерея: %1\nПапка: %2")
+                       .arg(QDir::toNativeSeparators(gallery.rootFolder), QDir::toNativeSeparators(folder));
+    text += "\n\n"
+            + tr("Синхронізовано (на своїх місцях): %1\n"
+                 "Переміщено (лежать в інших папках): %2\n"
+                 "Змінено (той самий шлях, інший вміст): %3\n"
+                 "Є лише в галереї: %4\n"
+                 "Є лише в папці: %5")
+                  .arg(c.synced).arg(c.moved.size()).arg(c.changed.size()).arg(c.onlyInGallery.size())
+                  .arg(c.onlyInFolder.size());
+    if (!c.unreadable.isEmpty())
+        text += '\n' + tr("Не вдалося прочитати (їх не буде змінено): %1").arg(c.unreadable.size());
+
+    QStringList moved, changed, onlyGallery, onlyFolder;
+    for (const FolderSync::Pair &pair : c.moved)
+        moved << tr("%1 (у галереї: %2)").arg(QDir::toNativeSeparators(pair.folder.path),
+                                              QDir::toNativeSeparators(pair.gallery.path));
+    for (const FolderSync::Pair &pair : c.changed)
+        changed << pair.folder.path;
+    for (const FolderSync::File &file : c.onlyInGallery)
+        onlyGallery << file.path;
+    for (const FolderSync::File &file : c.onlyInFolder)
+        onlyFolder << file.path;
+    const QString details = pathList(tr("Переміщено (шлях у папці, у дужках — у галереї):"), moved)
+                            + pathList(tr("Змінено:"), changed) + pathList(tr("Є лише в галереї:"), onlyGallery)
+                            + pathList(tr("Є лише в папці:"), onlyFolder)
+                            + pathList(tr("Не вдалося прочитати:"), c.unreadable);
+
+    if (!c.differs()) {
+        QMessageBox box(QMessageBox::Information, title, tr("Відмінностей немає.") + "\n\n" + text,
+                        QMessageBox::Ok, this);
+        if (!details.isEmpty())
+            box.setDetailedText(details.trimmed());
+        box.exec();
+        return;
+    }
+
+    QMessageBox box(QMessageBox::Question, title, text, QMessageBox::NoButton, this);
+    box.setInformativeText(
+        tr("Що зробити?\n\n"
+           "«Папку — як галерею»: з папки буде видалено файлів: %1, переміщено: %2, скопійовано туди: %3, "
+           "замінено: %4.\n\n"
+           "«Галерею — як папку»: з галереї буде видалено файлів: %3, переміщено: %2, додано з папки: %1, "
+           "замінено: %4. Переміщені файли зберігають свої теги.\n\n"
+           "Видалене й замінене йде в Кошик; якщо Кошика там немає, програма спитає.")
+            .arg(QString::number(c.onlyInFolder.size()), QString::number(c.moved.size()),
+                 QString::number(c.onlyInGallery.size()), QString::number(c.changed.size()))
+        + "\n\n"
+        + tr("«Об'єднати»: у папку буде скопійовано файлів: %1, у галерею додано: %2 (з тегами з їхніх папок). "
+             "Нічого не видаляється й не переміщується; якщо ім'я вже зайняте (змінені файли), копія отримує "
+             "«ім'я (1)».")
+              .arg(QString::number(c.onlyInGallery.size() + c.changed.size()),
+                   QString::number(c.onlyInFolder.size() + c.changed.size())));
+    box.setDetailedText(details.trimmed());
+    QPushButton *nothing = box.addButton(tr("Нічого не робити"), QMessageBox::RejectRole);
+    QPushButton *toFolder = box.addButton(tr("Папку — як галерею"), QMessageBox::AcceptRole);
+    QPushButton *toGallery = box.addButton(tr("Галерею — як папку"), QMessageBox::AcceptRole);
+    QPushButton *merge = box.addButton(tr("Об'єднати"), QMessageBox::AcceptRole);
+    toFolder->setToolTip(tr("Галерея — джерело істини: папка стане такою самою, як галерея"));
+    toGallery->setToolTip(tr("Папка — джерело істини: галерея стане такою самою, як папка"));
+    merge->setToolTip(tr("Кожна сторона отримає файли, яких у неї немає; нічого не видаляється"));
+    box.setDefaultButton(nothing);
+    box.setEscapeButton(nothing);
+    box.exec();
+    FolderSync::Direction direction;
+    if (box.clickedButton() == toFolder)
+        direction = FolderSync::Direction::FolderLikeGallery;
+    else if (box.clickedButton() == toGallery)
+        direction = FolderSync::Direction::GalleryLikeFolder;
+    else if (box.clickedButton() == merge)
+        direction = FolderSync::Direction::Merge;
+    else
+        return;
+
+    // Deleting user files: one more question, "no" by default. Merge deletes nothing.
+    const bool galleryFollowsFolder = direction == FolderSync::Direction::GalleryLikeFolder;
+    const qsizetype deletes = galleryFollowsFolder ? c.onlyInGallery.size() : c.onlyInFolder.size();
+    if (direction != FolderSync::Direction::Merge && deletes + c.changed.size() > 0) {
+        const QString question =
+            galleryFollowsFolder
+                ? tr("З галереї буде видалено файлів: %1, замінено: %2 (старі версії теж видаляються).")
+                : tr("З папки буде видалено файлів: %1, замінено: %2 (старі версії теж видаляються).");
+        if (QMessageBox::warning(this, title,
+                                 question.arg(QString::number(deletes), QString::number(c.changed.size())) + "\n"
+                                     + tr("Усе це піде в Кошик; якщо Кошика немає, програма спитає.\n\nПродовжити?"),
+                                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+            != QMessageBox::Yes)
+            return;
+    }
+    runFolderSync(gallery, folder, comparison, direction);
+}
+
+void MainWindow::runFolderSync(const Gallery &gallery, const QString &folder, const FolderSync::Comparison &comparison,
+                               FolderSync::Direction direction)
+{
+    using FolderSync::Direction;
+    const QString title = tr("Синхронізація з папкою");
+    auto control = std::make_shared<FolderSync::Control>();
+    auto *watcher = new QFutureWatcher<FolderSync::ApplyResult>(this);
+    runBusy(watcher, direction == Direction::GalleryLikeFolder ? tr("Змінюю галерею за папкою…")
+                     : direction == Direction::FolderLikeGallery ? tr("Змінюю папку за галереєю…")
+                                                                 : tr("Об'єдную галерею з папкою…"));
+    offerSyncStop(control, tr("Перервати синхронізацію?\n\nУже зроблене залишиться, а файл, що копіюється зараз, "
+                              "буде прибрано."));
+    connect(watcher, &QFutureWatcherBase::finished, this, [this, watcher, title, direction] {
+        const FolderSync::ApplyResult result = watcher->future().resultCount() > 0 ? watcher->result()
+                                                                                   : FolderSync::ApplyResult{};
+        if (direction != Direction::FolderLikeGallery) {
+            for (qint64 id : result.removedImageIds)
+                m_selectedIds.remove(id);
+            reloadTags();
+            loadPage(0);
+            updateSelectionUi();
+        }
+        QString message = result.stopped ? tr("Синхронізацію перервано. Уже зроблене залишилось.")
+                                         : tr("Синхронізацію завершено.");
+        if (direction == Direction::Merge) {
+            message += "\n\n" + tr("Скопійовано в папку: %1\nДодано в галерею: %2\nЗ новим ім'ям («ім'я (1)»): %3")
+                                    .arg(result.copied).arg(result.added).arg(result.renamed);
+        } else {
+            message += "\n\n"
+                       + tr("Видалено в Кошик: %1\nПереміщено: %2\nСкопійовано: %3\nЗамінено: %4\n"
+                            "Прибрано пустих папок: %5")
+                             .arg(result.deleted).arg(result.moved).arg(result.copied + result.added)
+                             .arg(result.replaced).arg(result.removedFolders);
+        }
+        if (result.deletedPermanently > 0)
+            message += '\n' + tr("Видалено остаточно, без Кошика (з вашої згоди): %1").arg(result.deletedPermanently);
+        if (!result.failed.isEmpty()) {
+            QStringList shown = result.failed.mid(0, 20);
+            if (result.failed.size() > shown.size())
+                shown << tr("… і ще %1").arg(result.failed.size() - shown.size());
+            message += "\n\n" + tr("Не вдалося:\n%1").arg(shown.join('\n'));
+        }
+        if (!result.error.isEmpty())
+            message += "\n\n" + tr("Файли змінено, але записати зміни в базу не вдалося:\n%1\n\nЗроби рескан.")
+                                    .arg(result.error);
+        if (result.failed.isEmpty() && result.error.isEmpty())
+            QMessageBox::information(this, title, message);
+        else
+            QMessageBox::warning(this, title, message);
+    });
+    // Asked from the worker; it waits for the answer. Nothing is deleted permanently without a "yes".
+    const Scanner::TrashQuestion ask = [this, title](const QString &path, Scanner::TrashProblem problem,
+                                                     const QString &error) {
+        Scanner::TrashChoice choice = Scanner::TrashChoice::Stop;
+        QMetaObject::invokeMethod(this, [&] {
+            QWidget *parent = m_busyDialog->isVisible() ? static_cast<QWidget *>(m_busyDialog) : this;
+            choice = TrashPrompt::ask(parent, title, path, problem, error, true);
+        }, Qt::BlockingQueuedConnection);
+        return choice;
+    };
+    const qint64 galleryId = gallery.id;
+    const QString root = gallery.rootFolder;
+    watcher->setFuture(QtConcurrent::run([galleryId, root, folder, comparison, direction, control,
+                                          ask](QPromise<FolderSync::ApplyResult> &promise) {
+        switch (direction) {
+        case Direction::GalleryLikeFolder:
+            FolderSync::applyToGallery(promise, galleryId, root, folder, comparison, control.get(), ask);
+            break;
+        case Direction::FolderLikeGallery:
+            FolderSync::applyToFolder(promise, root, folder, comparison, control.get(), ask);
+            break;
+        case Direction::Merge:
+            FolderSync::merge(promise, galleryId, root, folder, comparison, control.get());
+            break;
+        }
+    }));
+}
+
 void MainWindow::runImport(std::function<QList<Scanner::ImportItem>()> collect)
 {
     const Gallery *gallery = currentGallery();
@@ -2250,6 +2570,7 @@ void MainWindow::beginBusy(const QString &text)
     m_busyDialog->setText(text);
     m_busyDialog->setRange(0, 0);
     m_busyDialog->setStopHandler({}); // a job that can stop says so after runBusy
+    m_busyDialog->setSpinning(false);
     ui->centralwidget->setEnabled(false);
     menuBar()->setEnabled(false);
     QApplication::setOverrideCursor(Qt::WaitCursor);

@@ -229,6 +229,8 @@ with it.
   folder name (`CON_`), while the tag stays without it ("Con").
 - **Download from the Internet…** — the download manager, see
   [Downloading from the Internet](#downloading-from-the-internet).
+- **Sync with a folder…** — compares the gallery with another folder (a copy on a server, say) and,
+  if you want, makes one like the other or merges them, see [Syncing with a folder](#syncing-with-a-folder).
 - **Find duplicates…** — groups of files with identical content. After each file's path its
   collection is shown in brackets; its tooltip shows the whole virtual path (its tags). Tick the extra ones and click
   "Delete": the files go to the **Recycle Bin**. If you tick all the files of a group, the first
@@ -345,6 +347,56 @@ A link without an extension (`https://site.com/1280/7/279/82840051`) gives `file
 The folders (the root folder and `006-collection`) give the downloaded files no tags. A rescan
 doesn't add them either, since the files are already known; they become tags only if the gallery
 is created anew from its folder (and, as usual, a moved file gets the tags of its new folders).
+
+## Syncing with a folder
+
+**File → Sync with a folder…** compares the gallery with any other folder, for example a copy of the
+archive on a network drive or a USB stick. The chosen folder is treated as the root folder of a second
+gallery: the gallery's file `Sea/2024/photo.jpg` should be in it as `Sea\2024\photo.jpg`. Letter case
+in paths is ignored: "Sea" and "sea" are the same folder. The folder can't be the gallery folder itself,
+a folder inside it, or a folder that contains it.
+
+1. Choose the folder.
+2. Choose how to compare:
+   - **"Quick"** — a file with the same path, name and size counts as the same file; its content is not
+     read;
+   - **"Reliable"** — only files with the same checksum (sha256) count as the same, so the folder's
+     files are read completely. For a big network folder this takes long.
+
+   In both modes a folder file is read only if the gallery has a (not yet matched) file of the same size:
+   a different size means a different content. That way moved files are found without reading
+   everything else. Modification times are not compared: the clock of another computer may be off. The
+   content of the gallery files comes from the database, so the program rescans the gallery first.
+3. The program shows how many files are **in sync** (in their places), **moved** (same content in
+   another folder), **changed** (same path, other content), **only in the gallery** and **only in the
+   folder**. The full lists are in the details (button at the bottom of the window). Then you choose:
+   - **"Do nothing"** — just look at the differences;
+   - **"Folder like the gallery"** (the gallery is the source of truth): files the gallery doesn't have
+     are deleted from the folder, moved ones go where they are in the gallery, missing ones are copied,
+     changed ones are replaced by the gallery's version;
+   - **"Gallery like the folder"** (the folder is the source of truth): the same the other way round.
+     Moved files keep their tags (the tags from folder names change to the new ones), new files are
+     added with the tags from their folders, changed ones keep their tags, extra files are deleted from
+     the gallery;
+   - **"Merge"**: each side gets the files it lacks. Files only the folder has are added to the gallery
+     with the tags from their folders, files only the gallery has are copied into the folder, always at
+     the same path as in the source. Nothing is deleted or moved (moved files stay in their different
+     places). If the target folder already has a file with that name (as happens with changed files:
+     each side gets the other's version), the copy gets a suffix like Windows gives: `photo (1).jpg`,
+     `photo (2).jpg`…
+
+   If anything is going to be deleted or replaced (only the first two choices), the program asks once more. Deleted files and the old
+   versions of replaced ones go to the **Recycle Bin**; if there is none (as on many network drives), the
+   program asks whether to delete them permanently. A new version is first copied completely next to the
+   old one, and only then is the old one deleted. Folders left empty are removed if Windows allows it
+   (otherwise they stay).
+
+While the comparison or the sync runs, the rest of the program is locked; the progress window shows the
+current file, a percentage for big files and an animation. **"Stop"** asks first whether to really stop
+(the work waits meanwhile). What was done before stays; the file being copied at that moment is removed.
+Service files a gallery doesn't contain (`Thumbs.db`, `desktop.ini`, `*.db`, `*.ini`) are not compared
+and not touched; junction folders inside the chosen folder are not entered. A folder file that couldn't
+be read and the gallery file with the same path stay as they are.
 
 ## Portable mode (for a USB stick)
 

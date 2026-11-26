@@ -645,6 +645,53 @@ Right-click a group → “Ignore”: the group is no longer shown until a new d
     </message>
 </context>
 <context>
+    <name>FolderSync</name>
+    <message>
+        <source>Читаю папку…</source>
+        <translation>Reading the folder…</translation>
+    </message>
+    <message>
+        <source>Читаю папку… знайдено файлів: %1</source>
+        <translation>Reading the folder… files found: %1</translation>
+    </message>
+    <message>
+        <source>Перевіряю вміст: %1 з %2
+%3</source>
+        <translation>Checking content: %1 of %2
+%3</translation>
+    </message>
+    <message>
+        <source>Видаляю %1 з %2
+%3</source>
+        <translation>Deleting %1 of %2
+%3</translation>
+    </message>
+    <message>
+        <source>Переміщую %1 з %2
+%3</source>
+        <translation>Moving %1 of %2
+%3</translation>
+    </message>
+    <message>
+        <source>не вдалося створити папку для %1</source>
+        <translation>could not create the folder for %1</translation>
+    </message>
+    <message>
+        <source>на місці вже є інший файл</source>
+        <translation>another file is already there</translation>
+    </message>
+    <message>
+        <source>Копіюю %1 з %2
+%3</source>
+        <translation>Copying %1 of %2
+%3</translation>
+    </message>
+    <message>
+        <source>не вдалося створити папку</source>
+        <translation>could not create the folder</translation>
+    </message>
+</context>
+<context>
     <name>GalleryDialog</name>
     <message>
         <source>Дозволити збільшення зображень</source>
@@ -1892,6 +1939,258 @@ Names given by hand can be kept or replaced too. The old names can&apos;t be bro
     <message>
         <source>Перейменовано колекцій: %1</source>
         <translation>Collections renamed: %1</translation>
+    </message>
+    <message>
+        <source>Син&amp;хронізувати з папкою…</source>
+        <translation>S&amp;ync with a folder…</translation>
+    </message>
+    <message>
+        <source>Синхронізація з папкою</source>
+        <translation>Sync with a folder</translation>
+    </message>
+    <message>
+        <source>Папка галереї недоступна:
+%1</source>
+        <translation>The gallery folder is not available:
+%1</translation>
+    </message>
+    <message>
+        <source>Обери папку для синхронізації з галереєю</source>
+        <translation>Choose the folder to sync with the gallery</translation>
+    </message>
+    <message>
+        <source>Ця папка не може бути другою галереєю: вона є папкою галереї, лежить усередині неї або містить її.
+
+Галерея: %1
+Папка: %2</source>
+        <translation>This folder can&apos;t be a second gallery: it is the gallery folder, lies inside it or contains it.
+
+Gallery: %1
+Folder: %2</translation>
+    </message>
+    <message>
+        <source>Як порівнювати папку з галереєю?</source>
+        <translation>How should the folder be compared with the gallery?</translation>
+    </message>
+    <message>
+        <source>Швидко: файл із тим самим шляхом відносно папки, тим самим ім&apos;ям і розміром вважається тим самим, його вміст не читається.
+
+Надійно: однаковими вважаються лише файли з однаковою sha256, тож файли папки читаються повністю. Для великої мережевої папки це довго.
+
+В обох режимах файл папки читається, лише якщо в галереї є файл такого самого розміру: інший розмір — точно інший вміст. Вміст файлів галереї береться з бази, тож спершу буде рескан галереї. Час зміни файлів не порівнюється: на іншому комп&apos;ютері годинник може йти інакше.</source>
+        <translation>Quick: a file with the same path relative to the folder, the same name and size counts as the same file; its content is not read.
+
+Reliable: only files with the same sha256 count as the same, so the folder&apos;s files are read completely. For a big network folder this takes long.
+
+In both modes a folder file is read only if the gallery has a file of the same size: a different size means a different content. The content of the gallery files comes from the database, so the gallery is rescanned first. Modification times are not compared: the clock of another computer may be off.</translation>
+    </message>
+    <message>
+        <source>Швидко</source>
+        <translation>Quick</translation>
+    </message>
+    <message>
+        <source>Надійно</source>
+        <translation>Reliable</translation>
+    </message>
+    <message>
+        <source>Порівнюю папку з галереєю…</source>
+        <translation>Comparing the folder with the gallery…</translation>
+    </message>
+    <message>
+        <source>Перервати порівняння?</source>
+        <translation>Stop the comparison?</translation>
+    </message>
+    <message>
+        <source>Порівняння з папкою перервано.</source>
+        <translation>Comparison with the folder stopped.</translation>
+    </message>
+    <message>
+        <source>Порівняти не вдалося:
+%1</source>
+        <translation>The comparison failed:
+%1</translation>
+    </message>
+    <message>
+        <source>Галерея: %1
+Папка: %2</source>
+        <translation>Gallery: %1
+Folder: %2</translation>
+    </message>
+    <message>
+        <source>Синхронізовано (на своїх місцях): %1
+Переміщено (лежать в інших папках): %2
+Змінено (той самий шлях, інший вміст): %3
+Є лише в галереї: %4
+Є лише в папці: %5</source>
+        <translation>In sync (in their places): %1
+Moved (in other folders): %2
+Changed (same path, other content): %3
+Only in the gallery: %4
+Only in the folder: %5</translation>
+    </message>
+    <message>
+        <source>Не вдалося прочитати (їх не буде змінено): %1</source>
+        <translation>Could not be read (they will not be changed): %1</translation>
+    </message>
+    <message>
+        <source>%1 (у галереї: %2)</source>
+        <translation>%1 (in the gallery: %2)</translation>
+    </message>
+    <message>
+        <source>Переміщено (шлях у папці, у дужках — у галереї):</source>
+        <translation>Moved (path in the folder, in brackets in the gallery):</translation>
+    </message>
+    <message>
+        <source>Змінено:</source>
+        <translation>Changed:</translation>
+    </message>
+    <message>
+        <source>Є лише в галереї:</source>
+        <translation>Only in the gallery:</translation>
+    </message>
+    <message>
+        <source>Є лише в папці:</source>
+        <translation>Only in the folder:</translation>
+    </message>
+    <message>
+        <source>Не вдалося прочитати:</source>
+        <translation>Could not be read:</translation>
+    </message>
+    <message>
+        <source>Відмінностей немає.</source>
+        <translation>There are no differences.</translation>
+    </message>
+    <message>
+        <source>Що зробити?
+
+«Папку — як галерею»: з папки буде видалено файлів: %1, переміщено: %2, скопійовано туди: %3, замінено: %4.
+
+«Галерею — як папку»: з галереї буде видалено файлів: %3, переміщено: %2, додано з папки: %1, замінено: %4. Переміщені файли зберігають свої теги.
+
+Видалене й замінене йде в Кошик; якщо Кошика там немає, програма спитає.</source>
+        <translation>What should be done?
+
+&quot;Folder like the gallery&quot;: files deleted from the folder: %1, moved: %2, copied there: %3, replaced: %4.
+
+&quot;Gallery like the folder&quot;: files deleted from the gallery: %3, moved: %2, added from the folder: %1, replaced: %4. Moved files keep their tags.
+
+Deleted and replaced files go to the Recycle Bin; if there is none, the program asks.</translation>
+    </message>
+    <message>
+        <source>Нічого не робити</source>
+        <translation>Do nothing</translation>
+    </message>
+    <message>
+        <source>Папку — як галерею</source>
+        <translation>Folder like the gallery</translation>
+    </message>
+    <message>
+        <source>Галерею — як папку</source>
+        <translation>Gallery like the folder</translation>
+    </message>
+    <message>
+        <source>Галерея — джерело істини: папка стане такою самою, як галерея</source>
+        <translation>The gallery is the source of truth: the folder becomes the same as the gallery</translation>
+    </message>
+    <message>
+        <source>Папка — джерело істини: галерея стане такою самою, як папка</source>
+        <translation>The folder is the source of truth: the gallery becomes the same as the folder</translation>
+    </message>
+    <message>
+        <source>З галереї буде видалено файлів: %1, замінено: %2 (старі версії теж видаляються).</source>
+        <translation>Files to be deleted from the gallery: %1, replaced: %2 (the old versions are deleted too).</translation>
+    </message>
+    <message>
+        <source>З папки буде видалено файлів: %1, замінено: %2 (старі версії теж видаляються).</source>
+        <translation>Files to be deleted from the folder: %1, replaced: %2 (the old versions are deleted too).</translation>
+    </message>
+    <message>
+        <source>Усе це піде в Кошик; якщо Кошика немає, програма спитає.
+
+Продовжити?</source>
+        <translation>All of it goes to the Recycle Bin; if there is none, the program asks.
+
+Continue?</translation>
+    </message>
+    <message>
+        <source>Змінюю галерею за папкою…</source>
+        <translation>Making the gallery like the folder…</translation>
+    </message>
+    <message>
+        <source>Змінюю папку за галереєю…</source>
+        <translation>Making the folder like the gallery…</translation>
+    </message>
+    <message>
+        <source>Перервати синхронізацію?
+
+Уже зроблене залишиться, а файл, що копіюється зараз, буде прибрано.</source>
+        <translation>Stop the sync?
+
+What is done stays done; the file being copied now is removed.</translation>
+    </message>
+    <message>
+        <source>Синхронізацію перервано. Уже зроблене залишилось.</source>
+        <translation>Sync stopped. What was done stays done.</translation>
+    </message>
+    <message>
+        <source>Синхронізацію завершено.</source>
+        <translation>Sync finished.</translation>
+    </message>
+    <message>
+        <source>Видалено в Кошик: %1
+Переміщено: %2
+Скопійовано: %3
+Замінено: %4
+Прибрано пустих папок: %5</source>
+        <translation>Moved to the Recycle Bin: %1
+Moved: %2
+Copied: %3
+Replaced: %4
+Empty folders removed: %5</translation>
+    </message>
+    <message>
+        <source>Видалено остаточно, без Кошика (з вашої згоди): %1</source>
+        <translation>Deleted permanently, without the Recycle Bin (with your consent): %1</translation>
+    </message>
+    <message>
+        <source>Не вдалося:
+%1</source>
+        <translation>Failed:
+%1</translation>
+    </message>
+    <message>
+        <source>Файли змінено, але записати зміни в базу не вдалося:
+%1
+
+Зроби рескан.</source>
+        <translation>The files were changed, but the database could not be updated:
+%1
+
+Run a rescan.</translation>
+    </message>
+    <message>
+        <source>«Об&apos;єднати»: у папку буде скопійовано файлів: %1, у галерею додано: %2 (з тегами з їхніх папок). Нічого не видаляється й не переміщується; якщо ім&apos;я вже зайняте (змінені файли), копія отримує «ім&apos;я (1)».</source>
+        <translation>&quot;Merge&quot;: files copied into the folder: %1, added to the gallery: %2 (with the tags of their folders). Nothing is deleted or moved; if the name is already taken (changed files), the copy gets &quot;name (1)&quot;.</translation>
+    </message>
+    <message>
+        <source>Об&apos;єднати</source>
+        <translation>Merge</translation>
+    </message>
+    <message>
+        <source>Кожна сторона отримає файли, яких у неї немає; нічого не видаляється</source>
+        <translation>Each side gets the files it lacks; nothing is deleted</translation>
+    </message>
+    <message>
+        <source>Об&apos;єдную галерею з папкою…</source>
+        <translation>Merging the gallery with the folder…</translation>
+    </message>
+    <message>
+        <source>Скопійовано в папку: %1
+Додано в галерею: %2
+З новим ім&apos;ям («ім&apos;я (1)»): %3</source>
+        <translation>Copied into the folder: %1
+Added to the gallery: %2
+With a new name (&quot;name (1)&quot;): %3</translation>
     </message>
 </context>
 <context>
